@@ -104,6 +104,17 @@ if(ENABLE_OPENFAST)
   add_definitions("-DNALU_USES_OPENFAST")
 endif(ENABLE_OPENFAST)
 
+########################## SMD #########################################
+if(ENABLE_SMD)
+  set(CMAKE_PREFIX_PATH ${SMD_DIR} ${CMAKE_PREFIX_PATH})
+  find_package(SMD REQUIRED)
+  if(SMD_FOUND)
+    message("-- Found SMD = ${SMD_DIR}")
+  endif()
+  include_directories(${SMD_INCLUDE_DIRS})
+  add_definitions("-DNALU_USES_SMD")
+endif(ENABLE_SMD)
+
 ############################ TIOGA #####################################
 if(ENABLE_TIOGA)
   set(CMAKE_PREFIX_PATH ${TIOGA_DIR} ${CMAKE_PREFIX_PATH})
@@ -232,6 +243,10 @@ target_link_libraries(nalu ${MPI_CXX_LIBRARIES} ${MPI_Fortran_LIBRARIES} ${MPI_C
 
 if(ENABLE_OPENFAST)
   target_link_libraries(nalu ${OpenFAST_LIBRARIES} ${OpenFAST_CPP_LIBRARIES})
+endif()
+
+if(ENABLE_SMD)
+  target_link_libraries(nalu ${SMD_LIBRARIES})
 endif()
 
 if(ENABLE_TIOGA)

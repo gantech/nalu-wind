@@ -11,11 +11,14 @@ add_sources(GlobalSourceList
    KovasznayPressureAuxFunction.C
    KovasznayVelocityAuxFunction.C
    LinearRampMeshDisplacementAuxFunction.C
+   MomentumSMDSrcElemKernel.C
    OneTwoTenVelocityAuxFunction.C
    PerturbedShearLayerAuxFunctions.C
    RayleighTaylorMixFracAuxFunction.C
    SinMeshDisplacementAuxFunction.C
    SinProfileChannelFlowVelocityAuxFunction.C
+   SMDPressureAuxFunction.C
+   SMDVelocityAuxFunction.C
    SteadyTaylorVortexContinuitySrcElemSuppAlg.C
    SteadyTaylorVortexGradPressureAuxFunction.C
    SteadyTaylorVortexMomentumSrcElemSuppAlg.C

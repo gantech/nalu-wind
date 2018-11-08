@@ -557,6 +557,7 @@ class Realm {
   std::vector<Transfer *> ioTransferVec_;
   std::vector<Transfer *> externalDataTransferVec_;
   void augment_transfer_vector(Transfer *transfer, const std::string transferObjective, Realm *toRealm);
+  void process_init_multi_physics_transfer();
   void process_multi_physics_transfer();
   void process_initialization_transfer();
   void process_io_transfer();

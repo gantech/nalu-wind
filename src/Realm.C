@@ -75,6 +75,9 @@
 #ifdef NALU_USES_OPENFAST
 #include <ActuatorLineFAST.h>
 #endif
+#ifdef NALU_USES_SMD
+#include <ActuatorLineSMD.h>
+#endif
 
 #include <wind_energy/ABLForcingAlgorithm.h>
 #include <wind_energy/SyntheticLidar.h>
@@ -609,6 +612,14 @@ Realm::look_ahead_and_creation(const YAML::Node & node)
 	throw std::runtime_error("look_ahead_and_create::error: Requested actuator type: " + ActuatorTypeName + ", but was not enabled at compile time");
 #endif
 	break;
+      }
+      case ActuatorType::ActLineSMD : {
+#ifdef NALU_USES_SMD
+          actuator_ =  new ActuatorLineSMD(*this, *foundActuator[0]);
+#else
+          throw std::runtime_error("look_ahead_and_create::error: Requested actuator type: " + ActuatorTypeName + ", but was not enabled at compile time");
+#endif
+          break;
       }
       default : {
         throw std::runtime_error("look_ahead_and_create::error: unrecognized actuator type: " + ActuatorTypeName);
@@ -4516,16 +4527,49 @@ Realm::augment_transfer_vector(Transfer *transfer, const std::string transferObj
   }
 }
 
+
+//--------------------------------------------------------------------------
+//-------- process_multi_physics_transfer ----------------------------------
+//--------------------------------------------------------------------------
+void
+Realm::process_init_multi_physics_transfer()
+{
+    double timeXfer = -NaluEnv::self().nalu_time();
+
+    // check for actuator line
+    if ( NULL != actuator_ ) {
+        actuator_->sample_vel();
+        actuator_->init_predict_struct_states();
+    }
+
+    if ( !hasMultiPhysicsTransfer_ )
+        return;
+  
+    std::vector<Transfer *>::iterator ii;
+    for( ii=multiPhysicsTransferVec_.begin(); ii!=multiPhysicsTransferVec_.end(); ++ii )
+        (*ii)->execute();
+    timeXfer += NaluEnv::self().nalu_time();
+    timerTransferExecute_ += timeXfer;
+}
+
 //--------------------------------------------------------------------------
 //-------- process_multi_physics_transfer ----------------------------------
 //--------------------------------------------------------------------------
 void
 Realm::process_multi_physics_transfer()
 {
+
+  double timeXfer = -NaluEnv::self().nalu_time();
+  
+  // check for actuator line
+  if ( NULL != actuator_ ) {
+      actuator_->sample_vel();
+      actuator_->predict_struct_time_step();
+  }
+    
   if ( !hasMultiPhysicsTransfer_ )
     return;
 
-  double timeXfer = -NaluEnv::self().nalu_time();
   std::vector<Transfer *>::iterator ii;
   for( ii=multiPhysicsTransferVec_.begin(); ii!=multiPhysicsTransferVec_.end(); ++ii )
     (*ii)->execute();
@@ -4598,6 +4642,10 @@ Realm::post_converged_work()
 {
   equationSystems_.post_converged_work();
 
+  if ( NULL != actuator_ ) {
+      actuator_->advance_struct_time_step();
+  }
+  
   // FIXME: Consider a unified collection of post processing work
   if ( NULL != solutionNormPostProcessing_ )
     solutionNormPostProcessing_->execute();

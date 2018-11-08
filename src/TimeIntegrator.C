@@ -222,7 +222,7 @@ TimeIntegrator::integrate_realm()
 
   // provide for initial transfer
   for ( ii = realmVec_.begin(); ii!=realmVec_.end(); ++ii) {
-    (*ii)->process_multi_physics_transfer();
+    (*ii)->process_init_multi_physics_transfer();
   }
 
   // provide output/restart for initial condition

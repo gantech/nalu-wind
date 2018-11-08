@@ -194,6 +194,12 @@ if(ENABLE_OPENFAST)
    )
 endif()
 
+if(ENABLE_SMD)
+   add_sources(GlobalSourceList
+      ActuatorLineSMD.C
+   )
+endif()
+
 if(ENABLE_HYPRE)
    add_sources(GlobalSourceList
       HypreDirectSolver.C

@@ -341,6 +341,22 @@ ActuatorLineFAST::initialize()
 }
 
 
+// predict initial structural model states
+void ActuatorLineFAST::init_predict_struct_states()
+{}
+     
+// predict the state of the structural model at the next time step
+void ActuatorLineFAST::predict_struct_time_step()
+{}
+
+// firmly advance the state of the structural model to the next time step
+void ActuatorLineFAST::advance_struct_time_step()
+{}
+  
+// sample velocity at the actuator points and send to the structural model
+void ActuatorLineFAST::sample_vel()
+{}
+
 /**
  * This method should be called whenever the actuator points have moved and does the following:
  *
