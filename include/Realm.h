@@ -72,6 +72,7 @@ class MeshMotionAlg;
 
 class SolutionNormPostProcessing;
 class TurbulenceAveragingPostProcessing;
+class SurfaceFMPostProcessing;
 class DataProbePostProcessing;
 class Actuator;
 class ABLForcingAlgorithm;
@@ -426,6 +427,7 @@ class Realm {
   PostProcessingInfo *postProcessingInfo_;
   SolutionNormPostProcessing *solutionNormPostProcessing_;
   TurbulenceAveragingPostProcessing *turbulenceAveragingPostProcessing_;
+  std::unique_ptr<SurfaceFMPostProcessing> surfaceFMPostProcessing_;
   DataProbePostProcessing *dataProbePostProcessing_;
   Actuator *actuator_;
   ABLForcingAlgorithm *ablForcingAlg_;

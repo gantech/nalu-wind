@@ -74,7 +74,7 @@ SurfaceForceAndMomentAlgorithm::SurfaceForceAndMomentAlgorithm(
   coordinates_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
   pressure_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "pressure");
   pressureForce_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "pressure_force");
-  tauWall_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "tau_wall");
+  tauWall_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "tau_wall");
   yplus_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "yplus");
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
   // extract viscosity name
@@ -309,6 +309,7 @@ SurfaceForceAndMomentAlgorithm::execute()
           }
           // accumulate viscous force and set tau for component i
           ws_v_force[i] += dflux;
+          tauWall[i] += dflux;
           ws_tau[i] = tauijNj;
         }
         
@@ -326,7 +327,6 @@ SurfaceForceAndMomentAlgorithm::execute()
 
         // assemble nodal quantities; scaled by area for L2 lumped nodal projection
         const double areaFac = aMag/assembledArea;
-        *tauWall += std::sqrt(tauTangential)*areaFac;
 
         cross_product(&ws_t_force[0], &ws_moment[0], &ws_radius[0]);
 

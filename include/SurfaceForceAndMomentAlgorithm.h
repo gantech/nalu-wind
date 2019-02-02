@@ -49,7 +49,7 @@ public:
   VectorFieldType *coordinates_;
   ScalarFieldType *pressure_;
   VectorFieldType *pressureForce_;
-  ScalarFieldType *tauWall_;
+  VectorFieldType *tauWall_;
   ScalarFieldType *yplus_;
   ScalarFieldType *density_;
   ScalarFieldType *viscosity_;

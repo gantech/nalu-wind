@@ -44,6 +44,7 @@
 #include <PeriodicManager.h>
 #include <Realms.h>
 #include <SolutionOptions.h>
+#include <SurfaceForceAndMomentAlgorithmDriver.h>
 #include <TimeIntegrator.h>
 
 #include <element_promotion/PromoteElement.h>
@@ -68,6 +69,7 @@
 // post processing
 #include <SolutionNormPostProcessing.h>
 #include <TurbulenceAveragingPostProcessing.h>
+#include <SurfaceFMPostProcessing.h>
 #include <DataProbePostProcessing.h>
 #include <wind_energy/BdyLayerStatistics.h>
 
@@ -958,7 +960,11 @@ Realm::setup_post_processing_algorithms()
 
     // call through to the Eqsys
     if ( theType == "surface" ) {
-      equationSystems_.register_surface_pp_algorithm(theData);
+        if (surfaceFMPostProcessing_ == NULL) {
+            surfaceFMPostProcessing_ =
+                make_unique<SurfaceFMPostProcessing>(*this);
+        }
+        surfaceFMPostProcessing_->register_surface_pp(theData);
     }
     else {
       throw std::runtime_error("Post Processing Error: only  surface-based is supported");
@@ -4340,6 +4346,9 @@ Realm::post_converged_work()
   // FIXME: Consider a unified collection of post processing work
   if ( NULL != solutionNormPostProcessing_ )
     solutionNormPostProcessing_->execute();
+
+  if ( NULL != surfaceFMPostProcessing_ )
+      surfaceFMPostProcessing_->execute();
   
   if ( NULL != turbulenceAveragingPostProcessing_ )
     turbulenceAveragingPostProcessing_->execute();

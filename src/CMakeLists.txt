@@ -163,6 +163,7 @@ add_sources(GlobalSourceList
    SupplementalAlgorithm.C
    SurfaceForceAndMomentAlgorithm.C
    SurfaceForceAndMomentAlgorithmDriver.C
+   SurfaceFMPostProcessing.C
    SurfaceForceAndMomentWallFunctionAlgorithm.C
    TimeIntegrator.C
    TpetraLinearSystem.C

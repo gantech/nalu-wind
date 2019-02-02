@@ -52,7 +52,7 @@ public:
   VectorFieldType *velocity_;
   ScalarFieldType *pressure_;
   VectorFieldType *pressureForce_;
-  ScalarFieldType *tauWall_;
+  VectorFieldType *tauWall_;
   ScalarFieldType *yplus_;
   VectorFieldType *bcVelocity_;
   ScalarFieldType *density_;

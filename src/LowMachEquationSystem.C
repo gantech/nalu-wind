@@ -91,9 +91,6 @@
 #include <SimpleErrorIndicatorElemAlgorithm.h>
 #include <Realm.h>
 #include <Realms.h>
-#include <SurfaceForceAndMomentAlgorithmDriver.h>
-#include <SurfaceForceAndMomentAlgorithm.h>
-#include <SurfaceForceAndMomentWallFunctionAlgorithm.h>
 #include <Simulation.h>
 #include <SolutionOptions.h>
 #include <SolverAlgorithmDriver.h>
@@ -245,7 +242,6 @@ LowMachEquationSystem::LowMachEquationSystem(
     viscosity_(NULL),
     dualNodalVolume_(NULL),
     edgeAreaVec_(NULL),
-    surfaceForceAndMomentAlgDriver_(NULL),
     xyBCType_(2,0),
     isInit_(true)
 {
@@ -264,10 +260,7 @@ LowMachEquationSystem::LowMachEquationSystem(
 //-------- destructor ------------------------------------------------------
 //--------------------------------------------------------------------------
 LowMachEquationSystem::~LowMachEquationSystem()
-{
-  if ( NULL != surfaceForceAndMomentAlgDriver_ )
-    delete surfaceForceAndMomentAlgDriver_;
-}
+{}
 
 //--------------------------------------------------------------------------
 //-------- initialize ------------------------------------------------------
@@ -486,55 +479,6 @@ LowMachEquationSystem::register_open_bc(
     = &(metaData.declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData.side_rank()), 
                                                  "open_mass_flow_rate"));
   stk::mesh::put_field_on_mesh(*mdotBip, *part, numScsBip, nullptr);
-}
-
-//--------------------------------------------------------------------------
-//-------- register_surface_pp_algorithm ----------------------
-//--------------------------------------------------------------------------
-void
-LowMachEquationSystem::register_surface_pp_algorithm(
-  const PostProcessingData &theData,
-  stk::mesh::PartVector &partVector)
-{
-  const std::string thePhysics = theData.physics_;
-
-  // register nodal fields in common
-  stk::mesh::MetaData &meta_data = realm_.meta_data();
-  VectorFieldType *pressureForce =  &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "pressure_force"));
-  stk::mesh::put_field_on_mesh(*pressureForce, stk::mesh::selectUnion(partVector), meta_data.spatial_dimension(), nullptr);
-  ScalarFieldType *tauWall =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "tau_wall"));
-  stk::mesh::put_field_on_mesh(*tauWall, stk::mesh::selectUnion(partVector), nullptr);
-  ScalarFieldType *yplus =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "yplus"));
-  stk::mesh::put_field_on_mesh(*yplus, stk::mesh::selectUnion(partVector), nullptr);
- 
-  // force output for these variables
-  realm_.augment_output_variable_list(pressureForce->name());
-  realm_.augment_output_variable_list(tauWall->name());
-  realm_.augment_output_variable_list(yplus->name());
-
-
-  if ( thePhysics == "surface_force_and_moment" ) {
-    ScalarFieldType *assembledArea =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment"));
-    stk::mesh::put_field_on_mesh(*assembledArea, stk::mesh::selectUnion(partVector), nullptr);
-    if ( NULL == surfaceForceAndMomentAlgDriver_ )
-      surfaceForceAndMomentAlgDriver_ = new SurfaceForceAndMomentAlgorithmDriver(realm_);
-    SurfaceForceAndMomentAlgorithm *ppAlg
-      = new SurfaceForceAndMomentAlgorithm(
-          realm_, partVector, theData.outputFileName_, theData.frequency_,
-          theData.parameters_, realm_.realmUsesEdges_);
-    surfaceForceAndMomentAlgDriver_->algVec_.push_back(ppAlg);
-  }
-  else if ( thePhysics == "surface_force_and_moment_wall_function" ) {
-    ScalarFieldType *assembledArea =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment_wf"));
-    stk::mesh::put_field_on_mesh(*assembledArea, stk::mesh::selectUnion(partVector), nullptr);
-    if ( NULL == surfaceForceAndMomentAlgDriver_ )
-      surfaceForceAndMomentAlgDriver_ = new SurfaceForceAndMomentAlgorithmDriver(realm_);
-    SurfaceForceAndMomentWallFunctionAlgorithm *ppAlg
-      = new SurfaceForceAndMomentWallFunctionAlgorithm(
-          realm_, partVector, theData.outputFileName_, theData.frequency_,
-          theData.parameters_, realm_.realmUsesEdges_);
-    surfaceForceAndMomentAlgDriver_->algVec_.push_back(ppAlg);
-  }
 }
 
 //--------------------------------------------------------------------------
@@ -891,10 +835,6 @@ LowMachEquationSystem::predict_state()
 void
 LowMachEquationSystem::post_converged_work()
 {
-  if (NULL != surfaceForceAndMomentAlgDriver_){
-    surfaceForceAndMomentAlgDriver_->execute();
-  }
-  
   // output mass closure
   continuityEqSys_->computeMdotAlgDriver_->provide_output();
 }

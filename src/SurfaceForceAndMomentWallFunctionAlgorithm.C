@@ -79,7 +79,7 @@ SurfaceForceAndMomentWallFunctionAlgorithm::SurfaceForceAndMomentWallFunctionAlg
   velocity_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
   pressure_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "pressure");
   pressureForce_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "pressure_force");
-  tauWall_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "tau_wall");
+  tauWall_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "tau_wall");
   yplus_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "yplus");
   bcVelocity_ = meta_data.get_field<VectorFieldType>(stk::topology::NODE_RANK, "wall_velocity_bc");
   density_ = meta_data.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
@@ -361,6 +361,7 @@ SurfaceForceAndMomentWallFunctionAlgorithm::execute()
           ws_v_force[i] = lambda*uDiff;
           ws_t_force[i] = ws_p_force[i] + ws_v_force[i];
           pressureForce[i] += ws_p_force[i];
+          tauWall[i] += ws_v_force[i];
           uParallel += uDiff*uDiff;
         }
 
@@ -372,10 +373,7 @@ SurfaceForceAndMomentWallFunctionAlgorithm::execute()
           l_force_moment[j+3] += ws_v_force[j];
           l_force_moment[j+6] += ws_moment[j];
         }
-
-        // assemble tauWall; area weighting is hiding in lambda/assembledArea
-        *tauWall += lambda*std::sqrt(uParallel)/assembledArea;
-
+        
         // deal with yplus
         *yplus += yplusBip*aMag/assembledArea;
 
