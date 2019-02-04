@@ -89,18 +89,6 @@ SurfaceForceAndMomentAlgorithm::SurfaceForceAndMomentAlgorithm(
   if ( parameters_.size() > nDim )
     throw std::runtime_error("SurfaceForce: parameter length wrong; expect nDim");
 
-  // deal with file name and banner
-  if ( NaluEnv::self().parallel_rank() == 0 ) {
-    std::ofstream myfile;
-    myfile.open(outputFileName_.c_str());
-    myfile << std::setw(w_) 
-           << "Time" << std::setw(w_) 
-           << "Fpx"  << std::setw(w_) << "Fpy" << std::setw(w_)  << "Fpz" << std::setw(w_) 
-           << "Fvx"  << std::setw(w_) << "Fvy" << std::setw(w_)  << "Fvz" << std::setw(w_) 
-           << "Mtx"  << std::setw(w_) << "Mty" << std::setw(w_)  << "Mtz" << std::setw(w_) 
-           << "Y+min" << std::setw(w_) << "Y+max"<< std::endl;
-    myfile.close();
-  }
  }
 
 //--------------------------------------------------------------------------
@@ -473,17 +461,6 @@ SurfaceForceAndMomentAlgorithm::pre_work()
   }
 }
 
-//--------------------------------------------------------------------------
-//-------- cross_product ----------------------------------------------------
-//--------------------------------------------------------------------------
-void
-SurfaceForceAndMomentAlgorithm::cross_product(
-  double *force, double *cross, double *rad)
-{
-  cross[0] =   rad[1]*force[2] - rad[2]*force[1];
-  cross[1] = -(rad[0]*force[2] - rad[2]*force[0]);
-  cross[2] =   rad[0]*force[1] - rad[1]*force[0];
-}
 
 } // namespace nalu
 } // namespace Sierra

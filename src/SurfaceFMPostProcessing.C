@@ -8,17 +8,30 @@
 #include <SurfaceFMPostProcessing.h>
 
 #include <nalu_make_unique.h>
+#include <FieldFunctions.h>
+#include <FieldTypeDef.h>
 #include <Realm.h>
+#include <master_element/MasterElement.h>
+#include <NaluEnv.h>
 #include <PostProcessingData.h>
-#include <SurfaceForceAndMomentAlgorithm.h>
-#include <SurfaceForceAndMomentAlgorithmDriver.h>
-#include <SurfaceForceAndMomentWallFunctionAlgorithm.h>
 
+// stk_mesh/base/fem
 #include <stk_mesh/base/BulkData.hpp>
+#include <stk_mesh/base/Field.hpp>
+#include <stk_mesh/base/FieldParallel.hpp>
+#include <stk_mesh/base/GetBuckets.hpp>
+#include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
+#include <stk_mesh/base/Part.hpp>
 
 // stk_topo
 #include <stk_topology/topology.hpp>
+
+// stk util
+#include <stk_util/parallel/ParallelReduce.hpp>
+
+// basic c++
+#include <fstream>
 
 namespace sierra {
 namespace nalu {
@@ -26,8 +39,24 @@ namespace nalu {
 
 SurfaceFMPostProcessing::SurfaceFMPostProcessing(
     Realm& realm)
-    : realm_(realm)
-{}
+    : realm_(realm),
+      pressureForce_(NULL),
+      tauWall_(NULL),
+      yplus_(NULL),
+      assembledArea_(NULL),
+      assembledAreaWF_(NULL)
+{
+    stk::mesh::MetaData & meta = realm_.meta_data();
+    pressure_ = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "pressure");
+    coordinates_ = meta.get_field<VectorFieldType>(stk::topology::NODE_RANK, realm_.get_coordinates_name());
+    density_ = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
+    // extract viscosity name
+    const std::string viscName = realm_.is_turbulent()
+        ? "effective_viscosity_u" : "viscosity";
+    viscosity_ = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, viscName);
+    dudx_ = meta.get_field<GenericFieldType>(stk::topology::NODE_RANK, "dudx");
+    exposedAreaVec_ = meta.get_field<GenericFieldType>(meta.side_rank(), "exposed_area_vector");
+}
 
 void SurfaceFMPostProcessing::register_surface_pp(
     const PostProcessingData &theData)
@@ -58,46 +87,435 @@ void SurfaceFMPostProcessing::register_surface_pp(
 
   const std::string thePhysics = theData.physics_;
 
-  if ( NULL == driverAlg_ )
-      driverAlg_ = make_unique<SurfaceForceAndMomentAlgorithmDriver>(realm_);
-
   // register nodal fields in common
-  VectorFieldType *pressureForce =  &(meta.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "pressure_force"));
-  stk::mesh::put_field_on_mesh(*pressureForce, stk::mesh::selectUnion(partVector), meta.spatial_dimension(), nullptr);
-  VectorFieldType *tauWall =  &(meta.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "tau_wall"));
-  stk::mesh::put_field_on_mesh(*tauWall, stk::mesh::selectUnion(partVector), nullptr);
-  ScalarFieldType *yplus =  &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "yplus"));
-  stk::mesh::put_field_on_mesh(*yplus, stk::mesh::selectUnion(partVector), nullptr);
+  pressureForce_ = &(meta.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "pressure_force"));
+  stk::mesh::put_field_on_mesh(*pressureForce_, stk::mesh::selectUnion(partVector), meta.spatial_dimension(), nullptr);
+  tauWall_ =  &(meta.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "tau_wall"));
+  stk::mesh::put_field_on_mesh(*tauWall_, stk::mesh::selectUnion(partVector), nullptr);
+  yplus_ =  &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "yplus"));
+  stk::mesh::put_field_on_mesh(*yplus_, stk::mesh::selectUnion(partVector), nullptr);
  
   // force output for these variables
-  realm_.augment_output_variable_list(pressureForce->name());
-  realm_.augment_output_variable_list(tauWall->name());
-  realm_.augment_output_variable_list(yplus->name());
+  realm_.augment_output_variable_list(pressureForce_->name());
+  realm_.augment_output_variable_list(tauWall_->name());
+  realm_.augment_output_variable_list(yplus_->name());
 
+  std::array<double, 3> centroidCoords{ {theData.parameters_[0], theData.parameters_[1], theData.parameters_[2]} };
+  
   if ( thePhysics == "surface_force_and_moment" ) {
-    ScalarFieldType *assembledArea =  &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment"));
-    stk::mesh::put_field_on_mesh(*assembledArea, stk::mesh::selectUnion(partVector), nullptr);
-    SurfaceForceAndMomentAlgorithm *ppAlg
-      = new SurfaceForceAndMomentAlgorithm(
-          realm_, partVector, theData.outputFileName_, theData.frequency_,
-          theData.parameters_, realm_.realmUsesEdges_);
-    driverAlg_->algVec_.push_back(ppAlg);
+    assembledArea_ =  &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment"));
+    stk::mesh::put_field_on_mesh(*assembledArea_, stk::mesh::selectUnion(partVector), nullptr);
+    SurfaceFMData new_sfm_data = {partVector, theData.outputFileName_, centroidCoords, theData.frequency_, false};
+    surfaceFMData_.push_back(new_sfm_data);
   }
   else if ( thePhysics == "surface_force_and_moment_wall_function" ) {
-    ScalarFieldType *assembledArea =  &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment_wf"));
-    stk::mesh::put_field_on_mesh(*assembledArea, stk::mesh::selectUnion(partVector), nullptr);
-    SurfaceForceAndMomentWallFunctionAlgorithm *ppAlg
-      = new SurfaceForceAndMomentWallFunctionAlgorithm(
-          realm_, partVector, theData.outputFileName_, theData.frequency_,
-          theData.parameters_, realm_.realmUsesEdges_);
-    driverAlg_->algVec_.push_back(ppAlg);
+    assembledAreaWF_ = &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment_wf"));
+    stk::mesh::put_field_on_mesh(*assembledAreaWF_, stk::mesh::selectUnion(partVector), nullptr);
+    SurfaceFMData new_sfm_data = {partVector, theData.outputFileName_, centroidCoords, theData.frequency_, true};
+    surfaceFMData_.push_back(new_sfm_data);
   }
+
+  create_file(theData.outputFileName_);
   
 }
 
+
+void create_file(std::string fileName) {
+
+    // deal with file name and banner
+    if ( NaluEnv::self().parallel_rank() == 0 ) {
+        std::ofstream myfile;
+        myfile.open(fileName.c_str());
+        myfile << std::setw(16) 
+               << "Time" << std::setw(16) 
+               << "Fpx"  << std::setw(16) << "Fpy" << std::setw(16)  << "Fpz" << std::setw(16) 
+               << "Fvx"  << std::setw(16) << "Fvy" << std::setw(16)  << "Fvz" << std::setw(16) 
+               << "Mtx"  << std::setw(16) << "Mty" << std::setw(16)  << "Mtz" << std::setw(16) 
+               << "Y+min" << std::setw(16) << "Y+max"<< std::endl;
+        myfile.close();
+    }
+
+}
 void SurfaceFMPostProcessing::execute()
 {
-    driverAlg_->execute();
+    // zero fields
+    zero_fields();
+
+    // pre_work for all algorithms
+    
+    parallel_assemble_area();
+
+    for (auto&& sfm_data: surfaceFMData_)
+        calc_surface_force(sfm_data);
+    
+    // parallel assembly
+    parallel_assemble_fields();
+    
+}
+
+void SurfaceFMPostProcessing::calc_surface_force(SurfaceFMData & sfm_data) {
+
+  // check to see if this is a valid step to process output file
+  const int timeStepCount = realm_.get_time_step_count();
+  const bool processMe = (timeStepCount % sfm_data.frequency_) == 0 ? true : false;
+
+  // do not waste time here
+  if ( !processMe )
+    return;
+
+  // common
+  stk::mesh::BulkData & bulk = realm_.bulk_data();
+  stk::mesh::MetaData & meta = realm_.meta_data();
+  const int nDim = meta.spatial_dimension();
+
+  // set min and max values
+  double yplusMin = 1.0e8;
+  double yplusMax = -1.0e8;
+
+  // nodal fields to gather
+  std::vector<double> ws_pressure;
+  std::vector<double> ws_density;
+  std::vector<double> ws_viscosity;
+
+  // master element
+  std::vector<double> ws_face_shape_function;
+
+  // deal with state
+  ScalarFieldType &densityNp1 = density_->field_of_state(stk::mesh::StateNP1);
+
+  // define vector of parent topos; should always be UNITY in size
+  std::vector<stk::topology> parentTopo;
+
+  const double currentTime = realm_.get_current_time();
+
+  // local force and moment; i.e., to be assembled
+  std::array<double,9> l_force_moment;
+
+  // work force, moment and radius; i.e., to be pushed to cross_product()
+  std::array<double,3> ws_p_force;
+  std::array<double,3> ws_v_force;
+  std::array<double,3> ws_t_force;
+  std::array<double,3> ws_tau;
+  std::array<double,3> ws_moment;
+  std::array<double,3> ws_radius;
+
+  // will need surface normal
+  std::array<double,3> ws_normal;
+
+  // define some common selectors
+  stk::mesh::Selector sel = meta.locally_owned_part()
+    &stk::mesh::selectUnion(sfm_data.partVector_);
+
+  stk::mesh::BucketVector const& face_buckets =
+    realm_.get_buckets( meta.side_rank(), sel );
+  for ( stk::mesh::BucketVector::const_iterator ib = face_buckets.begin();
+        ib != face_buckets.end() ; ++ib ) {
+    stk::mesh::Bucket & b = **ib ;
+
+    // face master element
+    MasterElement *meFC = sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
+    const int nodesPerFace = meFC->nodesPerElement_;
+    const int numScsBip = meFC->numIntPoints_;
+
+    // mapping from ip to nodes for this ordinal; face perspective (use with face_node_relations)
+    const int *faceIpNodeMap = meFC->ipNodeMap();
+
+    // extract connected element topology
+    b.parent_topology(stk::topology::ELEMENT_RANK, parentTopo);
+    ThrowAssert ( parentTopo.size() == 1 );
+    stk::topology theElemTopo = parentTopo[0];
+
+    // extract master element for this element topo
+    MasterElement *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theElemTopo);
+
+    // algorithm related; element
+    ws_pressure.resize(nodesPerFace);
+    ws_density.resize(nodesPerFace);
+    ws_viscosity.resize(nodesPerFace);
+    ws_face_shape_function.resize(numScsBip*nodesPerFace);
+    
+    // shape functions
+    if ( realm_.realmUsesEdges_ )
+        meFC->shifted_shape_fcn(ws_face_shape_function.data());
+    else
+        meFC->shape_fcn(ws_face_shape_function.data());
+
+    const stk::mesh::Bucket::size_type length   = b.size();
+
+    for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+
+      // get face
+      stk::mesh::Entity face = b[k];
+
+      // face node relations
+      stk::mesh::Entity const * face_node_rels = bulk.begin_nodes(face);
+
+      //======================================
+      // gather nodal data off of face
+      //======================================
+      for ( int ni = 0; ni < nodesPerFace; ++ni ) {
+        stk::mesh::Entity node = face_node_rels[ni];
+        // gather scalars
+        ws_pressure[ni] = *stk::mesh::field_data(*pressure_, node);
+        ws_density[ni] = *stk::mesh::field_data(densityNp1, node);
+        ws_viscosity[ni] = *stk::mesh::field_data(*viscosity_, node);
+      }
+
+      // pointer to face data
+      const double * areaVec = stk::mesh::field_data(*exposedAreaVec_, face);
+
+      // extract the connected element to this exposed face; should be single in size!
+      const stk::mesh::Entity* face_elem_rels = bulk.begin_elements(face);
+      ThrowAssert( bulk.num_elements(face) == 1 );
+
+      // get element; its face ordinal number
+      stk::mesh::Entity element = face_elem_rels[0];
+      const int face_ordinal = bulk.begin_element_ordinals(face)[0];
+
+      // get the relations off of element
+      stk::mesh::Entity const * elem_node_rels = bulk.begin_nodes(element);
+
+      for ( int ip = 0; ip < numScsBip; ++ip ) {
+
+        // offsets
+        const int offSetAveraVec = ip*nDim;
+        const int offSetSF_face = ip*nodesPerFace;
+        const int localFaceNode = faceIpNodeMap[ip];
+        const int opposingNode = meSCS->opposingNodes(face_ordinal,ip);
+
+        // interpolate to bip
+        double pBip = 0.0;
+        double rhoBip = 0.0;
+        double muBip = 0.0;
+        for ( int ic = 0; ic < nodesPerFace; ++ic ) {
+          const double r = ws_face_shape_function[offSetSF_face+ic];
+          pBip += r*ws_pressure[ic];
+          rhoBip += r*ws_density[ic];
+          muBip += r*ws_viscosity[ic];
+        }
+
+        // extract nodal fields
+        stk::mesh::Entity node = face_node_rels[localFaceNode];
+        const double * coord = stk::mesh::field_data(*coordinates_, node );
+        const double *duidxj = stk::mesh::field_data(*dudx_, node );
+        double *pressureForce = stk::mesh::field_data(*pressureForce_, node );
+        double *tauWall = stk::mesh::field_data(*tauWall_, node );
+        double *yplus = stk::mesh::field_data(*yplus_, node );
+        const double assembledArea = *stk::mesh::field_data(*assembledArea_, node );
+
+        // divU and aMag
+        double divU = 0.0;
+        double aMag = 0.0;
+        for ( int j = 0; j < nDim; ++j) {
+          divU += duidxj[j*nDim+j];
+          aMag += areaVec[offSetAveraVec+j]*areaVec[offSetAveraVec+j];
+        }
+        aMag = std::sqrt(aMag);
+
+        // normal
+        for ( int i = 0; i < nDim; ++i ) {
+          const double ai = areaVec[offSetAveraVec+i];
+          ws_normal[i] = ai/aMag;
+        }
+
+        // load radius; assemble force -sigma_ij*njdS and compute tau_ij njDs
+        for ( int i = 0; i < nDim; ++i ) {
+          const double ai = areaVec[offSetAveraVec+i];
+          ws_radius[i] = coord[i] - sfm_data.centroidCoords_[i];
+          // set forces
+          ws_v_force[i] = 2.0/3.0*muBip*divU*ai;
+          tauWall[i] += 2.0/3.0*muBip*divU*ai;
+          ws_p_force[i] = pBip*ai;
+          pressureForce[i] += pBip*ai;
+          double dflux = 0.0;
+          double tauijNj = 0.0;
+          const int offSetI = nDim*i;
+          for ( int j = 0; j < nDim; ++j ) {
+            const int offSetTrans = nDim*j+i;
+            dflux += -muBip*(duidxj[offSetI+j] + duidxj[offSetTrans])*areaVec[offSetAveraVec+j];
+            tauijNj += -muBip*(duidxj[offSetI+j] + duidxj[offSetTrans])*ws_normal[j];
+          }
+          // accumulate viscous force and set tau for component i
+          ws_v_force[i] += dflux;
+          tauWall[i] += dflux;
+          ws_tau[i] = tauijNj;
+        }
+        
+        // compute total force and tangential tau
+        double tauTangential = 0.0;
+        for ( int i = 0; i < nDim; ++i ) {
+          ws_t_force[i] = ws_p_force[i] + ws_v_force[i];
+          double tauiTangential = (1.0-ws_normal[i]*ws_normal[i])*ws_tau[i];
+          for ( int j = 0; j < nDim; ++j ) {
+            if ( i != j )
+              tauiTangential -= ws_normal[i]*ws_normal[j]*ws_tau[j];
+          }
+          tauTangential += tauiTangential*tauiTangential;
+        }
+
+        // assemble nodal quantities; scaled by area for L2 lumped nodal projection
+        const double areaFac = aMag/assembledArea;
+
+        cross_product(&ws_t_force[0], &ws_moment[0], &ws_radius[0]);
+
+        // assemble force and moment
+        for ( int j = 0; j < 3; ++j ) {
+          l_force_moment[j] += ws_p_force[j];
+          l_force_moment[j+3] += ws_v_force[j];
+          l_force_moment[j+6] += ws_moment[j];
+        }
+
+        //==================
+        // deal with yplus
+        //==================
+
+        // left and right nodes; right is on the face; left is the opposing node
+        stk::mesh::Entity nodeL = elem_node_rels[opposingNode];
+        stk::mesh::Entity nodeR = face_node_rels[localFaceNode];
+
+        // extract nodal fields
+        const double * coordL = stk::mesh::field_data(*coordinates_, nodeL );
+        const double * coordR = stk::mesh::field_data(*coordinates_, nodeR );
+
+        // determine yp; ~nearest opposing edge normal distance to wall
+        double ypBip = 0.0;
+        for ( int j = 0; j < nDim; ++j ) {
+          const double nj = ws_normal[j];
+          const double ej = coordR[j] - coordL[j];
+          ypBip += nj*ej*nj*ej;
+        }
+        ypBip = std::sqrt(ypBip);
+
+        const double tauW = std::sqrt(tauTangential);
+        const double uTau = std::sqrt(tauW/rhoBip);
+        const double yplusBip = rhoBip*ypBip/muBip*uTau;
+
+        // nodal field
+        *yplus += yplusBip*areaFac;
+
+        // min and max
+        yplusMin = std::min(yplusMin, yplusBip);
+        yplusMax = std::max(yplusMax, yplusBip);
+
+      }
+    }
+  }
+
+  if ( processMe ) {
+    // parallel assemble and output
+    double g_force_moment[9] = {};
+    stk::ParallelMachine comm = NaluEnv::self().parallel_comm();
+
+    // Parallel assembly of L2
+    stk::all_reduce_sum(comm, &l_force_moment[0], &g_force_moment[0], 9);
+
+    // min/max
+    double g_yplusMin = 0.0, g_yplusMax = 0.0;
+    stk::all_reduce_min(comm, &yplusMin, &g_yplusMin, 1);
+    stk::all_reduce_max(comm, &yplusMax, &g_yplusMax, 1);
+
+    // deal with file name and banner
+    if ( NaluEnv::self().parallel_rank() == 0 ) {
+      std::ofstream myfile;
+      myfile.open(sfm_data.outputFileName_.c_str(), std::ios_base::app);
+      myfile << std::setprecision(6) 
+             << std::setw(16) 
+             << currentTime << std::setw(16) 
+             << g_force_moment[0] << std::setw(16) << g_force_moment[1] << std::setw(16) << g_force_moment[2] << std::setw(16)
+             << g_force_moment[3] << std::setw(16) << g_force_moment[4] << std::setw(16) << g_force_moment[5] <<  std::setw(16)
+             << g_force_moment[6] << std::setw(16) << g_force_moment[7] << std::setw(16) << g_force_moment[8] <<  std::setw(16)
+             << g_yplusMin << std::setw(16) << g_yplusMax << std::endl;
+      myfile.close();
+    }
+  }
+    
+}
+
+//--------------------------------------------------------------------------
+//-------- zero_fields -------------------------------------------------------
+//--------------------------------------------------------------------------
+void
+SurfaceFMPostProcessing::zero_fields()
+{
+
+  // common
+  stk::mesh::BulkData & bulk = realm_.bulk_data();
+  stk::mesh::MetaData & meta = realm_.meta_data();
+
+  // zero fields
+  field_fill( meta, bulk, 0.0, *pressureForce_, realm_.get_activate_aura());
+  field_fill( meta, bulk, 0.0, *tauWall_, realm_.get_activate_aura());
+  field_fill( meta, bulk, 0.0, *yplus_, realm_.get_activate_aura());
+  if ( NULL != assembledArea_ ) 
+    field_fill( meta, bulk, 0.0, *assembledArea_, realm_.get_activate_aura());
+  if ( NULL != assembledAreaWF_ ) 
+    field_fill( meta, bulk, 0.0, *assembledAreaWF_, realm_.get_activate_aura());
+
+}
+
+//--------------------------------------------------------------------------
+//-------- parralel_assemble_fields ----------------------------------------
+//--------------------------------------------------------------------------
+void
+SurfaceFMPostProcessing::parallel_assemble_fields()
+{
+
+  stk::mesh::BulkData & bulk = realm_.bulk_data();
+  stk::mesh::MetaData & meta = realm_.meta_data();
+  const size_t nDim = meta.spatial_dimension();
+
+  stk::mesh::parallel_sum(bulk, {pressureForce_, tauWall_, yplus_});
+
+  // periodic assemble
+  if ( realm_.hasPeriodic_) {
+    const bool bypassFieldCheck = false; // fields are not defined at all slave/master node pairs
+    realm_.periodic_field_update(pressureForce_, nDim, bypassFieldCheck);
+    realm_.periodic_field_update(tauWall_, 1, bypassFieldCheck);
+    realm_.periodic_field_update(yplus_, 1, bypassFieldCheck);
+  }
+
+}
+
+//--------------------------------------------------------------------------
+//-------- parallel_assemble_area ------------------------------------------
+//--------------------------------------------------------------------------
+void
+SurfaceFMPostProcessing::parallel_assemble_area()
+{
+
+  stk::mesh::BulkData & bulk = realm_.bulk_data();
+
+  // parallel assemble
+  std::vector<const stk::mesh::FieldBase*> fields;
+  if ( NULL != assembledArea_ )
+    fields.push_back(assembledArea_);
+  if ( NULL != assembledAreaWF_ )
+    fields.push_back(assembledAreaWF_);
+  const std::vector<const stk::mesh::FieldBase*>& const_fields = fields;
+  stk::mesh::parallel_sum(bulk, const_fields);
+
+  // periodic assemble
+  if ( realm_.hasPeriodic_) {
+    const bool bypassFieldCheck = false; // fields are not defined at all slave/master node pairs
+    if ( NULL != assembledArea_ )
+        realm_.periodic_field_update(assembledArea_, 1, bypassFieldCheck);
+    if ( NULL != assembledAreaWF_ )
+        realm_.periodic_field_update(assembledAreaWF_, 1, bypassFieldCheck);
+  }
+
+}
+
+
+//--------------------------------------------------------------------------
+//-------- cross_product ----------------------------------------------------
+//--------------------------------------------------------------------------
+void
+SurfaceFMPostProcessing::cross_product(
+    double *force, double *cross, double *rad)
+{
+    cross[0] =   rad[1]*force[2] - rad[2]*force[1];
+    cross[1] = -(rad[0]*force[2] - rad[2]*force[0]);
+    cross[2] =   rad[0]*force[1] - rad[1]*force[0];
 }
 
 

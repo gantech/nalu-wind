@@ -161,10 +161,7 @@ add_sources(GlobalSourceList
    SpecificDissipationRateEquationSystem.C
    SpecificDissipationRateSSTNodeSourceSuppAlg.C
    SupplementalAlgorithm.C
-   SurfaceForceAndMomentAlgorithm.C
-   SurfaceForceAndMomentAlgorithmDriver.C
    SurfaceFMPostProcessing.C
-   SurfaceForceAndMomentWallFunctionAlgorithm.C
    TimeIntegrator.C
    TpetraLinearSystem.C
    TurbKineticEnergyEquationSystem.C

@@ -44,7 +44,6 @@
 #include <PeriodicManager.h>
 #include <Realms.h>
 #include <SolutionOptions.h>
-#include <SurfaceForceAndMomentAlgorithmDriver.h>
 #include <TimeIntegrator.h>
 
 #include <element_promotion/PromoteElement.h>
