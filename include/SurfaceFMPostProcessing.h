@@ -58,6 +58,12 @@ namespace sierra {
 
             std::vector<SurfaceFMData> surfaceFMData_;
 
+            stk::mesh::PartVector allPartVector_;
+            
+            const double yplusCrit_;
+            const double elog_;
+            const double kappa_;
+            
             VectorFieldType *coordinates_;
             ScalarFieldType *pressure_;
             VectorFieldType *pressureForce_;
@@ -68,19 +74,25 @@ namespace sierra {
             ScalarFieldType *yplus_;
             GenericFieldType *exposedAreaVec_;
             ScalarFieldType *assembledArea_;
-            ScalarFieldType *assembledAreaWF_;
-
-            void zero_fields();
-
-            void parallel_assemble_fields();
+            VectorFieldType *velocity_;
+            VectorFieldType *bcVelocity_;
+            GenericFieldType *wallFrictionVelocityBip_;
+            GenericFieldType *wallNormalDistanceBip_;
             
-            void parallel_assemble_area();
-
-            void cross_product(double *, double *, double *);
+            void calc_assembled_area(stk::mesh::PartVector partvec);
 
             void calc_surface_force(SurfaceFMData &);
+            
+            void calc_surface_force_wallfn(SurfaceFMData &);
 
             void create_file(std::string fileName);
+            
+            void cross_product(double *, double *, double *);
+            
+            void parallel_assemble_fields();
+
+            void zero_fields();
+            
         };
 
     }  // nalu
