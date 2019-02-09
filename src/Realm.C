@@ -38,8 +38,6 @@
 #include <NonConformalManager.h>
 #include <NonConformalInfo.h>
 #include <OutputInfo.h>
-#include <PostProcessingInfo.h>
-#include <PostProcessingData.h>
 #include <PecletFunction.h>
 #include <PeriodicManager.h>
 #include <Realms.h>
@@ -200,7 +198,6 @@ namespace nalu{
     currentNonlinearIteration_(1),
     solutionOptions_(new SolutionOptions()),
     outputInfo_(new OutputInfo()),
-    postProcessingInfo_(new PostProcessingInfo()),
     solutionNormPostProcessing_(NULL),
     turbulenceAveragingPostProcessing_(NULL),
     dataProbePostProcessing_(NULL),
@@ -293,7 +290,6 @@ Realm::~Realm()
 
   delete solutionOptions_;
   delete outputInfo_;
-  delete postProcessingInfo_;
 
   // post processing-like objects
   if ( NULL != solutionNormPostProcessing_ )
@@ -763,8 +759,14 @@ Realm::load(const YAML::Node & node)
   create_mesh();
   spatialDimension_ = metaData_->spatial_dimension();
 
-  // post processing
-  postProcessingInfo_->load(node);
+  // surface force moment post processing
+  const YAML::Node y_sfm_pp =
+      expect_sequence(node, "surface_force_moment", true);
+  if (y_sfm_pp) {
+      surfaceFMPostProcessing_ =
+          make_unique<SurfaceFMPostProcessing>(*this);
+      surfaceFMPostProcessing_->load(y_sfm_pp);
+  }
 
   // boundary, init, material and equation systems "load"
   if ( type_ == "multi_physics" ) {
@@ -924,57 +926,16 @@ Realm::setup_interior_algorithms()
 void
 Realm::setup_post_processing_algorithms()
 {
-  // get a pointer to the post processing data vector
-  std::vector<PostProcessingData* > &ppDataVec = postProcessingInfo_->ppDataVec_;
 
-  // iterate and set-up
-  std::vector<PostProcessingData *>::const_iterator ii;
-  for( ii=ppDataVec.begin(); ii!=ppDataVec.end(); ++ii ) {
-
-    PostProcessingData &theData = *(*ii);
-    // type
-    std::string theType = theData.type_;
-    NaluEnv::self().naluOutputP0() << "the post processing type is " << theType << std::endl;
-
-    // output name
-    std::string theFile = theData.outputFileName_;
-    NaluEnv::self().naluOutputP0() << "the post processing file name: " << theFile << std::endl;
-
-    // physics
-    std::string thePhysics = theData.physics_;
-    NaluEnv::self().naluOutputP0() << "the post processing physics name: " << thePhysics << std::endl;
-
-    // target
-    // map target names to physics parts
-    theData.targetNames_ = physics_part_names(theData.targetNames_);
-
-    const std::vector<std::string>& targetNames = theData.targetNames_;
-    for ( size_t in = 0; in < targetNames.size(); ++in)
-      NaluEnv::self().naluOutputP0() << "Target name(s): " << targetNames[in] << std::endl;
-
-    // params
-    std::vector<double> parameters = theData.parameters_;
-    for ( size_t in = 0; in < parameters.size(); ++in)
-      NaluEnv::self().naluOutputP0() << "Parameters used are: " << parameters[in] << std::endl;
-
-    // call through to the Eqsys
-    if ( theType == "surface" ) {
-        if (surfaceFMPostProcessing_ == NULL) {
-            surfaceFMPostProcessing_ =
-                make_unique<SurfaceFMPostProcessing>(*this);
-        }
-        surfaceFMPostProcessing_->register_surface_pp(theData);
-    }
-    else {
-      throw std::runtime_error("Post Processing Error: only  surface-based is supported");
-    }
-  }
+  // check for surface force moment post processing
+  if (NULL != surfaceFMPostProcessing_ )
+      surfaceFMPostProcessing_->setup();
 
   // check for turbulence averaging fields
   if (NULL == turbulenceAveragingPostProcessing_ &&
      solutionOptions_->has_set_boussinesq_time_scale() ) {
 
-     turbulenceAveragingPostProcessing_ =  new TurbulenceAveragingPostProcessing(*this, {});
+     turbulenceAveragingPostProcessing_ = new TurbulenceAveragingPostProcessing(*this, {});
   }
 
   if ( NULL != turbulenceAveragingPostProcessing_ )

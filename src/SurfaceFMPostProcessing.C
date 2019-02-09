@@ -73,90 +73,141 @@ SurfaceFMPostProcessing::SurfaceFMPostProcessing(
     
 }
 
-void SurfaceFMPostProcessing::register_surface_pp(
-    const PostProcessingData &theData)
+void SurfaceFMPostProcessing::load(
+    const YAML::Node & y_node)
 {
-  stk::mesh::MetaData &meta = realm_.meta_data();
+    
+    for (size_t itype = 0; itype < y_node.size(); itype++) {
+        // extract the particular type
+        const YAML::Node y_type = y_node[itype] ;
+        
+        SurfaceFMData new_sfm_data;
 
-  stk::mesh::PartVector partVector;
-  std::vector<std::string> targetNames = theData.targetNames_;
-  for ( size_t in = 0; in < targetNames.size(); ++in) {
-    stk::mesh::Part *targetPart = meta.get_part(targetNames[in]);
-    if ( NULL == targetPart ) {
-      NaluEnv::self().naluOutputP0() <<
-          "SurfacePP: can not find part with name: " << targetNames[in];
-    }
-    else {
-      // found the part
-      auto& mesh_parts = targetPart->subsets();
-      for( auto part: mesh_parts )
-      {
-        if ( !(meta.side_rank() == part->primary_entity_rank()) ) {
-          NaluEnv::self().naluOutputP0() << "SurfacePP: part is not a face: "
-                                         << targetNames[in];
+        new_sfm_data.iSurface_ = -1;
+        new_sfm_data.wallFunction_ = false;
+        if (y_type["use_wall_function"]) {
+            if (y_type["use_full_function"].as<bool>())
+                new_sfm_data.wallFunction_ = true;
         }
-        partVector.push_back(part);
-        allPartVector_.push_back(part);
-      }
+        
+        // outfile file
+        if ( y_type["output_file_name"] )
+            new_sfm_data.outputFileName_ =
+                y_type["output_file_name"].as<std::string>();
+        else
+            throw std::runtime_error(
+                "parser error SurfaceFMPostProcessing::load:  no output file specified");
+        
+        // frequency
+        if ( y_type["frequency"])
+            new_sfm_data.frequency_ = y_type["frequency"].as<int>();
+        else
+            new_sfm_data.frequency_ = 1;
+        
+        // centroid
+        if ( y_type["centroid"] ) {
+            new_sfm_data.centroidCoords_ = {{0.0, 0.0, 0.0}};
+                // extract the value(s)
+                const YAML::Node targets = y_type["centroid"];
+            if (targets.Type() == YAML::NodeType::Scalar)
+                new_sfm_data.centroidCoords_[0] = targets.as<double>();
+            else {
+                for (size_t i=0; i < targets.size(); ++i)
+                    new_sfm_data.centroidCoords_[i] =
+                        targets[i].as<double>() ;
+            }
+        }
+        
+        // extract the target(s)
+        const YAML::Node targets = y_type["target_name"];
+        if (targets.Type() == YAML::NodeType::Scalar) {
+            new_sfm_data.partNames_.resize(1);
+            new_sfm_data.partNames_[0] = targets.as<std::string>();
+        }
+        else {
+            new_sfm_data.partNames_.resize(targets.size());
+            for (size_t i=0; i < targets.size(); ++i)
+                new_sfm_data.partNames_[i] =
+                    targets[i].as<std::string>();
+        }
+        surfaceFMData_.push_back(new_sfm_data);
     }
-  }
 
-  const std::string thePhysics = theData.physics_;
+}
+
+void SurfaceFMPostProcessing::register_surface_pp(
+    const SurfaceFMData &new_sfm_data)
+{
+    surfaceFMData_.push_back(new_sfm_data);  
+}
+
+void SurfaceFMPostProcessing::setup() {
+
+  stk::mesh::MetaData &meta = realm_.meta_data();
 
   // register nodal fields in common
   pressureForce_ = &(meta.declare_field<VectorFieldType>(
                          stk::topology::NODE_RANK, "pressure_force"));
-  stk::mesh::put_field_on_mesh(*pressureForce_,
-                               stk::mesh::selectUnion(partVector),
-                               meta.spatial_dimension(), nullptr);
   tauWall_ =  &(meta.declare_field<VectorFieldType>(
                     stk::topology::NODE_RANK, "tau_wall"));
-  stk::mesh::put_field_on_mesh(*tauWall_,
-                               stk::mesh::selectUnion(partVector), nullptr);
   yplus_ =  &(meta.declare_field<ScalarFieldType>(
                   stk::topology::NODE_RANK, "yplus"));
-  stk::mesh::put_field_on_mesh(*yplus_,
-                               stk::mesh::selectUnion(partVector), nullptr);
   assembledArea_ =  &(meta.declare_field<ScalarFieldType>(
                           stk::topology::NODE_RANK,
                           "assembled_area_force_moment"));
-  stk::mesh::put_field_on_mesh(*assembledArea_,
-                               stk::mesh::selectUnion(partVector), nullptr);
- 
   // force output for these variables
   realm_.augment_output_variable_list(pressureForce_->name());
   realm_.augment_output_variable_list(tauWall_->name());
   realm_.augment_output_variable_list(yplus_->name());
 
-  std::array<double, 3> centroidCoords{ {
-              theData.parameters_[0],
-              theData.parameters_[1],
-              theData.parameters_[2]} };
-  
-  if ( thePhysics == "surface_force_and_moment" ) {
-    SurfaceFMData new_sfm_data = {partVector,
-                                  theData.outputFileName_,
-                                  centroidCoords,
-                                  theData.frequency_,
-                                  false};
-    surfaceFMData_.push_back(new_sfm_data);
-  }
-  else if ( thePhysics == "surface_force_and_moment_wall_function" ) {
-    SurfaceFMData new_sfm_data = {partVector,
-                                  theData.outputFileName_,
-                                  centroidCoords,
-                                  theData.frequency_,
-                                  true};
-    surfaceFMData_.push_back(new_sfm_data);
-    bcVelocity_ = meta.get_field<VectorFieldType>(
-        stk::topology::NODE_RANK, "wall_velocity_bc");
-    wallFrictionVelocityBip_ = meta.get_field<GenericFieldType>(
-        meta.side_rank(), "wall_friction_velocity_bip");
-    wallNormalDistanceBip_ = meta.get_field<GenericFieldType>(
-        meta.side_rank(), "wall_normal_distance_bip");
-  }
+  for (auto sfm_data: surfaceFMData_) {
+    
+      for ( size_t in = 0; in < sfm_data.partNames_.size(); ++in) {
+          stk::mesh::Part *targetPart = meta.get_part(sfm_data.partNames_[in]);
+          if ( NULL == targetPart ) {
+              NaluEnv::self().naluOutputP0() <<
+                  "SurfacePP: can not find part with name: " <<
+                  sfm_data.partNames_[in];
+          }
+          else {
+              // found the part
+              auto& mesh_parts = targetPart->subsets();
+              for( auto part: mesh_parts )
+              {
+                  if ( !(meta.side_rank() == part->primary_entity_rank()) ) {
+                      NaluEnv::self().naluOutputP0() << "SurfacePP: part is not a face: "
+                                                     << sfm_data.partNames_[in];
+                  }
+                  sfm_data.partVector_.push_back(part);
+                  allPartVector_.push_back(part);
+              }
+          }
+      }
 
-  create_file(theData.outputFileName_);
+      stk::mesh::put_field_on_mesh(*pressureForce_,
+                                   stk::mesh::selectUnion(sfm_data.partVector_),
+                                   meta.spatial_dimension(), nullptr);
+      stk::mesh::put_field_on_mesh(*tauWall_,
+                                   stk::mesh::selectUnion(sfm_data.partVector_),
+                                   nullptr);
+      stk::mesh::put_field_on_mesh(*yplus_,
+                                   stk::mesh::selectUnion(sfm_data.partVector_),
+                                   nullptr);
+      stk::mesh::put_field_on_mesh(*assembledArea_,
+                                   stk::mesh::selectUnion(sfm_data.partVector_),
+                                   nullptr);
+      
+      if ( sfm_data.wallFunction_ ) {
+          bcVelocity_ = meta.get_field<VectorFieldType>(
+              stk::topology::NODE_RANK, "wall_velocity_bc");
+          wallFrictionVelocityBip_ = meta.get_field<GenericFieldType>(
+              meta.side_rank(), "wall_friction_velocity_bip");
+          wallNormalDistanceBip_ = meta.get_field<GenericFieldType>(
+              meta.side_rank(), "wall_normal_distance_bip");
+      }
+
+      create_file(sfm_data.outputFileName_);
+  }
   
 }
 
@@ -195,7 +246,7 @@ void SurfaceFMPostProcessing::execute()
         calc_assembled_area(allPartVector_);
 
     for (auto& sfm_data: surfaceFMData_) {
-        if(sfm_data.wallFunction)
+        if(sfm_data.wallFunction_)
             calc_surface_force_wallfn(sfm_data);
         else
             calc_surface_force(sfm_data);

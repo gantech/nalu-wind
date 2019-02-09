@@ -12,6 +12,8 @@
 
 #include <stk_mesh/base/Part.hpp>
 
+#include <yaml-cpp/yaml.h>
+
 // basic c++
 #include <string>
 #include <memory>
@@ -24,10 +26,12 @@ namespace sierra {
 
         struct SurfaceFMData {
             stk::mesh::PartVector partVector_;
+            std::vector<std::string> partNames_;
             std::string outputFileName_;
             std::array<double,3> centroidCoords_;
             int frequency_;
-            bool wallFunction;
+            int iSurface_;
+            bool wallFunction_;
         };
             
 /** Post-processing to compute force and moment on various surfaces
@@ -49,7 +53,11 @@ namespace sierra {
 
             ~SurfaceFMPostProcessing() = default;
 
-            void register_surface_pp(const PostProcessingData&);
+            void load(const YAML::Node & y_node);
+
+            void register_surface_pp(const SurfaceFMData&);
+
+            void setup();
 
             void execute();
 
