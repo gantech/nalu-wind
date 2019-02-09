@@ -58,7 +58,6 @@ class Adapter;
 #endif
 class EquationSystems;
 class OutputInfo;
-class PostProcessingInfo;
 class PeriodicManager;
 class Realms;
 class Simulation;
@@ -424,7 +423,6 @@ class Realm {
 
   SolutionOptions *solutionOptions_;
   OutputInfo *outputInfo_;
-  PostProcessingInfo *postProcessingInfo_;
   SolutionNormPostProcessing *solutionNormPostProcessing_;
   TurbulenceAveragingPostProcessing *turbulenceAveragingPostProcessing_;
   std::unique_ptr<SurfaceFMPostProcessing> surfaceFMPostProcessing_;

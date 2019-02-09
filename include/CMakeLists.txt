@@ -157,7 +157,6 @@ add_sources(GlobalHeaderList
    PecletFunction.h
    PeriodicManager.h
    PostProcessingData.h
-   PostProcessingInfo.h
    ProjectedNodalGradientEquationSystem.h
    PstabErrorIndicatorEdgeAlgorithm.h
    PstabErrorIndicatorElemAlgorithm.h

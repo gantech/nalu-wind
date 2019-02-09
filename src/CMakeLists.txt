@@ -139,7 +139,6 @@ add_sources(GlobalSourceList
    OutputInfo.C
    PecletFunction.C
    PeriodicManager.C
-   PostProcessingInfo.C
    ProjectedNodalGradientEquationSystem.C
    PstabErrorIndicatorEdgeAlgorithm.C
    PstabErrorIndicatorElemAlgorithm.C
