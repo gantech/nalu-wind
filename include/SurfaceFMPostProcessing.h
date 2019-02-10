@@ -21,7 +21,6 @@
 namespace sierra {
     namespace nalu {
 
-        class PostProcessingData;
         class Realm;
 
         struct SurfaceFMData {

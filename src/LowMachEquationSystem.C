@@ -84,7 +84,6 @@
 #include <NaluEnv.h>
 #include <NaluParsing.h>
 #include <ProjectedNodalGradientEquationSystem.h>
-#include <PostProcessingData.h>
 #include <PstabErrorIndicatorEdgeAlgorithm.h>
 #include <PstabErrorIndicatorElemAlgorithm.h>
 #include <LimiterErrorIndicatorElemAlgorithm.h>

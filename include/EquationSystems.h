@@ -38,7 +38,6 @@ namespace nalu{
 
 class Realm;
 class EquationSystem;
-class PostProcessingData;
 class Simulation;
 class AlgorithmDriver;
 
@@ -117,9 +116,6 @@ class EquationSystems
 
   void register_non_conformal_bc(
     const NonConformalBoundaryConditionData &nonConformalBCData);
-
-  void register_surface_pp_algorithm(
-    const PostProcessingData &theData);
 
   void register_initial_condition_fcn(
     stk::mesh::Part *part,
