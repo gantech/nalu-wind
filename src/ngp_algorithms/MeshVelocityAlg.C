@@ -92,5 +92,7 @@ void MeshVelocityAlg<AlgTraits>::execute()
     });
 }
 
+INSTANTIATE_KERNEL(MeshVelocityAlg)
+
 }  // nalu
 }  // sierra
