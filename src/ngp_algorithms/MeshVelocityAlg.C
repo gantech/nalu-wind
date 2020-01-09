@@ -30,7 +30,10 @@ MeshVelocityAlg<AlgTraits>::MeshVelocityAlg(
     elemData_(realm.meta_data()),
     modelCoords_(get_field_ordinal(realm.meta_data(), "coordinates")),
     currentCoords_(get_field_ordinal(realm.meta_data(), "current_coordinates")),
-    meshDisp_(get_field_ordinal(realm.meta_data(), "mesh_displacement")),
+    meshDispNp1_(
+      get_field_ordinal(realm.meta_data(), "mesh_displacement", stk::mesh::StateNP1)),
+    meshDispN_(
+      get_field_ordinal(realm.meta_data(), "mesh_displacement", stk::mesh::StateN)),
     faceVelMag_(
       get_field_ordinal(realm.meta_data(), "face_velocity_mag", stk::topology::ELEM_RANK)),
     sweptVolumeNp1_(
@@ -48,7 +51,9 @@ MeshVelocityAlg<AlgTraits>::MeshVelocityAlg(
   elemData_.add_element_field(faceVelMag_, AlgTraits::numScsIp_);
   elemData_.add_element_field(sweptVolumeN_, AlgTraits::numScsIp_);
   elemData_.add_element_field(sweptVolumeNp1_, AlgTraits::numScsIp_);
-
+  elemData_.add_gathered_nodal_field(meshDispNp1_, AlgTraits::nDim_);
+  elemData_.add_gathered_nodal_field(meshDispN_, AlgTraits::nDim_);
+  
   elemData_.add_master_element_call(SCS_AREAV, CURRENT_COORDINATES);
 
   meSCS_->general_shape_fcn(AlgTraits::numScsIp_, isoParCoords_, isoCoordsShapeFcn_);
@@ -60,6 +65,10 @@ void MeshVelocityAlg<AlgTraits>::execute()
   using ElemSimdDataType = sierra::nalu::nalu_ngp::ElemSimdData<ngp::Mesh>;
   const auto& meshInfo = realm_.mesh_info();
   const auto& meta = meshInfo.meta();
+  const DoubleType dt = realm_.get_time_step();
+  const DoubleType gamma1 = realm_.get_gamma1();
+  const DoubleType gamma2 = realm_.get_gamma2();
+  const DoubleType gamma3 = realm_.get_gamma3();  
   const auto& ngpMesh = meshInfo.ngp_mesh();
   const auto& fieldMgr = meshInfo.ngp_field_manager();
   auto faceVel = fieldMgr.template get_field<double>(faceVelMag_);
@@ -69,7 +78,8 @@ void MeshVelocityAlg<AlgTraits>::execute()
 
   const auto modelCoordsID = modelCoords_;
   const auto currentCoordsID = currentCoords_;
-  const auto meshDispID = meshDisp_;
+  const auto meshDispNp1ID = meshDispNp1_;
+  const auto meshDispNID = meshDispN_;
   const auto faceVelID = faceVelMag_;
   const auto sweptVolNID = sweptVolumeN_;
   const auto sweptVolNp1ID = sweptVolumeNp1_;
@@ -87,8 +97,66 @@ void MeshVelocityAlg<AlgTraits>::execute()
       const auto& meViews = scrView.get_me_views(CURRENT_COORDINATES);
       const auto& v_areav = meViews.scs_areav;
 
+      const auto& mCoords = scrView.get_scratch_view_2D(modelCoordsID);
       const auto& cCoords = scrView.get_scratch_view_2D(currentCoordsID);
-      const auto& disp = scrView.get_scratch_view_2D(meshDispID);
+      const auto& dispNp1 = scrView.get_scratch_view_2D(meshDispNp1ID);
+      const auto& dispN = scrView.get_scratch_view_2D(meshDispNID);
+      const auto& sweptVolN = scrView.get_scratch_view_1D(sweptVolNID);
+
+      DoubleType dx[19][AlgTraits::nDim_];
+
+      for (int i=0; i < 19; i++) {
+          for (int j=0; j < AlgTraits::nDim_; j++)
+              dx[i][j]= 0.0;
+          for (int k=0; k < AlgTraits::nodesPerElement_; k++ ) {
+              const DoubleType r = isoCoordsShapeFcn_[i*AlgTraits::nodesPerElement_ + k];
+              for (int j=0; j < AlgTraits::nDim_; j++)
+                  dx[i][j] += r * (dispNp1(k,j) - dispN(k,j)) ;
+          }
+      }
+
+
+      DoubleType ws_coords_n[AlgTraits::nDim_ * AlgTraits::nodesPerElement_];
+      DoubleType ws_scs_area_n[AlgTraits::numScsIp_ * AlgTraits::nDim_];
+      for (int k=0; k < AlgTraits::nodesPerElement_; k++) {
+          for (int j=0; j < AlgTraits::nDim_; j++)
+              ws_coords_n[k*AlgTraits::nDim_ + j] = mCoords(k,j) + dispN(k,j);
+      }
+      DoubleType scs_error = 0.0;
+      meSCS_->determinant(1, &ws_coords_n[0], &ws_scs_area_n[0], &scs_error);
+      
+      for (int ip =0; ip < AlgTraits::numScsIp_; ++ip) {
+
+          DoubleType dx_cg[AlgTraits::nDim_];
+          DoubleType vdmvb[AlgTraits::nDim_];
+          DoubleType vcmva[AlgTraits::nDim_];
+          DoubleType vrhs[AlgTraits::nDim_];
+          
+          const int na = scsFaceNodeMap_[ip][0];
+          const int nb = scsFaceNodeMap_[ip][1];
+          const int nc = scsFaceNodeMap_[ip][2];
+          const int nd = scsFaceNodeMap_[ip][3];
+
+          for (int j=0; j < AlgTraits::nDim_; j++) {
+              dx_cg[j] = 0.25 * ( dx[na][j] + dx[nb][j] + dx[nc][j] + dx[nd][j] );
+              vdmvb[j] = dx[nd][j] - dx[nb][j];
+              vcmva[j] = dx[nc][j] - dx[na][j];
+          }
+
+          vrhs[0] = 0.5 * ( ws_scs_area_n[ip*AlgTraits::nDim_+0] + v_areav(ip,0) )
+              - dt * ( vdmvb[1] * vcmva[2] - vdmvb[2] * vcmva[1] ) / 6.0;
+          vrhs[1] = 0.5 * ( ws_scs_area_n[ip*AlgTraits::nDim_+1] + v_areav(ip,1) )
+              - dt * ( vdmvb[2] * vcmva[0] - vdmvb[0] * vcmva[2] ) / 6.0;
+          vrhs[2] = 0.5 * ( ws_scs_area_n[ip*AlgTraits::nDim_+2] + v_areav(ip,2) )
+              - dt * ( vdmvb[0] * vcmva[1] - vdmvb[1] * vcmva[0] ) / 6.0;
+          
+          const DoubleType tmp = dx_cg[0] * vrhs[0] + dx_cg[1] * vrhs[1] + dx_cg[2] * vrhs[2];
+          sweptVolOps(edata, ip) = tmp;
+          faceVelOps(edata, ip) =  ( gamma1 * tmp + (gamma1 + gamma2)  * sweptVolN(ip) );
+          
+      }
+
+      
     });
 }
 

@@ -36,7 +36,8 @@ private:
 
   unsigned modelCoords_{stk::mesh::InvalidOrdinal};
   unsigned currentCoords_{stk::mesh::InvalidOrdinal};
-  unsigned meshDisp_{stk::mesh::InvalidOrdinal};
+  unsigned meshDispNp1_{stk::mesh::InvalidOrdinal};
+  unsigned meshDispN_{stk::mesh::InvalidOrdinal};
   unsigned faceVelMag_{stk::mesh::InvalidOrdinal};
   unsigned sweptVolumeNp1_{stk::mesh::InvalidOrdinal};
   unsigned sweptVolumeN_{stk::mesh::InvalidOrdinal};
