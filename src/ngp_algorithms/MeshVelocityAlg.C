@@ -118,13 +118,23 @@ void MeshVelocityAlg<AlgTraits>::execute()
 
       DoubleType ws_coords_n[AlgTraits::nDim_ * AlgTraits::nodesPerElement_];
       DoubleType ws_scs_area_n[AlgTraits::numScsIp_ * AlgTraits::nDim_];
+      double t_coords_n[AlgTraits::nDim_ * AlgTraits::nodesPerElement_];
+      double t_scs_area_n[AlgTraits::numScsIp_ * AlgTraits::nDim_];
       for (int k=0; k < AlgTraits::nodesPerElement_; k++) {
           for (int j=0; j < AlgTraits::nDim_; j++)
               ws_coords_n[k*AlgTraits::nDim_ + j] = mCoords(k,j) + dispN(k,j);
       }
-      DoubleType scs_error = 0.0;
-      meSCS_->determinant(1, &ws_coords_n[0], &ws_scs_area_n[0], &scs_error);
-      
+      {
+        double scs_error = 0.0;
+        for (int is=0; is < edata.numSimdElems; ++is) {
+          for (int i=0; i < AlgTraits::nDim_*AlgTraits::nodesPerElement_; ++i)
+            t_coords_n[i] = stk::simd::get_data(ws_coords_n[i], is);
+          meSCS_->determinant(1, &t_coords_n[0], &t_scs_area_n[0], &scs_error);
+          for (int i=0; i < AlgTraits::nDim_*AlgTraits::nodesPerElement_; ++i)
+            stk::simd::set_data(ws_scs_area_n[i], is, t_scs_area_n[i]);
+        }
+      }
+
       for (int ip =0; ip < AlgTraits::numScsIp_; ++ip) {
 
           DoubleType dx_cg[AlgTraits::nDim_];
