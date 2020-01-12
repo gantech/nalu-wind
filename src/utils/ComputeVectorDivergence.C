@@ -22,6 +22,8 @@
 #include <stk_mesh/base/FieldBLAS.hpp>
 #include <stk_mesh/base/GetBuckets.hpp>
 
+#include "FieldTypeDef.h"
+
 namespace sierra {
 namespace nalu {
 
@@ -219,6 +221,63 @@ void compute_vector_divergence(
   // parallel sum the divergence across all processors
   stk::mesh::parallel_sum(bulk, {scalarField});
 }
+
+void compute_vector_divergence(
+  stk::mesh::BulkData& bulk,
+  stk::mesh::PartVector& partVec,
+  stk::mesh::PartVector& bndyPartVec,
+  GenericFieldType* faceField,
+  stk::mesh::FieldBase* scalarField)
+{
+  stk::mesh::MetaData& meta = bulk.mesh_meta_data();
+  ScalarFieldType* dualVol = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume");
+  stk::mesh::Selector sel = ( meta.locally_owned_part() | meta.globally_shared_part() )
+                          & stk::mesh::selectUnion(partVec);
+  const auto& bkts =
+      bulk.get_buckets( stk::topology::ELEMENT_RANK, sel );
+
+  // reset divergence field
+  stk::mesh::field_fill(0.0, *scalarField, sel);
+  for (auto b: bkts) {
+    MasterElement* meSCS =
+        MasterElementRepo::get_surface_master_element(b->topology());
+    const int numScsIp = meSCS->num_integration_points();
+    const int* lrscv = meSCS->adjacentNodes();
+    size_t length = b->size();
+    for ( size_t k = 0 ; k < length ; ++k ) {
+      const double *ff = stk::mesh::field_data(*faceField, *b, k );
+      const stk::mesh::Entity* node_rels = b->begin_nodes(k);
+      for ( int ip = 0; ip < numScsIp; ++ip ) {
+        // left and right nodes for this ip
+        const int il = lrscv[2*ip];
+        const int ir = lrscv[2*ip+1];
+
+        stk::mesh::Entity nodeL = node_rels[il];
+        stk::mesh::Entity nodeR = node_rels[ir];
+
+        // pointer to fields to assemble
+        double* divMVL = (double*)stk::mesh::field_data(*scalarField, nodeL);
+        double* divMVR = (double*)stk::mesh::field_data(*scalarField, nodeR);
+
+        double* dualVolL = stk::mesh::field_data(*dualVol, nodeL);
+        double* dualVolR = stk::mesh::field_data(*dualVol, nodeR);
+
+        *divMVL += ff[ip] / (*dualVolL);
+        *divMVR -= ff[ip] / (*dualVolR);
+      }
+
+    }
+
+  }
+
+  // sum up interior divergence values and return if boundary part not specified
+  if(bndyPartVec.size() == 0) {
+    stk::mesh::parallel_sum(bulk, {scalarField});
+    return;
+  }
+
+}
+
 
 }
 }
