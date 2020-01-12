@@ -62,6 +62,7 @@ void FrameBase::load(const YAML::Node& node)
       throw std::runtime_error("FrameBase: Invalid mesh motion type: " + type);
 
   } // end for loop - i index
+
 }
 
 void FrameBase::populate_part_vec(const YAML::Node& node)

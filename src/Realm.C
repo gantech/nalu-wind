@@ -540,6 +540,13 @@ Realm::initialize()
 
   compute_geometry();
 
+  stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
+  for (auto p: mmPartVec) {
+      MeshVelocityAlg<AlgTraitsHex8> mvAlg(*this, p);
+      mvAlgVec_.push_back(&mvAlg);
+      mvAlg.execute();
+  }
+
   if ( solutionOptions_->meshMotion_ )
     meshMotionAlg_->post_compute_geometry();
 
@@ -1908,6 +1915,9 @@ Realm::pre_timestep_work()
 
     compute_geometry();
 
+    for (auto *mvAlg: mvAlgVec_)
+        mvAlg->execute();
+
     meshMotionAlg_->post_compute_geometry();
 
     // and non-conformal algorithm
@@ -2803,7 +2813,7 @@ Realm::register_nodal_fields(
 
   // mesh motion/deformation is high level
   if ( solutionOptions_->meshMotion_ || solutionOptions_->externalMeshDeformation_) {
-    VectorFieldType *displacement = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement"));
+      VectorFieldType *displacement = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement", numVolStates));
     stk::mesh::put_field_on_mesh(*displacement, *part, nDim, nullptr);
     VectorFieldType *currentCoords = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "current_coordinates"));
     stk::mesh::put_field_on_mesh(*currentCoords, *part, nDim, nullptr);
@@ -2811,6 +2821,13 @@ Realm::register_nodal_fields(
     stk::mesh::put_field_on_mesh(*meshVelocity, *part, nDim, nullptr);
     VectorFieldType *velocityRTM = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity_rtm"));
     stk::mesh::put_field_on_mesh(*velocityRTM, *part, nDim, nullptr);
+
+    GenericFieldType* faceVelMag = &(metaData_->declare_field<GenericFieldType>(
+                    stk::topology::ELEM_RANK, "face_velocity_mag"));
+    stk::mesh::put_field_on_mesh(*faceVelMag, *part, 1, nullptr);
+    GenericFieldType* sweptFaceVolume = &(metaData_->declare_field<GenericFieldType>(
+                    stk::topology::ELEM_RANK, "swept_face_volume", numVolStates));
+    stk::mesh::put_field_on_mesh(*sweptFaceVolume, *part, 1, nullptr);
 
     // only external mesh deformation requires dvi/dxj (for GCL)
     if ( solutionOptions_->externalMeshDeformation_) {

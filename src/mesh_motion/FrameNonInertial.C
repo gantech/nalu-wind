@@ -8,7 +8,7 @@
 
 namespace sierra{
 namespace nalu{
-
+    
 void FrameNonInertial::update_coordinates_velocity(const double time)
 {
   assert (partVec_.size() > 0);
