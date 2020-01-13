@@ -222,7 +222,7 @@ void compute_vector_divergence(
   stk::mesh::parallel_sum(bulk, {scalarField});
 }
 
-void compute_vector_divergence(
+void compute_scalar_divergence(
   stk::mesh::BulkData& bulk,
   stk::mesh::PartVector& partVec,
   stk::mesh::PartVector& bndyPartVec,
@@ -235,7 +235,6 @@ void compute_vector_divergence(
                           & stk::mesh::selectUnion(partVec);
   const auto& bkts =
       bulk.get_buckets( stk::topology::ELEMENT_RANK, sel );
-
   // reset divergence field
   stk::mesh::field_fill(0.0, *scalarField, sel);
   for (auto b: bkts) {

@@ -181,7 +181,7 @@ void MotionRotation::post_compute_geometry(
     ScalarFieldType* meshDivVelocity = bulk.mesh_meta_data().get_field<ScalarFieldType>(
         stk::topology::NODE_RANK, "div_mesh_velocity");
 
-    compute_vector_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+    compute_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
     computedMeshVelDiv = true;
 }
 

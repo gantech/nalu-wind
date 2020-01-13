@@ -542,9 +542,9 @@ Realm::initialize()
 
   stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
   for (auto p: mmPartVec) {
-      MeshVelocityAlg<AlgTraitsHex8> mvAlg(*this, p);
-      mvAlgVec_.push_back(&mvAlg);
-      mvAlg.execute();
+      auto * mvAlg = new MeshVelocityAlg<AlgTraitsHex8>(*this, p);
+      mvAlgVec_.push_back(mvAlg);
+      mvAlg->execute();
   }
 
   if ( solutionOptions_->meshMotion_ )
@@ -939,6 +939,19 @@ Realm::setup_element_fields()
   // loop over all material props targets and register element fields
   std::vector<std::string> targetNames = get_physics_target_names();
   equationSystems_.register_element_fields(targetNames);
+  const int numVolStates = does_mesh_move() ? number_of_states() : 1;
+  GenericFieldType* faceVelMag = &(metaData_->declare_field<GenericFieldType>(
+                                       stk::topology::ELEM_RANK, "face_velocity_mag"));
+  GenericFieldType* sweptFaceVolume = &(metaData_->declare_field<GenericFieldType>(
+                                            stk::topology::ELEM_RANK, "swept_face_volume", numVolStates));
+  for (auto target: targetNames) {
+      auto * targetPart = metaData_->get_part(target);
+      const auto theTopo = targetPart->topology();
+      auto *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
+      const auto numScsIp = meSCS->num_integration_points();
+      stk::mesh::put_field_on_mesh(*faceVelMag, *targetPart, numScsIp, nullptr);
+      stk::mesh::put_field_on_mesh(*sweptFaceVolume, *targetPart, numScsIp, nullptr);
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -2822,18 +2835,9 @@ Realm::register_nodal_fields(
     VectorFieldType *velocityRTM = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity_rtm"));
     stk::mesh::put_field_on_mesh(*velocityRTM, *part, nDim, nullptr);
 
-    GenericFieldType* faceVelMag = &(metaData_->declare_field<GenericFieldType>(
-                    stk::topology::ELEM_RANK, "face_velocity_mag"));
-    stk::mesh::put_field_on_mesh(*faceVelMag, *part, 1, nullptr);
-    GenericFieldType* sweptFaceVolume = &(metaData_->declare_field<GenericFieldType>(
-                    stk::topology::ELEM_RANK, "swept_face_volume", numVolStates));
-    stk::mesh::put_field_on_mesh(*sweptFaceVolume, *part, 1, nullptr);
+    ScalarFieldType *divV = &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
+    stk::mesh::put_field_on_mesh(*divV, *part, nullptr);
 
-    // only external mesh deformation requires dvi/dxj (for GCL)
-    if ( solutionOptions_->externalMeshDeformation_) {
-      ScalarFieldType *divV = &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
-      stk::mesh::put_field_on_mesh(*divV, *part, nullptr);
-    }
   }
 
   ScalarIntFieldType& iblank = metaData_->declare_field<ScalarIntFieldType>(
