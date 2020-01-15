@@ -47,25 +47,36 @@ namespace {
     namespace hex8_golds {
         namespace ngp_mesh_velocity {
             static constexpr double swept_vol[12] = {
-                -1.385467742974961e-17, -0.006239588540426781,
-                1.385467742974961e-17, -0.00623958854042678,
-                -1.385467742974961e-17, -0.018718765621280307,
-                1.3854677429749644e-17, -0.0187187656212803,
-                0.006239588540426745, 0.006239588540426742,
-                0.018718765621280272, 0.018718765621280272,
+                -1.9011246334240317e-06 ,
+                -0.007411607503532086 ,
+                0.0006354143486286349 ,
+                -0.007528599788665088 ,
+                0.0005365558676912094 ,
+                -0.017846051920973573 ,
+                9.929720200664127e-05 ,
+                -0.019723388123074496 ,
+                0.007631504252796653 ,
+                0.00761766016572258 ,
+                0.021781526152491293 ,
+                0.021188570254008898
             };
 
             static constexpr double face_vel_mag[12] = {
-                -2.0782016144624415e-16, -0.06239588540426796,
-                2.0782016144624415e-16, -0.06239588540426792,
-                -2.0782016144624415e-16, -0.18718765621280323,
-                2.0782016144624464e-16, -0.1871876562128031,
-                0.062395885404267354, 0.06239588540426732,
-                0.18718765621280262, 0.18718765621280262,
+                -1.9011246334368524e-05 ,
+                -0.07411607503532094 ,
+                0.006354143486286482 ,
+                -0.07528599788665097 ,
+                0.005365558676911969 ,
+                -0.1784605192097359 ,
+                0.0009929720200664131 ,
+                -0.19723388123074517 ,
+                0.07631504252796666 ,
+                0.07617660165722584 ,
+                0.2178152615249128 ,
+                0.211885702540089                
             };
         }
     }
-
 
 }
 
@@ -96,6 +107,34 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
   unit_test_utils::HelperObjects helperObjs(
     bulk_, stk::topology::HEX_8, 1, partVec_[0]);
 
+  /* const double model_coords[8][3] = { */
+  /*     {0.,  0.,  0. }, */
+  /*     {1.,  0.,  0.1}, */
+  /*     {0.,  1.,  0.1}, */
+  /*     {1.,  1.,  0.1}, */
+  /*     {0.,  0.,  1. }, */
+  /*     {1.,  0.,  0.9}, */
+  /*     {0.,  1.,  1.1}, */
+  /*     {1.1, 1.1, 1. } */
+  /* }; */
+  
+  /* //Setup skewed element */
+  /* { */
+  /*   stk::mesh::Selector sel = meta_.universal_part(); */
+  /*   const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel); */
+  /*   int counter=0; */
+  /*   for (const auto* b: bkts) { */
+  /*       //double* mcoord = stk::mesh::field_data(*coordinates_, *b); */
+  /*       for (const auto node: *b) { */
+  /*           double* mcoord = stk::mesh::field_data(*coordinates_, node); */
+  /*           mcoord[0] = model_coords[counter][0]; */
+  /*           mcoord[1] = model_coords[counter][1]; */
+  /*           mcoord[2] = model_coords[counter][2]; */
+  /*           counter++; */
+  /*       } */
+  /*   } */
+  /* } */
+
   sierra::nalu::TimeIntegrator timeIntegrator;
   timeIntegrator.timeStepN_ = 0.1;
   timeIntegrator.timeStepNm1_ = 0.1;
@@ -111,7 +150,6 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
   sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
-  geomAlgDriver.execute();
 
   sierra::nalu::MeshVelocityAlg<sierra::nalu::AlgTraitsHex8> mvAlg(helperObjs.realm, partVec_[0]);
 
@@ -159,9 +197,8 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
           }
       }
   }
-
   geomAlgDriver.execute();
-
+  
   GenericFieldType *sweptVolN = &(sweptVolume_->field_of_state(stk::mesh::StateN));
   
   stk::mesh::Selector sel = meta_.universal_part();  
@@ -169,24 +206,24 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
       const auto& bkts = bulk_.get_buckets(stk::topology::ELEM_RANK, sel);
       for (const auto* b: bkts) {
           double *sv = stk::mesh::field_data(*sweptVolN, *b, 0);
-          sv[0] = 0.0 ;
-          sv[1] = -0.006239588540426752 ;
-          sv[2] = 0.0 ;
-          sv[3] = -0.006239588540426754 ;
-          sv[4] = 0.0 ;
-          sv[5] = -0.018718765621280272 ;
-          sv[6] = 0.0 ;
-          sv[7] = -0.018718765621280272 ;
-          sv[8] = 0.006239588540426764 ;
-          sv[9] = 0.006239588540426764 ;
-          sv[10] = 0.018718765621280286 ;
-          sv[11] = 0.018718765621280286 ;
+          sv[0] = -1.9011246333983903e-06 ;
+          sv[1] = -0.007411607503532071 ;
+          sv[2] = 0.0006354143486286081 ;
+          sv[3] = -0.007528599788665068 ;
+          sv[4] = 0.0005365558676912346 ;
+          sv[5] = -0.017846051920973532 ;
+          sv[6] = 9.929720200664116e-05 ;
+          sv[7] = -0.01972338812307445 ;
+          sv[8] = 0.007631504252796629 ;
+          sv[9] = 0.007617660165722569 ;
+          sv[10] = 0.021781526152491324 ;
+          sv[11] = 0.021188570254008887 ;
       }
   }
-  
+
   mvAlg.execute();
   
-  const double tol = 1.0e-16;
+  const double tol = 1.0e-15;
   namespace gold_values = ::hex8_golds::ngp_mesh_velocity;
   {
     const auto& bkts = bulk_.get_buckets(stk::topology::ELEM_RANK, sel);
