@@ -337,6 +337,60 @@ public:
   GenericFieldType* exposedAreaVec_{nullptr};
 };
 
+/** Class for computational kernel testing of mesh vleocity related algorithms
+ *  
+ */
+
+class MeshVelocityKernelHex8Mesh : public TestKernelHex8Mesh
+{
+public:
+  MeshVelocityKernelHex8Mesh()
+    : TestKernelHex8Mesh(),
+      meshDisp_(&(meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement", 3))),
+      cCoords_(&(meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "current_coordinates"))),
+      sweptVolume_(&(meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK, "swept_face_volume", 3))),
+      faceVelMag_(&(meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK, "face_velocity_mag", 2)))
+    {
+      stk::mesh::put_field_on_mesh(*meshDisp_, meta_.universal_part(), nullptr);
+      stk::mesh::put_field_on_mesh(*cCoords_, meta_.universal_part(), nullptr);
+      const auto& meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(stk::topology::HEX_8);
+      stk::mesh::put_field_on_mesh(*sweptVolume_, meta_.universal_part(), meSCS->num_integration_points(), nullptr);
+      stk::mesh::put_field_on_mesh(*faceVelMag_, meta_.universal_part(), meSCS->num_integration_points(), nullptr);
+    }
+
+  using TestKernelHex8Mesh::fill_mesh_and_init_fields;
+  virtual void fill_mesh_and_init_fields(std::string baseMeshSpec, bool doPerturb = false, bool generateSidesets = false)
+  {
+    const std::string meshSpec =
+      generateSidesets ? (baseMeshSpec + "|sideset:xXyYzZ") : baseMeshSpec;
+    unit_test_utils::fill_hex8_mesh(meshSpec, bulk_);
+    if (doPerturb) {
+      unit_test_utils::perturb_coord_hex_8(bulk_, 0.125);
+    }
+    stk::mesh::create_edges(bulk_, meta_.universal_part());
+
+    partVec_ = {meta_.get_part("block_1")};
+
+    coordinates_ = static_cast<const VectorFieldType*>(meta_.coordinate_field());
+
+    EXPECT_TRUE(coordinates_ != nullptr);
+
+    stk::mesh::field_fill(0.125, *dnvField_);
+    stk::mesh::field_fill(1.25, *divMeshVelField_);
+    unit_test_kernel_utils::calc_edge_area_vec(
+      bulk_, sierra::nalu::AlgTraitsHex8::topo_, *coordinates_, *edgeAreaVec_);
+    unit_test_kernel_utils::calc_exposed_area_vec(
+      bulk_, sierra::nalu::AlgTraitsQuad4::topo_, *coordinates_,
+      *exposedAreaVec_);
+  }
+
+  VectorFieldType* meshDisp_;
+  VectorFieldType* cCoords_;
+  GenericFieldType* sweptVolume_;
+  GenericFieldType* faceVelMag_;
+    
+};
+
 /** Test Fixture for Low-Mach Kernels
  *
  *  This test fixture performs the following actions:
