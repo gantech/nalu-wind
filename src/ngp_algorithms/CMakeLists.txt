@@ -7,6 +7,7 @@ target_sources(nalu PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/EffSSTDiffFluxCoeffAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/EnthalpyEffDiffFluxCoeffAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/MeshVelocityAlg.C
+  ${CMAKE_CURRENT_SOURCE_DIR}/MeshVelocityEdgeAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/MdotEdgeAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/MdotInflowAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/MdotDensityAccumAlg.C

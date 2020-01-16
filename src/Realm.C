@@ -114,6 +114,8 @@
 #include "ngp_algorithms/GeometryAlgDriver.h"
 #include "ngp_algorithms/GeometryInteriorAlg.h"
 #include "ngp_algorithms/GeometryBoundaryAlg.h"
+#include "ngp_algorithms/MeshVelocityAlg.h"
+#include "ngp_algorithms/MeshVelocityEdgeAlg.h"
 
 // stk_util
 #include <stk_util/parallel/Parallel.hpp>
@@ -933,18 +935,27 @@ Realm::setup_element_fields()
   std::vector<std::string> targetNames = get_physics_target_names();
   equationSystems_.register_element_fields(targetNames);
   const int numVolStates = does_mesh_move() ? number_of_states() : 1;
-  GenericFieldType* faceVelMag = &(metaData_->declare_field<GenericFieldType>(
-                                       stk::topology::ELEM_RANK, "face_velocity_mag"));
-  GenericFieldType* sweptFaceVolume = &(metaData_->declare_field<GenericFieldType>(
-                                            stk::topology::ELEM_RANK, "swept_face_volume", numVolStates));
-  for (auto target: targetNames) {
+
+  if (has_mesh_motion()) {
+    const auto entityRank = realmUsesEdges_ ? stk::topology::EDGE_RANK : stk::topology::ELEM_RANK;
+    const std::string fvm_fieldName = realmUsesEdges_ ? "edge_face_velocity_mag" :  "face_velocity_mag";
+    const std::string sv_fieldName = realmUsesEdges_ ? "edge_swept_face_volume" :  "swept_face_volume";  
+    GenericFieldType* faceVelMag = &(metaData_->declare_field<GenericFieldType>(
+                                     entityRank, fvm_fieldName));
+    GenericFieldType* sweptFaceVolume = &(metaData_->declare_field<GenericFieldType>(
+                                          entityRank, sv_fieldName, numVolStates));
+    for (auto target: targetNames) {
       auto * targetPart = metaData_->get_part(target);
-      const auto theTopo = targetPart->topology();
-      auto *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(theTopo);
-      const auto numScsIp = meSCS->num_integration_points();
-      stk::mesh::put_field_on_mesh(*faceVelMag, *targetPart, numScsIp, nullptr);
-      stk::mesh::put_field_on_mesh(*sweptFaceVolume, *targetPart, numScsIp, nullptr);
+      auto fieldSize = 1;
+      if ( realmUsesEdges_ ) {
+        auto *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(targetPart->topology());
+        fieldSize = meSCS->num_integration_points();
+      }
+      stk::mesh::put_field_on_mesh(*faceVelMag, *targetPart, fieldSize, nullptr);
+      stk::mesh::put_field_on_mesh(*sweptFaceVolume, *targetPart, fieldSize, nullptr);
+    }
   }
+  
 }
 
 //--------------------------------------------------------------------------
@@ -962,9 +973,18 @@ Realm::setup_interior_algorithms()
 
   const AlgorithmType algType = INTERIOR;
   stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
-  for (auto p: mmPartVec) {
-    geometryAlgDriver_->register_elem_algorithm<
-      MeshVelocityAlg>(algType, p, "geometry");
+  if (realmUsesEdges_)
+  {
+    for (auto p: mmPartVec) {
+      geometryAlgDriver_->register_elem_algorithm<
+        MeshVelocityEdgeAlg>(algType, p, "geometry");
+    }
+  } else
+  {
+    for (auto p: mmPartVec) {
+      geometryAlgDriver_->register_elem_algorithm<
+        MeshVelocityAlg>(algType, p, "geometry");
+    }
   }
   
   // loop over all material props targets and register interior algs

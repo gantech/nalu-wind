@@ -49,6 +49,9 @@ public:
   //! Reset fields before calling algorithms
   virtual void pre_work() override;
 
+  //! Pre work for mesh motion
+  virtual void mesh_motion_prework();
+
   //! Synchronize fields after algorithms have done their work
   virtual void post_work() override;
 

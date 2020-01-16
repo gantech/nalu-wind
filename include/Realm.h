@@ -24,8 +24,6 @@
 #include <EquationSystems.h>
 #include <Teuchos_RCP.hpp>
 #include <overset/OversetManager.h>
-#include "AlgTraits.h"
-#include "ngp_algorithms/MeshVelocityAlg.h"
 
 #include <stk_util/util/ParameterList.hpp>
 
@@ -456,7 +454,6 @@ class Realm {
   ABLForcingAlgorithm *ablForcingAlg_;
   BdyLayerStatistics* bdyLayerStats_{nullptr};
   std::unique_ptr<MeshMotionAlg> meshMotionAlg_;
-  std::vector<MeshVelocityAlg<AlgTraitsHex8> *> mvAlgVec_;
     
   std::vector<Algorithm *> propertyAlg_;
   std::map<PropertyIdentifier, ScalarFieldType *> propertyMap_;
