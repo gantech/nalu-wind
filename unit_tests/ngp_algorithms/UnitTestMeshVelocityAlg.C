@@ -108,14 +108,14 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity_x_rot)
   timeIntegrator.gamma3_ = 0.0;
   helperObjs.realm.timeIntegrator_ = &timeIntegrator;
   // Force computation of edge area vector
-  helperObjs.realm.realmUsesEdges_ = true;
+  helperObjs.realm.realmUsesEdges_ = false;
   helperObjs.realm.solutionOptions_->meshMotion_ = true;
   
   sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
-
-  sierra::nalu::MeshVelocityAlg<sierra::nalu::AlgTraitsHex8> mvAlg(helperObjs.realm, partVec_[0]);
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
 
   // First set the mesh displacement corresponding to rotation about x-axis
   // create a yaml node describing rotation
@@ -162,7 +162,6 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity_x_rot)
     }
   }
   geomAlgDriver.execute();
-  mvAlg.execute();
 
   const double tol = 1.0e-15;
   namespace gold_values = ::hex8_golds_x_rot::ngp_mesh_velocity;
@@ -220,14 +219,14 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity_y_rot)
   timeIntegrator.gamma3_ = 0.0;
   helperObjs.realm.timeIntegrator_ = &timeIntegrator;
   // Force computation of edge area vector
-  helperObjs.realm.realmUsesEdges_ = true;
+  helperObjs.realm.realmUsesEdges_ = false;
   helperObjs.realm.solutionOptions_->meshMotion_ = true;
 
   sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
-
-  sierra::nalu::MeshVelocityAlg<sierra::nalu::AlgTraitsHex8> mvAlg(helperObjs.realm, partVec_[0]);
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
 
   // First set the mesh displacement corresponding to rotation about x-axis
   // create a yaml node describing rotation
@@ -274,7 +273,6 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity_y_rot)
     }
   }
   geomAlgDriver.execute();
-  mvAlg.execute();
 
   const double tol = 1.0e-15;
   namespace gold_values = ::hex8_golds_y_rot::ngp_mesh_velocity;
@@ -332,15 +330,15 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity_y_rot_scs_center)
   timeIntegrator.gamma3_ = 0.0;
   helperObjs.realm.timeIntegrator_ = &timeIntegrator;
   // Force computation of edge area vector
-  helperObjs.realm.realmUsesEdges_ = true;
+  helperObjs.realm.realmUsesEdges_ = false;
   helperObjs.realm.solutionOptions_->meshMotion_ = true;
 
   sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
-
-  sierra::nalu::MeshVelocityAlg<sierra::nalu::AlgTraitsHex8> mvAlg(helperObjs.realm, partVec_[0]);
-
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
+  
   // First set the mesh displacement corresponding to rotation about x-axis
   // create a yaml node describing rotation
   const std::string rotInfo =
@@ -386,7 +384,6 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity_y_rot_scs_center)
     }
   }
   geomAlgDriver.execute();
-  mvAlg.execute();
 
   const double tol = 1.0e-15;
   namespace gold_values = ::hex8_golds_y_rot::ngp_mesh_velocity;

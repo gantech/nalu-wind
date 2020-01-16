@@ -66,13 +66,14 @@ TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_vel_div)
   timeIntegrator.gamma3_ = 0.0;
   helperObjs.realm.timeIntegrator_ = &timeIntegrator;
   // Force computation of edge area vector
-  helperObjs.realm.realmUsesEdges_ = true;
+  helperObjs.realm.realmUsesEdges_ = false;
   helperObjs.realm.solutionOptions_->meshMotion_ = true;
   
   sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
-  
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
 
   //First set the mesh displacement corresponding to rotation about x-axis
   // create a yaml node describing rotation
