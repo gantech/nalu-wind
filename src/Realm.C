@@ -540,13 +540,6 @@ Realm::initialize()
 
   compute_geometry();
 
-  stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
-  for (auto p: mmPartVec) {
-      auto * mvAlg = new MeshVelocityAlg<AlgTraitsHex8>(*this, p);
-      mvAlgVec_.push_back(mvAlg);
-      mvAlg->execute();
-  }
-
   if ( solutionOptions_->meshMotion_ )
     meshMotionAlg_->post_compute_geometry();
 
@@ -966,9 +959,19 @@ Realm::setup_interior_algorithms()
     if ( NULL == errorIndicatorAlgDriver_ )
       errorIndicatorAlgDriver_ = new ErrorIndicatorAlgorithmDriver(*this);
   }
+
+  const AlgorithmType algType = INTERIOR;
+  stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
+  for (auto p: mmPartVec) {
+    geometryAlgDriver_->register_elem_algorithm<
+      MeshVelocityAlg>(algType, p, "geometry");
+  }
+  
   // loop over all material props targets and register interior algs
   std::vector<std::string> targetNames = get_physics_target_names();
   equationSystems_.register_interior_algorithm(targetNames);
+
+  
 }
 
 //--------------------------------------------------------------------------
@@ -1927,9 +1930,6 @@ Realm::pre_timestep_work()
     meshMotionAlg_->execute( get_current_time() );
 
     compute_geometry();
-
-    for (auto *mvAlg: mvAlgVec_)
-        mvAlg->execute();
 
     meshMotionAlg_->post_compute_geometry();
 

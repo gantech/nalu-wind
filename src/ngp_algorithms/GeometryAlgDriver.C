@@ -41,6 +41,18 @@ void GeometryAlgDriver::pre_work()
 
   ngpDualVol.set_all(ngpMesh, 0.0);
 
+  if (realm_.has_mesh_motion()) {
+    auto* sweptVol = meta.template get_field<GenericFieldType>(
+      stk::topology::ELEM_RANK, "swept_face_volume");
+    auto ngpSweptVol = fieldMgr.template get_field<double>(sweptVol->mesh_meta_data_ordinal());
+    ngpSweptVol.set_all(ngpMesh,0.0);
+    
+    auto* faceVelMag = meta.template get_field<GenericFieldType>(
+      stk::topology::ELEM_RANK, "face_velocity_mag");
+    auto ngpFaceVelMag = fieldMgr.template get_field<double>(faceVelMag->mesh_meta_data_ordinal());
+    ngpFaceVelMag.set_all(ngpMesh,0.0);
+  }
+
   if (realm_.realmUsesEdges_) {
     auto* edgeAreaVec = meta.template get_field<VectorFieldType>(
       stk::topology::EDGE_RANK, "edge_area_vector");

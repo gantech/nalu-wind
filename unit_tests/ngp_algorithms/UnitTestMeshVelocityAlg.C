@@ -151,8 +151,6 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
 
-  sierra::nalu::MeshVelocityAlg<sierra::nalu::AlgTraitsHex8> mvAlg(helperObjs.realm, partVec_[0]);
-
   //First set the mesh displacement corresponding to rotation about x-axis
   // create a yaml node describing rotation
   const std::string rotInfo =
@@ -197,10 +195,8 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
           }
       }
   }
-  geomAlgDriver.execute();
   
   GenericFieldType *sweptVolN = &(sweptVolume_->field_of_state(stk::mesh::StateN));
-  
   stk::mesh::Selector sel = meta_.universal_part();  
   {
       const auto& bkts = bulk_.get_buckets(stk::topology::ELEM_RANK, sel);
@@ -221,8 +217,8 @@ TEST_F(TestKernelHex8Mesh, NGP_mesh_velocity)
       }
   }
 
-  mvAlg.execute();
-  
+  geomAlgDriver.execute();
+
   const double tol = 1.0e-15;
   namespace gold_values = ::hex8_golds::ngp_mesh_velocity;
   {

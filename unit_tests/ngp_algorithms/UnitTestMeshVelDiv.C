@@ -72,8 +72,7 @@ TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_vel_div)
   sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
   geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
     sierra::nalu::INTERIOR, partVec_[0], "geometry");
-
-  sierra::nalu::MeshVelocityAlg<sierra::nalu::AlgTraitsHex8> mvAlg(helperObjs.realm, partVec_[0]);
+  
 
   //First set the mesh displacement corresponding to rotation about x-axis
   // create a yaml node describing rotation
@@ -120,7 +119,6 @@ TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_vel_div)
       }
   }
   geomAlgDriver.execute();
-  mvAlg.execute();
   stk::mesh::PartVector bndyPartVec;
   sierra::nalu::compute_scalar_divergence(bulk_, partVec_, bndyPartVec, faceVelMag_, divMeshVelField_);
 
