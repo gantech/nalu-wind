@@ -175,13 +175,20 @@ void MotionRotation::post_compute_geometry(
     if(computedMeshVelDiv) return;
 
     // compute divergence of mesh velocity
+    ScalarFieldType* meshDivVelocity = bulk.mesh_meta_data().get_field<ScalarFieldType>(
+      stk::topology::NODE_RANK, "div_mesh_velocity");
+    
     GenericFieldType* faceVelMag = bulk.mesh_meta_data().get_field<GenericFieldType>(
         stk::topology::ELEMENT_RANK, "face_velocity_mag");
-
-    ScalarFieldType* meshDivVelocity = bulk.mesh_meta_data().get_field<ScalarFieldType>(
-        stk::topology::NODE_RANK, "div_mesh_velocity");
-
-    compute_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+    if(faceVelMag == NULL) {
+      std::cerr << "Using edge algorithm for mesh vel div" << std::endl;
+      faceVelMag = bulk.mesh_meta_data().get_field<GenericFieldType>(
+        stk::topology::EDGE_RANK, "edge_face_velocity_mag");
+      compute_edge_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+    } else {
+      std::cerr << "Using element algorithm for mesh vel div" << std::endl;
+      compute_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+    }
     computedMeshVelDiv = true;
 }
 

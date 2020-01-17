@@ -349,13 +349,17 @@ public:
       meshDisp_(&(meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement", 3))),
       cCoords_(&(meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "current_coordinates"))),
       sweptVolume_(&(meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK, "swept_face_volume", 3))),
-      faceVelMag_(&(meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK, "face_velocity_mag", 2)))
+      faceVelMag_(&(meta_.declare_field<GenericFieldType>(stk::topology::ELEM_RANK, "face_velocity_mag", 2))),
+      edgeSweptVolume_(&(meta_.declare_field<GenericFieldType>(stk::topology::EDGE_RANK, "edge_swept_face_volume", 3))),
+      edgeFaceVelMag_(&(meta_.declare_field<GenericFieldType>(stk::topology::EDGE_RANK, "edge_face_velocity_mag", 2)))
     {
       stk::mesh::put_field_on_mesh(*meshDisp_, meta_.universal_part(), nullptr);
       stk::mesh::put_field_on_mesh(*cCoords_, meta_.universal_part(), nullptr);
       const auto& meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(stk::topology::HEX_8);
       stk::mesh::put_field_on_mesh(*sweptVolume_, meta_.universal_part(), meSCS->num_integration_points(), nullptr);
       stk::mesh::put_field_on_mesh(*faceVelMag_, meta_.universal_part(), meSCS->num_integration_points(), nullptr);
+      stk::mesh::put_field_on_mesh(*edgeSweptVolume_, meta_.universal_part(), 1, nullptr);
+      stk::mesh::put_field_on_mesh(*edgeFaceVelMag_, meta_.universal_part(), 1, nullptr);
     }
 
   using TestKernelHex8Mesh::fill_mesh_and_init_fields;
@@ -388,6 +392,8 @@ public:
   VectorFieldType* cCoords_;
   GenericFieldType* sweptVolume_;
   GenericFieldType* faceVelMag_;
+  GenericFieldType* edgeSweptVolume_;
+  GenericFieldType* edgeFaceVelMag_;
     
 };
 

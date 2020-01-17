@@ -71,26 +71,26 @@ void GeometryAlgDriver::mesh_motion_prework()
   const auto& meta = realm_.meta_data();
   const auto& meshInfo = realm_.mesh_info();
   const auto ngpMesh = meshInfo.ngp_mesh();
+  const auto& fieldMgr = realm_.ngp_field_manager();
 
   const auto entityRank = realm_.realmUsesEdges_ ? stk::topology::EDGE_RANK : stk::topology::ELEM_RANK;
-  const std::string fieldName = realm_.realmUsesEdges_ ? "edge_face_velocity_mag" :  "face_velocity_mag";
-  auto ngpFaceVelMag = nalu_ngp::get_ngp_field(realm_.mesh_info(), fieldName, entityRank);
-  ngpFaceVelMag.set_all(ngpMesh,0.0);
+  const std::string fvmFieldName = realm_.realmUsesEdges_ ? "edge_face_velocity_mag" :  "face_velocity_mag";
+  auto ngpFaceVelMag = nalu_ngp::get_ngp_field(realm_.mesh_info(), fvmFieldName, entityRank);
+  const std::string svFieldName = realm_.realmUsesEdges_ ? "edge_swept_face_volume" :  "swept_face_volume";
+  auto ngpSweptVol = nalu_ngp::get_ngp_field(realm_.mesh_info(), svFieldName, entityRank);
+  ngpSweptVol.set_all(ngpMesh,0.0);
     
   if (realm_.realmUsesEdges_) {
     const double dt = realm_.get_time_step();
     const double gamma1 = realm_.get_gamma1();
     const double gamma2 = realm_.get_gamma2();
-
-    auto ngpSweptVolEdgeNp1 = nalu_ngp::get_ngp_field(realm_.mesh_info(), "edge_swept_face_volume",
-                                                      stk::mesh::StateNP1, stk::topology::EDGE_RANK);
     auto ngpSweptVolEdgeN = nalu_ngp::get_ngp_field(realm_.mesh_info(), "edge_swept_face_volume",
                                                     stk::mesh::StateN, stk::topology::EDGE_RANK);
     
     auto* sweptVolEdge = meta.template get_field<GenericFieldType>(
       stk::topology::EDGE_RANK, "edge_swept_face_volume");
     nalu_ngp::field_axpby(ngpMesh, stk::mesh::selectField(*sweptVolEdge), (gamma1+gamma2)/dt,
-                          ngpSweptVolEdgeN, 0.0, ngpSweptVolEdgeNp1);
+                          ngpSweptVolEdgeN, 0.0, ngpFaceVelMag);
   }
 
 }

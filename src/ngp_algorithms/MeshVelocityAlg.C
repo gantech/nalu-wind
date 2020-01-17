@@ -79,6 +79,7 @@ void MeshVelocityAlg<AlgTraits>::execute()
   const auto faceVelOps = nalu_ngp::simd_elem_field_updater(ngpMesh, faceVel);
   const auto sweptVolOps = nalu_ngp::simd_elem_field_updater(ngpMesh, ngpSweptVol);
 
+  std::cerr << "Computing mesh velocity element " << std::endl;
   const auto modelCoordsID = modelCoords_;
   const auto meshDispNp1ID = meshDispNp1_;
   const auto meshDispNID = meshDispN_;

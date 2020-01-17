@@ -277,6 +277,50 @@ void compute_scalar_divergence(
 
 }
 
+void compute_edge_scalar_divergence(
+  stk::mesh::BulkData& bulk,
+  stk::mesh::PartVector& partVec,
+  stk::mesh::PartVector& bndyPartVec,
+  GenericFieldType* faceField,
+  stk::mesh::FieldBase* scalarField)
+{
+  stk::mesh::MetaData& meta = bulk.mesh_meta_data();
+  ScalarFieldType* dualVol = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume");
+  stk::mesh::Selector sel = ( meta.locally_owned_part() | meta.globally_shared_part() )
+                          & stk::mesh::selectUnion(partVec);
+  const auto& bkts =
+      bulk.get_buckets( stk::topology::EDGE_RANK, sel );
+  // reset divergence field
+  stk::mesh::field_fill(0.0, *scalarField, sel);
+  for (auto b: bkts) {
+    size_t length = b->size();
+    const double *ff = stk::mesh::field_data(*faceField, *b);
+    for ( size_t k = 0 ; k < length ; ++k ) {
+      auto * edge_node_rels = b->begin_nodes(k);
+      // left and right nodes for this edge
+      const auto nodeL = edge_node_rels[0];
+      const auto nodeR = edge_node_rels[1];
+
+      // pointer to fields to assemble
+      double* divMVL = (double*)stk::mesh::field_data(*scalarField, nodeL);
+      double* divMVR = (double*)stk::mesh::field_data(*scalarField, nodeR);
+
+      double* dualVolL = stk::mesh::field_data(*dualVol, nodeL);
+      double* dualVolR = stk::mesh::field_data(*dualVol, nodeR);
+
+      *divMVL += ff[k] / (*dualVolL);
+      *divMVR -= ff[k] / (*dualVolR);
+    }
+  }
+  
+  // sum up interior divergence values and return if boundary part not specified
+  if(bndyPartVec.size() == 0) {
+    stk::mesh::parallel_sum(bulk, {scalarField});
+    return;
+  }
+
+}
+
 
 }
 }
