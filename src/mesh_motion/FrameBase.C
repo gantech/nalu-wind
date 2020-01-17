@@ -1,6 +1,7 @@
 
 #include "mesh_motion/FrameBase.h"
 
+#include "mesh_motion/MotionDeformingInterior.h"
 #include "mesh_motion/MotionPulsatingSphere.h"
 #include "mesh_motion/MotionRotation.h"
 #include "mesh_motion/MotionScaling.h"
@@ -50,7 +51,9 @@ void FrameBase::load(const YAML::Node& node)
     get_required(motion_def, "type", type);
 
     // determine type of mesh motion based on user definition in input file
-    if (type == "pulsating_sphere")
+    if (type == "deforming_interior")
+      meshMotionVec_[i].reset(new MotionDeformingInterior(meta_,motion_def));
+    else if (type == "pulsating_sphere")
       meshMotionVec_[i].reset(new MotionPulsatingSphere(meta_,motion_def));
     else if (type == "rotation")
       meshMotionVec_[i].reset(new MotionRotation(motion_def));
