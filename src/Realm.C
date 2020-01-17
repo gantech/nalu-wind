@@ -950,7 +950,7 @@ Realm::setup_element_fields()
     for (auto target: targetNames) {
       auto * targetPart = metaData_->get_part(target);
       auto fieldSize = 1;
-      if ( realmUsesEdges_ ) {
+      if ( !realmUsesEdges_ ) {
         auto *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(targetPart->topology());
         fieldSize = meSCS->num_integration_points();
       }

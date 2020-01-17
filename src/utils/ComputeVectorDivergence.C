@@ -286,8 +286,7 @@ void compute_edge_scalar_divergence(
 {
   stk::mesh::MetaData& meta = bulk.mesh_meta_data();
   ScalarFieldType* dualVol = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume");
-  stk::mesh::Selector sel = ( meta.locally_owned_part() | meta.globally_shared_part() )
-                          & stk::mesh::selectUnion(partVec);
+  stk::mesh::Selector sel = ( meta.locally_owned_part() );
   const auto& bkts =
       bulk.get_buckets( stk::topology::EDGE_RANK, sel );
   // reset divergence field
@@ -296,7 +295,8 @@ void compute_edge_scalar_divergence(
     size_t length = b->size();
     const double *ff = stk::mesh::field_data(*faceField, *b);
     for ( size_t k = 0 ; k < length ; ++k ) {
-      auto * edge_node_rels = b->begin_nodes(k);
+      auto edge = (*b)[k];
+      auto * edge_node_rels = bulk.begin_nodes(edge);
       // left and right nodes for this edge
       const auto nodeL = edge_node_rels[0];
       const auto nodeR = edge_node_rels[1];

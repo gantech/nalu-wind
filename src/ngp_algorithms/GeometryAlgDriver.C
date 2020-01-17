@@ -90,7 +90,7 @@ void GeometryAlgDriver::mesh_motion_prework()
     auto* sweptVolEdge = meta.template get_field<GenericFieldType>(
       stk::topology::EDGE_RANK, "edge_swept_face_volume");
     nalu_ngp::field_axpby(ngpMesh, stk::mesh::selectField(*sweptVolEdge), (gamma1+gamma2)/dt,
-                          ngpSweptVolEdgeN, 0.0, ngpFaceVelMag);
+                          ngpSweptVolEdgeN, 0.0, ngpFaceVelMag, 1, stk::topology::EDGE_RANK);
   }
 
 }

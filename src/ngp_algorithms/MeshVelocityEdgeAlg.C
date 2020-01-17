@@ -55,7 +55,7 @@ MeshVelocityEdgeAlg<AlgTraits>::MeshVelocityEdgeAlg(
   elemData_.add_coordinates_field(currentCoords_, AlgTraits::nDim_, CURRENT_COORDINATES);
   elemData_.add_gathered_nodal_field(meshDispNp1_, AlgTraits::nDim_);
   elemData_.add_gathered_nodal_field(meshDispN_, AlgTraits::nDim_);
-
+  
   elemData_.add_master_element_call(SCS_AREAV, CURRENT_COORDINATES);
   meSCS_->general_shape_fcn(19, isoParCoords_, isoCoordsShapeFcn_);
 }
