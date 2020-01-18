@@ -118,20 +118,28 @@ public:
       timeInt.compute_gamma();
   }
 
-  void register_algorithms()
+  void register_algorithms(const std::string& motion_options)
   {
+    realm_.solutionOptions_->meshMotion_ = true;
+    const YAML::Node motionNode = YAML::Load(motion_options);
+    realm_.meshMotionAlg_.reset(
+      new sierra::nalu::MeshMotionAlg(bulk_, motionNode["mesh_motion"]));
+
     const bool useShifted = false;
     auto* part = meta_.get_part("surface_1");
-    auto* surfPart = part->subsets()[0];
-
     geomAlgDriver_.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
       sierra::nalu::INTERIOR, partVec_[0], "geometry");
-    geomAlgDriver_.register_face_algorithm<sierra::nalu::GeometryBoundaryAlg>(
-      sierra::nalu::BOUNDARY, surfPart, "geometry");
-
     nodalGradAlgDriver_.register_elem_algorithm<sierra::nalu::VectorNodalGradElemAlg>(
       sierra::nalu::INTERIOR, partVec_[0], "nodal_grad_dvdx",
       meshVel_, dMeshVeldx_, useShifted);
+
+    for (auto* surfPart: part->subsets()) {
+      geomAlgDriver_.register_face_algorithm<sierra::nalu::GeometryBoundaryAlg>(
+        sierra::nalu::BOUNDARY, surfPart, "geometry");
+      nodalGradAlgDriver_.register_face_algorithm<sierra::nalu::VectorNodalGradBndryElemAlg>(
+        sierra::nalu::WALL, surfPart, "nodal_grad_dvdx",
+        meshVel_, dMeshVeldx_, useShifted);
+    }
   }
 
   void compute_mesh_velocity()
@@ -252,12 +260,6 @@ public:
       meta_.universal_part() & !stk::mesh::selectUnion(bdyParts));
   }
 
-  void initialize_test(bool secondOrder=true)
-  {
-    init_time_integrator(secondOrder);
-    register_algorithms();
-  }
-
   void init_states()
   {
     const double deltaT = realm_.get_time_step();
@@ -317,12 +319,7 @@ TEST_F(GCLTest, rigid_rotation)
 
   fill_mesh_and_init_fields(meshDims);
   init_time_integrator(secondOrder, deltaT);
-  realm_.solutionOptions_->meshMotion_ = true;
-  const YAML::Node motionNode = YAML::Load(mesh_motion);
-  realm_.meshMotionAlg_.reset(
-    new sierra::nalu::MeshMotionAlg(bulk_, motionNode["mesh_motion"]));
-
-  register_algorithms();
+  register_algorithms(mesh_motion);
   init_states();
   compute_mesh_velocity();
   nodalGradAlgDriver_.execute();
@@ -349,12 +346,7 @@ TEST_F(GCLTest, rigid_translation)
 
   fill_mesh_and_init_fields(meshDims);
   init_time_integrator(secondOrder, deltaT);
-  realm_.solutionOptions_->meshMotion_ = true;
-  const YAML::Node motionNode = YAML::Load(mesh_motion);
-  realm_.meshMotionAlg_.reset(
-    new sierra::nalu::MeshMotionAlg(bulk_, motionNode["mesh_motion"]));
-
-  register_algorithms();
+  register_algorithms(mesh_motion);
   init_states();
   compute_mesh_velocity();
   nodalGradAlgDriver_.execute();
