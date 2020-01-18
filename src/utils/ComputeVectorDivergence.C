@@ -230,7 +230,6 @@ void compute_scalar_divergence(
   stk::mesh::FieldBase* scalarField)
 {
   stk::mesh::MetaData& meta = bulk.mesh_meta_data();
-  ScalarFieldType* dualVol = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume");
   stk::mesh::Selector sel = ( meta.locally_owned_part() | meta.globally_shared_part() )
                           & stk::mesh::selectUnion(partVec);
   const auto& bkts =
@@ -258,11 +257,8 @@ void compute_scalar_divergence(
         double* divMVL = (double*)stk::mesh::field_data(*scalarField, nodeL);
         double* divMVR = (double*)stk::mesh::field_data(*scalarField, nodeR);
 
-        double* dualVolL = stk::mesh::field_data(*dualVol, nodeL);
-        double* dualVolR = stk::mesh::field_data(*dualVol, nodeR);
-
-        *divMVL += ff[ip] / (*dualVolL);
-        *divMVR -= ff[ip] / (*dualVolR);
+        *divMVL += ff[ip];
+        *divMVR -= ff[ip];
       }
 
     }
@@ -285,7 +281,6 @@ void compute_edge_scalar_divergence(
   stk::mesh::FieldBase* scalarField)
 {
   stk::mesh::MetaData& meta = bulk.mesh_meta_data();
-  ScalarFieldType* dualVol = meta.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "dual_nodal_volume");
   stk::mesh::Selector sel = ( meta.locally_owned_part() );
   const auto& bkts =
       bulk.get_buckets( stk::topology::EDGE_RANK, sel );
@@ -305,11 +300,8 @@ void compute_edge_scalar_divergence(
       double* divMVL = (double*)stk::mesh::field_data(*scalarField, nodeL);
       double* divMVR = (double*)stk::mesh::field_data(*scalarField, nodeR);
 
-      double* dualVolL = stk::mesh::field_data(*dualVol, nodeL);
-      double* dualVolR = stk::mesh::field_data(*dualVol, nodeR);
-
-      *divMVL += ff[k] / (*dualVolL);
-      *divMVR -= ff[k] / (*dualVolR);
+      *divMVL += ff[k];
+      *divMVR -= ff[k];
     }
   }
   

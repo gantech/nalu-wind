@@ -79,7 +79,6 @@ void MeshVelocityAlg<AlgTraits>::execute()
   const auto faceVelOps = nalu_ngp::simd_elem_field_updater(ngpMesh, faceVel);
   const auto sweptVolOps = nalu_ngp::simd_elem_field_updater(ngpMesh, ngpSweptVol);
 
-  std::cerr << "Computing mesh velocity element " << std::endl;
   const auto modelCoordsID = modelCoords_;
   const auto meshDispNp1ID = meshDispNp1_;
   const auto meshDispNID = meshDispN_;
@@ -103,20 +102,20 @@ void MeshVelocityAlg<AlgTraits>::execute()
       const auto& dispN = scrView.get_scratch_view_2D(meshDispNID);
       const auto& sweptVolN = scrView.get_scratch_view_1D(sweptVolNID);
 
-      /* DoubleType dx[19][AlgTraits::nDim_]; */
+      DoubleType dx[19][AlgTraits::nDim_];
       DoubleType scs_coords_n[19][AlgTraits::nDim_];
       DoubleType scs_coords_np1[19][AlgTraits::nDim_];
       
       for (int i=0; i < 19; i++) {
           for (int j=0; j < AlgTraits::nDim_; j++) {
-              /* dx[i][j]= 0.0; */
+              dx[i][j]= 0.0; 
               scs_coords_n[i][j] = 0.0;
               scs_coords_np1[i][j] = 0.0;
           }
           for (int k=0; k < AlgTraits::nodesPerElement_; k++ ) {
               const DoubleType r = isoCoordsShapeFcn_[i*AlgTraits::nodesPerElement_ + k];
               for (int j=0; j < AlgTraits::nDim_; j++) {
-                  /* dx[i][j] += r * (dispNp1(k,j) - dispN(k,j)) ; */
+                  dx[i][j] += r * (dispNp1(k,j) - dispN(k,j)) ;
                   scs_coords_n[i][j] += r * (mCoords(k,j) + dispN(k,j));
                   scs_coords_np1[i][j] += r * (mCoords(k,j) + dispNp1(k,j));
               }
@@ -124,6 +123,9 @@ void MeshVelocityAlg<AlgTraits>::execute()
           /* std::cerr << "scs_coords_n " << i << " = " << scs_coords_n[i][0] << "," */
           /*           << scs_coords_n[i][1] << "," */
           /*           << scs_coords_n[i][2] << std::endl; */
+          /* std::cerr << "scs_coords_np1 " << i << " = " << scs_coords_np1[i][0] << "," */
+          /*           << scs_coords_np1[i][1] << "," */
+          /*           << scs_coords_np1[i][2] << std::endl; */
       }
 
       /* DoubleType ws_coords_n[AlgTraits::nDim_ * AlgTraits::nodesPerElement_]; */
@@ -155,53 +157,28 @@ void MeshVelocityAlg<AlgTraits>::execute()
       /*                                      {1,0,3,2} */
       /* }; */
 
+      /* DoubleType elem_coords_n[8][3]; */
+      /* DoubleType elem_coords_np1[8][3];       */
+      /* for (int i=0; i < 8; i++) { */
+      /*   for (int j=0; j < 3; j++) { */
+      /*     elem_coords_n[i][j] = mCoords(i,j) + dispN(i,j); */
+      /*     elem_coords_np1[i][j] = mCoords(i,j) + dispNp1(i,j); */
+      /*   } */
+      /* } */
+      /* DoubleType elem_vol_n = hex_volume_grandy(elem_coords_n); */
+      /* DoubleType elem_vol_np1 = hex_volume_grandy(elem_coords_np1); */
+      /* DoubleType elem_dvdt = (elem_vol_np1 - elem_vol_n)/dt; */
+      /* std::cerr << "elem_vol_n = " << elem_vol_n << ", elem_vol_np1 = " << elem_vol_np1 << std::endl; */
+      /* std::cerr << "elem_dvdt = " << elem_dvdt << std::endl; */
+
       /* DoubleType elem_face_mesh_vel[6]; */
       /* DoubleType div_mesh_vel = 0.0; */
-      
       /* for (int iface=0; iface < 6; ++iface) { */
-
-      /*     DoubleType dx_cg[AlgTraits::nDim_]; */
-      /*     DoubleType vdmvb[AlgTraits::nDim_]; */
-      /*     DoubleType vamvc[AlgTraits::nDim_]; */
-      /*     DoubleType vrhs[AlgTraits::nDim_]; */
-
-      /*     DoubleType xamc_n[AlgTraits::nDim_]; */
-      /*     DoubleType xdmb_n[AlgTraits::nDim_]; */
-      /*     DoubleType xamc_np1[AlgTraits::nDim_]; */
-      /*     DoubleType xdmb_np1[AlgTraits::nDim_]; */
-          
-      /*     DoubleType area_n[AlgTraits::nDim_]; */
-      /*     DoubleType area_np1[AlgTraits::nDim_]; */
 
       /*     const int na = elem_faces[iface][0]; */
       /*     const int nb = elem_faces[iface][1]; */
       /*     const int nc = elem_faces[iface][2]; */
       /*     const int nd = elem_faces[iface][3]; */
-
-      /*     for (int j=0; j < AlgTraits::nDim_; j++) { */
-      /*         dx_cg[j] = 0.25 * ( (dispNp1(na,j)-dispN(na,j)) + (dispNp1(nb,j)-dispN(nb,j)) + (dispNp1(nc,j)-dispN(nc,j)) + (dispNp1(nd,j)-dispN(nd,j)) ); */
-      /*         vdmvb[j] = (dispNp1(nd,j)-dispN(nd,j)) - (dispNp1(nb,j)-dispN(nb,j)); */
-      /*         vamvc[j] = (dispNp1(na,j)-dispN(na,j)) - (dispNp1(nc,j)-dispN(nc,j)); */
-      /*         xamc_n[j] = (mCoords(na,j) + dispN(na,j) - mCoords(nc,j) - dispN(nc,j)); */
-      /*         xamc_np1[j] = (mCoords(na,j) + dispNp1(na,j) - mCoords(nc,j) - dispNp1(nc,j)); */
-      /*         xdmb_n[j] = (mCoords(nd,j) + dispN(nd,j) - mCoords(nb,j) - dispN(nb,j)); */
-      /*         xdmb_np1[j] = (mCoords(nd,j) + dispNp1(nd,j) - mCoords(nb,j) - dispNp1(nb,j)); */
-      /*     } */
-      /*     area_n[0] = 0.5 * (xdmb_n[1]*xamc_n[2] - xdmb_n[2]*xamc_n[1]); */
-      /*     area_n[1] = 0.5 * (xdmb_n[2]*xamc_n[0] - xdmb_n[0]*xamc_n[2]); */
-      /*     area_n[2] = 0.5 * (xdmb_n[0]*xamc_n[1] - xdmb_n[1]*xamc_n[0]); */
-      /*     area_np1[0] = 0.5 * (xdmb_np1[1]*xamc_np1[2] - xdmb_np1[2]*xamc_np1[1]); */
-      /*     area_np1[1] = 0.5 * (xdmb_np1[2]*xamc_np1[0] - xdmb_np1[0]*xamc_np1[2]); */
-      /*     area_np1[2] = 0.5 * (xdmb_np1[0]*xamc_np1[1] - xdmb_np1[1]*xamc_np1[0]); */
-
-      /*     elem_face_mesh_vel[iface] = dx_cg[0] * (0.5 * (area_n[0] + area_np1[0]) - (vdmvb[1]*vamvc[2] - vdmvb[2]*vamvc[1]) / 12.0 )  + */
-      /*                                 dx_cg[1] * (0.5 * (area_n[1] + area_np1[1]) - (vdmvb[2]*vamvc[1] - vdmvb[1]*vamvc[2]) / 12.0 ) + */
-      /*                                 dx_cg[2] * (0.5 * (area_n[2] + area_np1[2]) - (vdmvb[0]*vamvc[0] - vdmvb[0]*vamvc[0]) / 12.0); */
-      /*     /\* std::cerr << "area_1 = " << area_n[0] << "," << area_n[1] << "," << area_n[2] << std::endl ; *\/ */
-      /*     /\* std::cerr << "area_2 = " << area_np1[0] << "," << area_np1[1] << "," << area_np1[2] << std::endl ; *\/ */
-      /*     /\* std::cerr << "dx_cg = " << dx_cg[0] << "," << dx_cg[1] << "," << dx_cg[2] << std::endl ; *\/ */
-          
-      /*     /\* std::cerr << "elem_face_mesh_vel[" << iface << "] = " << elem_face_mesh_vel[iface] << std::endl ; *\/ */
 
       /*     DoubleType face_svc[8][3]; */
       /*     for (int j=0; j < 3; j++) { */
@@ -218,7 +195,7 @@ void MeshVelocityAlg<AlgTraits>::execute()
       /*     } */
       /*     DoubleType tmp = hex_volume_grandy(face_svc); */
       /*     // std::cerr << "Grandy vol calc = " << tmp << std::endl; */
-      /*     div_mesh_vel += tmp; //elem_face_mesh_vel[iface]; */
+      /*     div_mesh_vel += tmp/dt; //elem_face_mesh_vel[iface]; */
       /* } */
       /* double n_div_mesh_vel = stk::simd::get_data(div_mesh_vel,0); */
       /* if( std::abs(n_div_mesh_vel) > 1e-15) */
@@ -231,51 +208,52 @@ void MeshVelocityAlg<AlgTraits>::execute()
           /* DoubleType vamvc[AlgTraits::nDim_]; */
           /* DoubleType vrhs[AlgTraits::nDim_]; */
 
-          /* DoubleType xcma_n[AlgTraits::nDim_]; */
+          /* DoubleType xamc_n[AlgTraits::nDim_]; */
           /* DoubleType xdmb_n[AlgTraits::nDim_]; */
-          /* DoubleType xcma_np1[AlgTraits::nDim_];           */
+          /* DoubleType xamc_np1[AlgTraits::nDim_]; */
           /* DoubleType xdmb_np1[AlgTraits::nDim_]; */
           
           /* DoubleType area_n[AlgTraits::nDim_]; */
           /* DoubleType area_np1[AlgTraits::nDim_]; */
 
-          const int na = scsFaceNodeMap_[ip][0];
-          const int nb = scsFaceNodeMap_[ip][1];
-          const int nc = scsFaceNodeMap_[ip][2];
-          const int nd = scsFaceNodeMap_[ip][3];
+          /* const int na = scsFaceNodeMap_[ip][0]; */
+          /* const int nb = scsFaceNodeMap_[ip][1]; */
+          /* const int nc = scsFaceNodeMap_[ip][2]; */
+          /* const int nd = scsFaceNodeMap_[ip][3]; */
 
           /* for (int j=0; j < AlgTraits::nDim_; j++) { */
           /*     dx_cg[j] = 0.25 * ( dx[na][j] + dx[nb][j] + dx[nc][j] + dx[nd][j] ); */
           /*     vdmvb[j] = dx[nd][j] - dx[nb][j]; */
           /*     vamvc[j] = dx[na][j] - dx[nc][j]; */
-          /*     xcma_n[j] = scs_coords_n[na][j] - scs_coords_n[nc][j]; */
+          /*     xamc_n[j] = scs_coords_n[na][j] - scs_coords_n[nc][j]; */
           /*     xdmb_n[j] = scs_coords_n[nd][j] - scs_coords_n[nb][j]; */
-          /*     xcma_np1[j] = scs_coords_np1[nc][j] - scs_coords_np1[na][j]; */
+          /*     xamc_np1[j] = scs_coords_np1[na][j] - scs_coords_np1[nc][j]; */
           /*     xdmb_np1[j] = scs_coords_np1[nd][j] - scs_coords_np1[nb][j]; */
           /* } */
 
           DoubleType scs_vol_coords[8][3];
 
           for (int j=0; j < AlgTraits::nDim_; j++) {
-              scs_vol_coords[0][j] = scs_coords_n[na][j];
-              scs_vol_coords[1][j] = scs_coords_n[nb][j];
-              scs_vol_coords[2][j] = scs_coords_n[nc][j];
-              scs_vol_coords[3][j] = scs_coords_n[nd][j];
-              scs_vol_coords[4][j] = scs_coords_np1[na][j];
-              scs_vol_coords[5][j] = scs_coords_np1[nb][j];
-              scs_vol_coords[6][j] = scs_coords_np1[nc][j];
-              scs_vol_coords[7][j] = scs_coords_np1[nd][j];
+              scs_vol_coords[0][j] = scs_coords_n[scsFaceNodeMap_[ip][0]][j];
+              scs_vol_coords[1][j] = scs_coords_n[scsFaceNodeMap_[ip][1]][j];
+              scs_vol_coords[2][j] = scs_coords_n[scsFaceNodeMap_[ip][2]][j];
+              scs_vol_coords[3][j] = scs_coords_n[scsFaceNodeMap_[ip][3]][j];
+              scs_vol_coords[4][j] = scs_coords_np1[scsFaceNodeMap_[ip][0]][j];
+              scs_vol_coords[5][j] = scs_coords_np1[scsFaceNodeMap_[ip][1]][j];
+              scs_vol_coords[6][j] = scs_coords_np1[scsFaceNodeMap_[ip][2]][j];
+              scs_vol_coords[7][j] = scs_coords_np1[scsFaceNodeMap_[ip][3]][j];
           }
-
           DoubleType tmp = hex_volume_grandy(scs_vol_coords);
+
+          /* std::cerr << " ip = " << ip  << " vol = " << tmp << std::endl; */
           sweptVolOps(edata,ip) = tmp;
 
-          /* area_n[0] = 0.5*(xcma_n[1]*xdmb_n[2] - xcma_n[2]*xdmb_n[1]); */
-          /* area_n[1] = 0.5*(xcma_n[2]*xdmb_n[0] - xcma_n[0]*xdmb_n[2]); */
-          /* area_n[2] = 0.5*(xcma_n[0]*xdmb_n[1] - xcma_n[1]*xdmb_n[0]); */
-          /* area_np1[0] = 0.5*(xcma_np1[1]*xdmb_np1[2] - xcma_np1[2]*xdmb_np1[1]); */
-          /* area_np1[1] = 0.5*(xcma_np1[2]*xdmb_np1[0] - xcma_np1[0]*xdmb_np1[2]); */
-          /* area_np1[2] = 0.5*(xcma_np1[0]*xdmb_np1[1] - xcma_np1[1]*xdmb_np1[0]); */
+          /* area_n[0] = 0.5*(xdmb_n[1]*xamc_n[2] - xdmb_n[2]*xamc_n[1]); */
+          /* area_n[1] = 0.5*(xdmb_n[2]*xamc_n[0] - xdmb_n[0]*xamc_n[2]); */
+          /* area_n[2] = 0.5*(xdmb_n[0]*xamc_n[1] - xdmb_n[1]*xamc_n[0]); */
+          /* area_np1[0] = 0.5*(xdmb_np1[1]*xamc_np1[2] - xdmb_np1[2]*xamc_np1[1]); */
+          /* area_np1[1] = 0.5*(xdmb_np1[2]*xamc_np1[0] - xdmb_np1[0]*xamc_np1[2]); */
+          /* area_np1[2] = 0.5*(xdmb_np1[0]*xamc_np1[1] - xdmb_np1[1]*xamc_np1[0]); */
 
           /* std::cerr << "ip = " << ip << ", "; */
           /* std::cerr << "dx = " << dx[na][0] << "," << dx[na][1] << "," << dx[na][2] << "," */
@@ -299,14 +277,15 @@ void MeshVelocityAlg<AlgTraits>::execute()
           
           /* std::cerr << "new area n = " << area_n[0] << "," << area_n[1] << "," << area_n[2] << std::endl; */
           /* std::cerr << "new area np1 = " << area_np1[0] << "," << area_np1[1] << "," << area_np1[2] << std::endl; */
-          /* /\* vrhs[0] = 0.5 * ( area_n[0] + area_np1[0] ) *\/ */
-          /* /\*     - dt * ( vdmvb[1] * vamvc[2] - vdmvb[2] * vamvc[1] ) / 12.0; *\/ */
-          /* /\* vrhs[1] = 0.5 * ( area_n[1] + area_np1[1] ) *\/ */
-          /* /\*     - dt * ( vdmvb[2] * vamvc[0] - vdmvb[0] * vamvc[2] ) / 12.0; *\/ */
-          /* /\* vrhs[2] = 0.5 * ( area_n[2] + area_np1[2] ) *\/ */
-          /* /\*     - dt * ( vdmvb[0] * vamvc[1] - vdmvb[1] * vamvc[0] ) / 12.0; *\/ */
+          /* vrhs[0] = 0.5 * ( area_n[0] + area_np1[0] ) */
+          /*     - ( vdmvb[1] * vamvc[2] - vdmvb[2] * vamvc[1] ) / 12.0; */
+          /* vrhs[1] = 0.5 * ( area_n[1] + area_np1[1] ) */
+          /*     - ( vdmvb[2] * vamvc[0] - vdmvb[0] * vamvc[2] ) / 12.0; */
+          /* vrhs[2] = 0.5 * ( area_n[2] + area_np1[2] ) */
+          /*     - ( vdmvb[0] * vamvc[1] - vdmvb[1] * vamvc[0] ) / 12.0; */
 
-          /* const DoubleType tmp = dx_cg[0] * vrhs[0] + dx_cg[1] * vrhs[1] + dx_cg[2] * vrhs[2]; */
+          /* const DoubleType tmp2 = dx_cg[0] * vrhs[0] + dx_cg[1] * vrhs[1] + dx_cg[2] * vrhs[2]; */
+          /* std::cerr << "Blair-Perot vol = " << tmp2 << std::endl; */
           /* sweptVolOps(edata, ip) = tmp; */
           faceVelOps(edata, ip) =  ( gamma1 * tmp + (gamma1 + gamma2)  * sweptVolN(ip) )/dt;
           
