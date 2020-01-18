@@ -44,6 +44,9 @@ public:
       elemVol_(
         &meta_.declare_field<ScalarFieldType>(
           stk::topology::ELEM_RANK, "element_volume")),
+      edgeAreaVec_(
+        &meta_.declare_field<VectorFieldType>(
+          stk::topology::EDGE_RANK, "edge_area_vector")),
       exposedAreaVec_(
         &meta_.declare_field<GenericFieldType>(
           meta_.side_rank(), "exposed_area_vector")),
@@ -70,6 +73,8 @@ public:
     stk::mesh::put_field_on_mesh(
       *elemVol_, meta_.universal_part(), 1, nullptr);
     stk::mesh::put_field_on_mesh(
+      *edgeAreaVec_, meta_.universal_part(), spatialDim_, nullptr);
+    stk::mesh::put_field_on_mesh(
       *exposedAreaVec_, meta_.universal_part(),
       spatialDim_ * sierra::nalu::AlgTraitsQuad4::numScsIp_, nullptr);
     stk::mesh::put_field_on_mesh(
@@ -82,15 +87,13 @@ public:
       *divMeshVel_, meta_.universal_part(), 1, nullptr);
     stk::mesh::put_field_on_mesh(
       *dVoldt_, meta_.universal_part(), 1, nullptr);
-
-    stk::mesh::field_fill(1.0e9, *divMeshVel_);
-    stk::mesh::field_fill(1.0e9, *meshVel_);
-    stk::mesh::field_fill(1.0e9, *meshDisp_);
   }
+
+  virtual ~GCLTest() = default;
 
   void fill_mesh_and_init_fields(
     const std::string meshSize,
-    bool doPerturb=false,
+    bool doPerturb=true,
     bool generateSidesets=true)
   {
     std::string meshSpec = "generated:" + meshSize;
@@ -105,6 +108,7 @@ public:
       meta_.coordinate_field());
     EXPECT_TRUE(coordinates_ != nullptr);
 
+    stk::mesh::create_edges(bulk_, meta_.universal_part());
   }
 
   void init_time_integrator(bool secondOrder=true, double timeStep=0.1)
@@ -120,6 +124,9 @@ public:
 
   void register_algorithms(const std::string& motion_options)
   {
+    // Force creation of edge area vector
+    realm_.realmUsesEdges_ = true;
+    // Force mesh motion logic everywhere
     realm_.solutionOptions_->meshMotion_ = true;
     const YAML::Node motionNode = YAML::Load(motion_options);
     realm_.meshMotionAlg_.reset(
@@ -289,6 +296,7 @@ public:
   VectorFieldType* currCoords_{nullptr};
   ScalarFieldType* dualVol_{nullptr};
   ScalarFieldType* elemVol_{nullptr};
+  VectorFieldType* edgeAreaVec_{nullptr};
   GenericFieldType* exposedAreaVec_{nullptr};
   VectorFieldType* meshDisp_{nullptr};
   VectorFieldType* meshVel_{nullptr};
