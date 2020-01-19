@@ -82,19 +82,22 @@ void MotionDeformingInterior::scaling_mat(
       (xyz[2] <= xyzMin_[2]) || (xyz[2] >= xyzMax_[2])  )
     return;
 
+  // initialize variables
   double eps = std::numeric_limits<double>::epsilon();
 
-  double radius_x = std::abs(xyz[0]-origin_[0]);
-  double radius_y = std::abs(xyz[1]-origin_[1]);
-  double radius_z = std::abs(xyz[2]-origin_[2]);
+  ThreeDVecType radius      = {};
+  ThreeDVecType curr_radius = {};
+  ThreeDVecType scaling     = {};
 
-  double curr_radius_x = radius_x + amplitude_[0]*(1 - std::cos(2*M_PI*frequency_[0]*time));
-  double curr_radius_y = radius_y + amplitude_[1]*(1 - std::cos(2*M_PI*frequency_[1]*time));
-  double curr_radius_z = radius_z + amplitude_[2]*(1 - std::cos(2*M_PI*frequency_[2]*time));
+  for (int d=0; d < threeDVecSize; d++)
+  {
+    radius[d] = std::abs(xyz[d]-origin_[d]);
 
-  double scaling_x = curr_radius_x/radius_x; if(radius_x <= eps) scaling_x = 1.0;
-  double scaling_y = curr_radius_y/radius_y; if(radius_y <= eps) scaling_y = 1.0;
-  double scaling_z = curr_radius_z/radius_z; if(radius_z <= eps) scaling_z = 1.0;
+    curr_radius[d] = radius[d] + amplitude_[d]*(1 - std::cos(2*M_PI*frequency_[d]*time));
+
+    scaling[d] = curr_radius[d]/radius[d];
+    if(radius[d] <= eps) scaling[d] = 1.0;
+  }
 
   // Build matrix for translating object to cartesian origin
   transMat_[0][3] = -origin_[0];
@@ -104,9 +107,9 @@ void MotionDeformingInterior::scaling_mat(
   // Build matrix for scaling object
   TransMatType currTransMat = {};
 
-  currTransMat[0][0] = scaling_x;
-  currTransMat[1][1] = scaling_y;
-  currTransMat[2][2] = scaling_z;
+  currTransMat[0][0] = scaling[0];
+  currTransMat[1][1] = scaling[1];
+  currTransMat[2][2] = scaling[2];
   currTransMat[3][3] = 1.0;
 
   // composite addition of motions in current group
@@ -123,12 +126,38 @@ void MotionDeformingInterior::scaling_mat(
 }
 
 MotionBase::ThreeDVecType MotionDeformingInterior::compute_velocity(
-  const double /* time */,
+  const double time ,
   const TransMatType&  /* compTrans */,
-  const double* /* mxyz */,
-  const double* /* cxyz */ )
+  const double* mxyz ,
+  const double* /* xyz */ )
 {
   ThreeDVecType vel = {};
+
+  // return zero velocity if point is outside bounds or time limits
+  if( (time < startTime_) || (time > endTime_) ||
+      (mxyz[0] <= xyzMin_[0]) || (mxyz[0] >= xyzMax_[0]) ||
+      (mxyz[1] <= xyzMin_[1]) || (mxyz[1] >= xyzMax_[1]) ||
+      (mxyz[2] <= xyzMin_[2]) || (mxyz[2] >= xyzMax_[2])  )
+    return vel;
+
+  // initialize variables
+  double eps = std::numeric_limits<double>::epsilon();
+
+  ThreeDVecType radius       = {};
+  ThreeDVecType osclVelocity = {};
+
+  for (int d=0; d < threeDVecSize; d++)
+  {
+    radius[d] = std::abs(mxyz[d]-origin_[d]);
+
+    osclVelocity[d] =
+      amplitude_[d] * std::sin(2*M_PI*frequency_[d]*time) * 2*M_PI*frequency_[d] / radius[d];
+
+    if(radius[d] <= eps) osclVelocity[d] = 0.0;
+
+    vel[d] = osclVelocity[d] * (mxyz[d]-origin_[d]);
+  }
+
   return vel;
 }
 
@@ -138,7 +167,24 @@ void MotionDeformingInterior::post_compute_geometry(
   stk::mesh::PartVector& partVecBc,
   bool& computedMeshVelDiv)
 {
-  return;
+  if(computedMeshVelDiv) return;
+
+  // compute divergence of mesh velocity
+  ScalarFieldType* meshDivVelocity = bulk.mesh_meta_data().get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "div_mesh_velocity");
+
+  GenericFieldType* faceVelMag = bulk.mesh_meta_data().get_field<GenericFieldType>(
+    stk::topology::ELEMENT_RANK, "face_velocity_mag");
+  if(faceVelMag == NULL) {
+    std::cerr << "Using edge algorithm for mesh vel div" << std::endl;
+    faceVelMag = bulk.mesh_meta_data().get_field<GenericFieldType>(
+      stk::topology::EDGE_RANK, "edge_face_velocity_mag");
+    compute_edge_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+  } else {
+    std::cerr << "Using element algorithm for mesh vel div" << std::endl;
+    compute_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+  }
+  computedMeshVelDiv = true;
 }
 
 } // nalu
