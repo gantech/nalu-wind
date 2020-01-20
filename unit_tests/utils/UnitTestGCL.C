@@ -197,7 +197,6 @@ TEST_F(GCLTest, NGP_mesh_velocity_x_rot)
   init_time_integrator(secondOrder, deltaT, 1);
   register_algorithms(mesh_motion);
   init_states();
-  compute_mesh_velocity();
 
   const double tol = 1.0e-15;
   namespace gold_values = ::hex8_golds_x_rot::ngp_mesh_velocity;
