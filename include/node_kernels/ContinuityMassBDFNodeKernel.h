@@ -48,11 +48,17 @@ private:
   ngp::Field<double> densityN_;
   ngp::Field<double> densityNp1_;
   ngp::Field<double> dualNodalVolume_;
+  ngp::Field<double> dnvNp1_;
+  ngp::Field<double> dnvN_;
+  ngp::Field<double> dnvNm1_;  
 
   unsigned densityNm1ID_ {stk::mesh::InvalidOrdinal};
   unsigned densityNID_ {stk::mesh::InvalidOrdinal};
   unsigned densityNp1ID_ {stk::mesh::InvalidOrdinal};
   unsigned dualNodalVolumeID_ {stk::mesh::InvalidOrdinal};
+  unsigned dnvNp1ID_ {stk::mesh::InvalidOrdinal};
+  unsigned dnvNID_ {stk::mesh::InvalidOrdinal};
+  unsigned dnvNm1ID_ {stk::mesh::InvalidOrdinal};
 
   double dt_;
   double gamma1_, gamma2_, gamma3_;
