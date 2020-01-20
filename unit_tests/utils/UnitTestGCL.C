@@ -9,6 +9,37 @@
 
 #include "utils/UnitTestGCL.h"
 
+namespace {
+
+  namespace hex8_golds_x_rot {
+    namespace ngp_mesh_velocity {
+      static constexpr double swept_vol[12] = {
+        0.0, -0.0625, 0.0, -0.0625, 0.0, 0.0625,
+        0.0, 0.0625, 0.0625, 0.0625, -0.0625, -0.0625
+      };
+
+      static constexpr double face_vel_mag[12] = {
+        0.0, -0.125, 0.0, -0.125, 0.0, 0.125,
+        0.0, 0.125, 0.125, 0.125, -0.125, -0.125
+      };
+    }
+  }
+
+  namespace hex8_golds_y_rot {
+    namespace ngp_mesh_velocity {
+      static constexpr double swept_vol[12] = {
+        0.0625, 0.0, -0.0625, 0.0, -0.0625, 0.0,
+        0.0625, 0.0, -0.0625, 0.0625, 0.0625, -0.0625
+      };
+
+      static constexpr double face_vel_mag[12] = {
+        0.125, 0.0, -0.125, 0.0, -0.125, 0.0,
+        0.125, 0.0, -0.125, 0.125, 0.125, -0.125
+      };
+    }
+  }
+}
+
 TEST_F(GCLTest, rigid_rotation_elem)
 {
   if (bulk_.parallel_size() > 1) return;
@@ -142,3 +173,143 @@ TEST_F(GCLTest, rigid_translation)
   compute_dvoldt();
   compute_absolute_error();
 }
+
+TEST_F(GCLTest, NGP_mesh_velocity_x_rot)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+
+  const std::string meshDims = "1x1x1";
+  const bool secondOrder = false;
+  const double deltaT = 0.5; 
+  const std::string mesh_motion =
+    "mesh_motion:                                                          \n"
+    "  - name: interior                                                    \n"
+    "    frame: non_inertial                                               \n"
+    "    mesh_parts: [ block_1 ]                                           \n"
+    "    motion:                                                           \n"
+    "      - type: rotation                                                \n"
+    "        omega: -3.141592653589793                                     \n"
+    "        axis: [1.0, 0.0, 0.0]                                         \n"
+    "        centroid: [0.5, 0.5, 0.5]                                     \n";
+  
+  fill_mesh_and_init_fields(meshDims, false);
+  init_time_integrator(secondOrder, deltaT, 1);
+  register_algorithms(mesh_motion);
+  init_states();
+  compute_mesh_velocity();
+
+  const double tol = 1.0e-15;
+  namespace gold_values = ::hex8_golds_x_rot::ngp_mesh_velocity;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::ELEM_RANK, sel);
+    int counter=0;
+    for (const auto* b: bkts) {
+      const double *sv = stk::mesh::field_data(*sweptVol_, *b, 0);
+      const double *fvm = stk::mesh::field_data(*faceVelMag_, *b, 0);
+      for (int i=0; i < 12; i++) {
+        EXPECT_NEAR(gold_values::swept_vol[i], sv[i], tol);
+        counter++;
+        EXPECT_NEAR(gold_values::face_vel_mag[i], fvm[i], tol);
+        counter++;
+        }
+    }
+    EXPECT_EQ(counter,24);
+  }
+}
+
+
+TEST_F(GCLTest, NGP_mesh_velocity_y_rot)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+
+  const std::string meshDims = "1x1x1";
+  const bool secondOrder = false;
+  const double deltaT = 0.5; 
+  const std::string mesh_motion =
+    "mesh_motion:                                                          \n"
+    "  - name: interior                                                    \n"
+    "    frame: non_inertial                                               \n"
+    "    mesh_parts: [ block_1 ]                                           \n"
+    "    motion:                                                           \n"
+    "      - type: rotation                                                \n"
+    "        omega: -3.141592653589793                                     \n"
+    "        axis: [0.0,1.0,0.0]                                           \n"
+    "        centroid: [0.5, 0.5, 0.5]                                     \n";
+  
+  fill_mesh_and_init_fields(meshDims, false);
+  init_time_integrator(secondOrder, deltaT, 1);
+  register_algorithms(mesh_motion);
+  init_states();
+
+  const double tol = 1.0e-15;
+  namespace gold_values = ::hex8_golds_y_rot::ngp_mesh_velocity;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::ELEM_RANK, sel);
+    int counter=0;
+    for (const auto* b: bkts) {
+      const double *sv = stk::mesh::field_data(*sweptVol_, *b, 0);
+      const double *fvm = stk::mesh::field_data(*faceVelMag_, *b, 0);
+      for (int i=0; i < 12; i++) {
+        EXPECT_NEAR(gold_values::swept_vol[i], sv[i], tol);
+        counter++;
+        EXPECT_NEAR(gold_values::face_vel_mag[i], fvm[i], tol);
+        counter++;
+        }
+    }
+    EXPECT_EQ(counter,24);
+  }
+}
+
+TEST_F(GCLTest, NGP_mesh_velocity_y_rot_scs_center)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+
+  const std::string meshDims = "1x1x1";
+  const bool secondOrder = false;
+  const double deltaT = 0.25; 
+  const std::string mesh_motion =
+    "mesh_motion:                                                          \n"
+    "  - name: interior                                                    \n"
+    "    frame: non_inertial                                               \n"
+    "    mesh_parts: [ block_1 ]                                           \n"
+    "    motion:                                                           \n"
+    "      - type: rotation                                                \n"
+    "        omega: -3.141592653589793                                     \n"
+    "        axis: [0.0,1.0,0.0]                                           \n"
+    "        centroid: [0.5, 0.5, 0.75]                                    \n";
+  
+  fill_mesh_and_init_fields(meshDims, false);
+  init_time_integrator(secondOrder, deltaT);
+  register_algorithms(mesh_motion);
+  init_states();
+
+  const double tol = 1.0e-15;
+  namespace gold_values = ::hex8_golds_y_rot::ngp_mesh_velocity;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::ELEM_RANK, sel);
+    int counter=0;
+    for (const auto* b: bkts) {
+      const double *sv = stk::mesh::field_data(*sweptVol_, *b, 0);
+      const double *fvm = stk::mesh::field_data(*faceVelMag_, *b, 0);
+      for (int i=0; i < 12; i++) {
+        // check only for scs through the center of which rotation axis passes
+        // in addition to all scs perpendicular to rotation axis - total 6 scs
+        if((i==1) || (i==3) || (i==4) || (i==5) || (i==6) || (i==7))
+        {
+          EXPECT_NEAR(0.0, sv[i], tol);
+          counter++;
+          EXPECT_NEAR(0.0, fvm[i], tol);
+          counter++;
+        }
+      }
+    }
+    EXPECT_EQ(counter,12);
+  }
+}
+

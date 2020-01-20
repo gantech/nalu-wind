@@ -4,7 +4,6 @@ target_sources(${utest_ex_name} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestDiffFluxCoeffAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestEffSSTDiffFluxCoeffAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestEnthalpyDiffFluxCoeffAlg.C 
-  ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestMeshVelocityAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestMdotAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestTurbViscKsgsAlg.C
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitTestTurbViscSSTAlg.C
