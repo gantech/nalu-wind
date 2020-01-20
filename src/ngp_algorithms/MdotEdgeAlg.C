@@ -104,7 +104,7 @@ MdotEdgeAlg::execute()
       const DblType inv_axdx = 1.0 / axdx;
 
       DblType tmdot = -projTimeScale * (pressureR - pressureL) * asq * inv_axdx
-        - edgeFaceVelMag.get(einfo.meshIdx,0);
+        - rhoIp * edgeFaceVelMag.get(einfo.meshIdx,0);
       for (int d=0; d < ndim; ++d) {
         const DblType dxj =
           coordinates.get(nodeR, d) - coordinates.get(nodeL, d);
