@@ -55,7 +55,6 @@ private:
   unsigned densityNm1ID_ {stk::mesh::InvalidOrdinal};
   unsigned densityNID_ {stk::mesh::InvalidOrdinal};
   unsigned densityNp1ID_ {stk::mesh::InvalidOrdinal};
-  unsigned dualNodalVolumeID_ {stk::mesh::InvalidOrdinal};
   unsigned dnvNp1ID_ {stk::mesh::InvalidOrdinal};
   unsigned dnvNID_ {stk::mesh::InvalidOrdinal};
   unsigned dnvNm1ID_ {stk::mesh::InvalidOrdinal};
