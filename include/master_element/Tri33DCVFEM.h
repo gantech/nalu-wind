@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef Tri33DCVFEM_h  
@@ -44,17 +47,31 @@ public:
 
   KOKKOS_FUNCTION virtual const int *  ipNodeMap(int ordinal = 0) const final;
 
+  KOKKOS_FUNCTION virtual void determinant(
+    SharedMemView<DoubleType**, DeviceShmem>&coords,
+    SharedMemView<DoubleType**, DeviceShmem>&areav);
+
   void determinant(
     const int nelem,
     const double *coords,
     double *areav,
     double * error );
 
+  KOKKOS_FUNCTION virtual void shape_fcn(
+    SharedMemView<DoubleType**, DeviceShmem> &shpfc);
+
   void shape_fcn(
      double *shpfc);
 
+  KOKKOS_FUNCTION virtual void shifted_shape_fcn(
+    SharedMemView<DoubleType**, DeviceShmem> &shpfc);
+
    void shifted_shape_fcn(
      double *shpfc);
+
+  KOKKOS_FUNCTION void tri_shape_fcn(
+     const double *par_coord,
+     SharedMemView<DoubleType**, DeviceShmem> &shpfc);
 
    void tri_shape_fcn(
      const int npts,

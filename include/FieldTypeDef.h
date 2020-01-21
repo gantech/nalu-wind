@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef FieldTypeDef_h
@@ -12,6 +15,8 @@
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/CoordinateSystems.hpp>
 #include <stk_ngp/Ngp.hpp>
+
+#include "LinearSolverTypes.h" // for GlobalOrdinal
 
 #ifdef NALU_USES_HYPRE
 #include "HYPRE_utilities.h"
@@ -46,6 +51,7 @@ typedef HYPRE_Int HypreIntType;
 typedef int HypreIntType;
 #endif
 
+typedef stk::mesh::Field<LinSys::GlobalOrdinal> TpetIDFieldType;
 typedef stk::mesh::Field<HypreIntType> HypreIDFieldType;
 
 } // namespace nalu

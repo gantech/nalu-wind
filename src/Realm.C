@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #include <Realm.h>
@@ -21,7 +24,6 @@
 
 #include <AuxFunction.h>
 #include <AuxFunctionAlgorithm.h>
-#include <ComputeGeometryAlgorithmDriver.h>
 #include <ComputeGeometryBoundaryAlgorithm.h>
 #include <ComputeGeometryInteriorAlgorithm.h>
 #include <ConstantAuxFunction.h>
@@ -49,9 +51,9 @@
 
 #include <element_promotion/PromoteElement.h>
 #include <element_promotion/PromotedElementIO.h>
-#include <element_promotion/ElementDescription.h>
 #include <element_promotion/PromotedPartHelper.h>
-#include <master_element/MasterElementHO.h>
+#include <element_promotion/HexNElementDescription.h>
+#include <master_element/QuadratureRule.h>
 
 // mesh motion
 #include <mesh_motion/MeshMotionAlg.h>
@@ -104,6 +106,17 @@
 
 // transfer
 #include <xfer/Transfer.h>
+
+#include "utils/StkHelpers.h"
+#include "ngp_utils/NgpTypes.h"
+#include "ngp_utils/NgpLoopUtils.h"
+#include "ngp_utils/NgpFieldBLAS.h"
+#include "ngp_algorithms/GeometryAlgDriver.h"
+#include "ngp_algorithms/GeometryInteriorAlg.h"
+#include "ngp_algorithms/GeometryBoundaryAlg.h"
+#include "ngp_algorithms/MeshVelocityAlg.h"
+#include "ngp_algorithms/MeshVelocityEdgeAlg.h"
+#include "AlgTraits.h"
 
 // stk_util
 #include <stk_util/parallel/Parallel.hpp>
@@ -183,7 +196,6 @@ namespace nalu{
     ioBroker_(NULL),
     resultsFileIndex_(99),
     restartFileIndex_(99),
-    computeGeometryAlgDriver_(0),
     errorIndicatorAlgDriver_(0),
 #if defined (NALU_USES_PERCEPT)
     adapter_(0),
@@ -272,8 +284,6 @@ Realm::~Realm()
   delete metaData_;
   delete ioBroker_;
 
-  delete computeGeometryAlgDriver_;
-
   if ( NULL != errorIndicatorAlgDriver_)
     delete errorIndicatorAlgDriver_;
 
@@ -336,7 +346,7 @@ Realm::~Realm()
 void
 Realm::breadboard()
 {
-  computeGeometryAlgDriver_ = new ComputeGeometryAlgorithmDriver(*this);
+  geometryAlgDriver_.reset(new GeometryAlgDriver(*this));
   equationSystems_.breadboard();
 }
 
@@ -613,22 +623,33 @@ Realm::look_ahead_and_creation(const YAML::Node & node)
       case ActuatorType::ActLineFAST : {
 #ifdef NALU_USES_OPENFAST
 	actuator_ =  new ActuatorLineFAST(*this, *foundActuator[0]);
+	break;
 #else
 	throw std::runtime_error("look_ahead_and_create::error: Requested actuator type: " + ActuatorTypeName + ", but was not enabled at compile time");
-#endif
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
 	break;
+#endif
+#endif
       }
       case ActuatorType::ActDiskFAST : {
 #ifdef NALU_USES_OPENFAST
 	actuator_ =  new ActuatorDiskFAST(*this, *foundActuator[0]);
+	break;
 #else
 	throw std::runtime_error("look_ahead_and_create::error: Requested actuator type: " + ActuatorTypeName + ", but was not enabled at compile time");
-#endif
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
 	break;
+#endif
+#endif
       }
       default : {
         throw std::runtime_error("look_ahead_and_create::error: unrecognized actuator type: " + ActuatorTypeName);
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
         break;
+#endif
       }
       }
     }
@@ -689,13 +710,8 @@ Realm::load(const YAML::Node & node)
 
   get_if_present(node, "polynomial_order", promotionOrder_, promotionOrder_);
   if (promotionOrder_ >=1) {
+    throw std::runtime_error("Mesh promotion not available");
     doPromotion_ = true;
-
-    // with polynomial order set to 1, the HO method defaults down to the consistent mass matrix P1 discretization
-    // super-element/faces are activated despite being unnecessary
-    if (promotionOrder_ == 1) {
-      NaluEnv::self().naluOutputP0() << "Activating the consistent-mass matrix P1 discretization..." << std::endl;
-    }
   }
 
   // let everyone know about core algorithm
@@ -877,6 +893,9 @@ Realm::setup_nodal_fields()
   hypreGlobalId_ = &(metaData_->declare_field<HypreIDFieldType>(
                        stk::topology::NODE_RANK, "hypre_global_id"));
 #endif
+  tpetGlobalId_ = &(metaData_->declare_field<TpetIDFieldType>(
+                       stk::topology::NODE_RANK, "tpet_global_id"));
+
   // register global id and rank fields on all parts
   const stk::mesh::PartVector parts = metaData_->get_parts();
   for ( size_t ipart = 0; ipart < parts.size(); ++ipart ) {
@@ -886,6 +905,8 @@ Realm::setup_nodal_fields()
 #ifdef NALU_USES_HYPRE
     stk::mesh::put_field_on_mesh(*hypreGlobalId_, *parts[ipart], nullptr);
 #endif
+    stk::mesh::put_field_on_mesh(*tpetGlobalId_, *parts[ipart], nullptr);
+    stk::mesh::field_fill(std::numeric_limits<LinSys::GlobalOrdinal>::max(), *tpetGlobalId_);
   }
 
 
@@ -914,6 +935,30 @@ Realm::setup_element_fields()
   // loop over all material props targets and register element fields
   std::vector<std::string> targetNames = get_physics_target_names();
   equationSystems_.register_element_fields(targetNames);
+  const int numVolStates = does_mesh_move() ? number_of_states() : 1;
+
+  if (has_mesh_motion()) {
+    const auto entityRank = realmUsesEdges_ ? stk::topology::EDGE_RANK : stk::topology::ELEM_RANK;
+    const std::string fvm_fieldName = realmUsesEdges_ ? "edge_face_velocity_mag" :  "face_velocity_mag";
+    const std::string sv_fieldName = realmUsesEdges_ ? "edge_swept_face_volume" :  "swept_face_volume";
+    std::cerr << "fvm_fieldName = " << fvm_fieldName << std::endl;
+    std::cerr << "sv_fieldName = " << sv_fieldName << std::endl;
+    GenericFieldType* faceVelMag = &(metaData_->declare_field<GenericFieldType>(
+                                     entityRank, fvm_fieldName));
+    GenericFieldType* sweptFaceVolume = &(metaData_->declare_field<GenericFieldType>(
+                                          entityRank, sv_fieldName, numVolStates));
+    for (auto target: targetNames) {
+      auto * targetPart = metaData_->get_part(target);
+      auto fieldSize = 1;
+      if ( !realmUsesEdges_ ) {
+        auto *meSCS = sierra::nalu::MasterElementRepo::get_surface_master_element(targetPart->topology());
+        fieldSize = meSCS->num_integration_points();
+      }
+      stk::mesh::put_field_on_mesh(*faceVelMag, *targetPart, fieldSize, nullptr);
+      stk::mesh::put_field_on_mesh(*sweptFaceVolume, *targetPart, fieldSize, nullptr);
+    }
+  }
+  
 }
 
 //--------------------------------------------------------------------------
@@ -928,9 +973,33 @@ Realm::setup_interior_algorithms()
     if ( NULL == errorIndicatorAlgDriver_ )
       errorIndicatorAlgDriver_ = new ErrorIndicatorAlgorithmDriver(*this);
   }
+
+  if (has_mesh_motion()) {
+    const AlgorithmType algType = INTERIOR;
+    stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
+    if (realmUsesEdges_)
+    {
+      std::cerr << "Setting up edge algorithm for mesh velocity" << std::endl;
+      for (auto p: mmPartVec) {
+        std::cerr << "Setting edge algorithm for a part" << std::endl;
+        geometryAlgDriver_->register_elem_algorithm<
+          MeshVelocityEdgeAlg>(algType, p, "mesh_vel");
+      }
+    } else
+    {
+      std::cerr << "Setting up element algorithm for mesh velocity" << std::endl;
+      for (auto p: mmPartVec) {
+        geometryAlgDriver_->register_elem_algorithm<
+          MeshVelocityAlg>(algType, p, "mesh_vel");
+      }
+    }
+  }
+  
   // loop over all material props targets and register interior algs
   std::vector<std::string> targetNames = get_physics_target_names();
   equationSystems_.register_interior_algorithm(targetNames);
+
+  
 }
 
 //--------------------------------------------------------------------------
@@ -2097,7 +2166,6 @@ Realm::create_mesh()
     edgesPart_ = &metaData_->declare_part("create_edges_part", stk::topology::EDGE_RANK);
   }
 
-  meshInfo_.reset(new typename Realm::NgpMeshInfo(*bulkData_));
   // set mesh creation
   const double end_time = NaluEnv::self().nalu_time();
   timerCreateMesh_ = (end_time - start_time);
@@ -2611,7 +2679,7 @@ void
 Realm::compute_geometry()
 {
   // interior and boundary
-  computeGeometryAlgDriver_->execute();
+  geometryAlgDriver_->execute();
 
   // find total volume if the mesh moves at all
   if ( does_mesh_move() ) {
@@ -2654,36 +2722,35 @@ Realm::compute_geometry()
 //-------- compute_vrtm ----------------------------------------------------
 //--------------------------------------------------------------------------
 void
-Realm::compute_vrtm()
+Realm::compute_vrtm(const std::string& velName)
 {
-  // compute velocity relative to mesh; must be tied to velocity update...
-  if ( solutionOptions_->meshMotion_ || solutionOptions_->externalMeshDeformation_ ) {
-    const int nDim = metaData_->spatial_dimension();
+  if (!solutionOptions_->meshMotion_ &&
+      !solutionOptions_->externalMeshDeformation_) return;
 
-    VectorFieldType *velocity = metaData_->get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
-    VectorFieldType *meshVelocity = metaData_->get_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_velocity");
-    VectorFieldType *velocityRTM = metaData_->get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity_rtm");
+  using Traits = nalu_ngp::NGPMeshTraits<ngp::Mesh>;
+  using MeshIndex = Traits::MeshIndex;
 
-    stk::mesh::Selector s_all_nodes
-       = (metaData_->locally_owned_part() | metaData_->globally_shared_part());
+  const int nDim = metaData_->spatial_dimension();
+  const auto& ngpMesh = ngp_mesh();
+  const auto& fieldMgr = ngp_field_manager();
+  const auto vel = fieldMgr.get_field<double>(
+    get_field_ordinal(*metaData_, velName));
+  const auto meshVel = fieldMgr.get_field<double>(
+    get_field_ordinal(*metaData_, "mesh_velocity"));
+  auto vrtm = fieldMgr.get_field<double>(
+    get_field_ordinal(*metaData_, velName + "_rtm"));
 
-    stk::mesh::BucketVector const& node_buckets = bulkData_->get_buckets( stk::topology::NODE_RANK, s_all_nodes );
-    for ( stk::mesh::BucketVector::const_iterator ib = node_buckets.begin() ;
-	  ib != node_buckets.end() ; ++ib ) {
-      stk::mesh::Bucket & b = **ib ;
-      const stk::mesh::Bucket::size_type length   = b.size();
-      const double * uNp1 = stk::mesh::field_data(*velocity, b);
-      const double * vNp1 = stk::mesh::field_data(*meshVelocity, b);
-      double * vrtm = stk::mesh::field_data(*velocityRTM, b);
+  const stk::mesh::Selector sel = (
+    metaData_->locally_owned_part() | metaData_->globally_shared_part());
+  nalu_ngp::run_entity_algorithm(
+    "compute_vrtm",
+    ngpMesh, stk::topology::NODE_RANK, sel,
+    KOKKOS_LAMBDA(const MeshIndex& mi) {
+      for (int d=0; d < nDim; ++d)
+        vrtm.get(mi, d) = vel.get(mi, d) - meshVel.get(mi, d);
+    });
 
-      for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
-        const int offSet = k*nDim;
-        for ( int j=0; j < nDim; ++j ) {
-          vrtm[offSet+j] = uNp1[offSet+j] - vNp1[offSet+j];
-        }
-      }
-    }
-  }
+  vrtm.modify_on_device();
 }
 
 //--------------------------------------------------------------------------
@@ -2770,9 +2837,24 @@ Realm::register_nodal_fields(
   // register high level common fields
   const int nDim = metaData_->spatial_dimension();
 
+  // Declare volume/area_vector fields
+  const int numVolStates = does_mesh_move() ? number_of_states() : 1;
+  auto& dualNodalVol = metaData_->declare_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "dual_nodal_volume", numVolStates);
+  stk::mesh::put_field_on_mesh(dualNodalVol, *part, 1, nullptr);
+  if (numVolStates > 1)
+    augment_restart_variable_list("dual_nodal_volume");
+  auto& elemVol = metaData_->declare_field<ScalarFieldType>(stk::topology::ELEM_RANK, "element_volume");
+  stk::mesh::put_field_on_mesh(elemVol, *part, 1, nullptr);
+
+  if (realmUsesEdges_) {
+    auto& edgeAreaVec = metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "edge_area_vector");
+    stk::mesh::put_field_on_mesh(edgeAreaVec, *part, metaData_->spatial_dimension(), nullptr);
+  }
+
   // mesh motion/deformation is high level
   if ( solutionOptions_->meshMotion_ || solutionOptions_->externalMeshDeformation_) {
-    VectorFieldType *displacement = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement"));
+      VectorFieldType *displacement = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement", numVolStates));
     stk::mesh::put_field_on_mesh(*displacement, *part, nDim, nullptr);
     VectorFieldType *currentCoords = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "current_coordinates"));
     stk::mesh::put_field_on_mesh(*currentCoords, *part, nDim, nullptr);
@@ -2781,11 +2863,9 @@ Realm::register_nodal_fields(
     VectorFieldType *velocityRTM = &(metaData_->declare_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity_rtm"));
     stk::mesh::put_field_on_mesh(*velocityRTM, *part, nDim, nullptr);
 
-    // only external mesh deformation requires dvi/dxj (for GCL)
-    if ( solutionOptions_->externalMeshDeformation_) {
-      ScalarFieldType *divV = &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
-      stk::mesh::put_field_on_mesh(*divV, *part, nullptr);
-    }
+    ScalarFieldType *divV = &(metaData_->declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
+    stk::mesh::put_field_on_mesh(*divV, *part, nullptr);
+
   }
 
   ScalarIntFieldType& iblank = metaData_->declare_field<ScalarIntFieldType>(
@@ -2800,20 +2880,10 @@ void
 Realm::register_interior_algorithm(
   stk::mesh::Part *part)
 {
-  //====================================================
-  // Register interior algorithms
-  //====================================================
   const AlgorithmType algType = INTERIOR;
-  std::map<AlgorithmType, Algorithm *>::iterator it
-    = computeGeometryAlgDriver_->algMap_.find(algType);
-  if ( it == computeGeometryAlgDriver_->algMap_.end() ) {
-    ComputeGeometryInteriorAlgorithm *theAlg
-      = new ComputeGeometryInteriorAlgorithm(*this, part);
-    computeGeometryAlgDriver_->algMap_[algType] = theAlg;
-  }
-  else {
-    it->second->partVec_.push_back(part);
-  }
+  geometryAlgDriver_->register_elem_algorithm<
+    GeometryInteriorAlg, ComputeGeometryInteriorAlgorithm>(
+      algType, part, "geometry");
 
   // Track parts that are registered to interior algorithms
   interiorPartVec_.push_back(part);
@@ -2845,21 +2915,10 @@ Realm::register_wall_bc(
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
   stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
-  //====================================================
-  // Register wall algorithms
-  //====================================================
   const AlgorithmType algType = WALL;
-  std::map<AlgorithmType, Algorithm *>::iterator it
-    = computeGeometryAlgDriver_->algMap_.find(algType);
-  if ( it == computeGeometryAlgDriver_->algMap_.end() ) {
-    ComputeGeometryBoundaryAlgorithm *theAlg
-      = new ComputeGeometryBoundaryAlgorithm(*this, part);
-    computeGeometryAlgDriver_->algMap_[algType] = theAlg;
-  }
-  else {
-    it->second->partVec_.push_back(part);
-  }
-
+  geometryAlgDriver_
+    ->register_face_algorithm<GeometryBoundaryAlg, ComputeGeometryBoundaryAlgorithm>(
+      algType, part, "geometry");
 }
 
 //--------------------------------------------------------------------------
@@ -2888,20 +2947,10 @@ Realm::register_inflow_bc(
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
   stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
-  //====================================================
-  // Register wall algorithms
-  //====================================================
   const AlgorithmType algType = INFLOW;
-  std::map<AlgorithmType, Algorithm *>::iterator it
-    = computeGeometryAlgDriver_->algMap_.find(algType);
-  if ( it == computeGeometryAlgDriver_->algMap_.end() ) {
-    ComputeGeometryBoundaryAlgorithm *theAlg
-      = new ComputeGeometryBoundaryAlgorithm(*this, part);
-    computeGeometryAlgDriver_->algMap_[algType] = theAlg;
-  }
-  else {
-    it->second->partVec_.push_back(part);
-  }
+  geometryAlgDriver_
+    ->register_face_algorithm<GeometryBoundaryAlg, ComputeGeometryBoundaryAlgorithm>(
+      algType, part, "geometry");
 }
 
 //--------------------------------------------------------------------------
@@ -2931,20 +2980,10 @@ Realm::register_open_bc(
   stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
 
-  //====================================================
-  // Register wall algorithms
-  //====================================================
   const AlgorithmType algType = OPEN;
-  std::map<AlgorithmType, Algorithm *>::iterator it
-    = computeGeometryAlgDriver_->algMap_.find(algType);
-  if ( it == computeGeometryAlgDriver_->algMap_.end() ) {
-    ComputeGeometryBoundaryAlgorithm *theAlg
-      = new ComputeGeometryBoundaryAlgorithm(*this, part);
-    computeGeometryAlgDriver_->algMap_[algType] = theAlg;
-  }
-  else {
-    it->second->partVec_.push_back(part);
-  }
+  geometryAlgDriver_
+    ->register_face_algorithm<GeometryBoundaryAlg, ComputeGeometryBoundaryAlgorithm>(
+      algType, part, "geometry");
 }
 
 //--------------------------------------------------------------------------
@@ -2973,20 +3012,10 @@ Realm::register_symmetry_bc(
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
   stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
 
-  //====================================================
-  // Register symmetry algorithms
-  //====================================================
   const AlgorithmType algType = SYMMETRY;
-  std::map<AlgorithmType, Algorithm *>::iterator it
-    = computeGeometryAlgDriver_->algMap_.find(algType);
-  if ( it == computeGeometryAlgDriver_->algMap_.end() ) {
-    ComputeGeometryBoundaryAlgorithm *theAlg
-      = new ComputeGeometryBoundaryAlgorithm(*this, part);
-    computeGeometryAlgDriver_->algMap_[algType] = theAlg;
-  }
-  else {
-    it->second->partVec_.push_back(part);
-  }
+  geometryAlgDriver_
+    ->register_face_algorithm<GeometryBoundaryAlg, ComputeGeometryBoundaryAlgorithm>(
+      algType, part, "geometry");
 }
 
 //--------------------------------------------------------------------------
@@ -3079,19 +3108,9 @@ Realm::register_non_conformal_bc(
     = &(metaData_->declare_field<GenericFieldType>(static_cast<stk::topology::rank_t>(metaData_->side_rank()), "exposed_area_vector"));
   stk::mesh::put_field_on_mesh(*exposedAreaVec_, *part, nDim*numScsIp , nullptr);
    
-  //====================================================
-  // Register non-conformal algorithms
-  //====================================================
-  std::map<AlgorithmType, Algorithm *>::iterator it
-    = computeGeometryAlgDriver_->algMap_.find(algType);
-  if ( it == computeGeometryAlgDriver_->algMap_.end() ) {
-    ComputeGeometryBoundaryAlgorithm *theAlg
-      = new ComputeGeometryBoundaryAlgorithm(*this, part);
-    computeGeometryAlgDriver_->algMap_[algType] = theAlg;
-  }
-  else {
-    it->second->partVec_.push_back(part);
-  }
+  geometryAlgDriver_
+    ->register_legacy_algorithm<ComputeGeometryBoundaryAlgorithm>(
+      algType, part, "geometry");
 }
 
 //--------------------------------------------------------------------------
@@ -3128,12 +3147,18 @@ Realm::setup_overset_bc(
       // should not get here... we should have thrown error in input file processing stage
       throw std::runtime_error("TIOGA TPL support not enabled during compilation phase");
 #endif
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
       break;
+#endif
 
     case OversetBoundaryConditionData::OVERSET_NONE:
     default:
       throw std::runtime_error("Invalid setting for overset connectivity");
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
       break;
+#endif
     }
   }   
 }
@@ -3152,6 +3177,15 @@ Realm::periodic_field_update(
   periodicManager_->apply_constraints(theField, sizeOfField, bypassFieldCheck, addSlaves, setSlaves);
 }
 
+
+void
+Realm::periodic_field_max(
+  stk::mesh::FieldBase *theField,
+  const unsigned &sizeOfField) const
+{
+  periodicManager_->apply_max_field(theField, sizeOfField);
+}
+
 //--------------------------------------------------------------------------
 //-------- periodic_delta_solution_update -------------------------------------------
 //--------------------------------------------------------------------------
@@ -3163,7 +3197,8 @@ Realm::periodic_delta_solution_update(
   const bool bypassFieldCheck = true;
   const bool addSlaves = false;
   const bool setSlaves = true;
-  periodicManager_->apply_constraints(theField, sizeOfField, bypassFieldCheck, addSlaves, setSlaves);
+  periodicManager_->ngp_apply_constraints(
+    theField, sizeOfField, bypassFieldCheck, addSlaves, setSlaves);
 }
 
 //--------------------------------------------------------------------------
@@ -3361,6 +3396,31 @@ void
 Realm::swap_states()
 {
   bulkData_->update_field_data_states();
+
+#ifdef KOKKOS_ENABLE_CUDA
+  if (get_time_step_count() < 2) return;
+
+  const auto& fieldMgr = ngp_field_manager();
+  for (const auto fld: metaData_->get_fields()) {
+    const unsigned numStates = fld->number_of_states();
+    const auto fieldID = fld->mesh_meta_data_ordinal();
+    const auto fieldNp1ID =
+      fld->field_state(stk::mesh::StateNP1)->mesh_meta_data_ordinal();
+
+    if ((numStates < 2) || (fieldID != fieldNp1ID)) continue;
+
+    for (unsigned i=(numStates - 1); i > 0; --i) {
+      auto& toField = fieldMgr.get_field<double>(
+        fld->field_state(static_cast<stk::mesh::FieldState>(i))
+        ->mesh_meta_data_ordinal());
+      auto& fromField = fieldMgr.get_field<double>(
+        fld->field_state(static_cast<stk::mesh::FieldState>(i-1))
+        ->mesh_meta_data_ordinal());
+
+      toField.swap(fromField);
+    }
+  }
+#endif
 }
 
 //--------------------------------------------------------------------------
@@ -4384,7 +4444,7 @@ Realm::setup_element_promotion()
   // Create a description of the element and deal with the part naming styles
 
   // Struct containing information about the element (e.g. number of nodes, nodes per face, etc.)
-  desc_ = ElementDescription::create(meta_data().spatial_dimension(), promotionOrder_);
+  HexNElementDescription desc(promotionOrder_);
 
   // Every mesh part is promoted for now
   basePartVector_ = metaData_->get_mesh_parts();
@@ -4409,7 +4469,7 @@ Realm::setup_element_promotion()
 
         superPart = &metaData_->declare_part_with_topology(
           superName,
-          stk::create_superelement_topology(static_cast<unsigned>(desc_->nodesPerElement))
+          stk::create_superelement_topology(static_cast<unsigned>(desc.nodesPerElement))
         );
         stk::io::put_io_part_attribute(*superPart);
       }
@@ -4422,10 +4482,6 @@ Realm::setup_element_promotion()
       }
       superPartVector_.push_back(superPart);
       superTargetNames_.push_back(superName);
-
-      // Create elements for future use
-      sierra::nalu::MasterElementRepo::get_surface_master_element(superPart->topology(), meta_data().spatial_dimension(), "GaussLegendre");
-      sierra::nalu::MasterElementRepo::get_volume_master_element(superPart->topology(), meta_data().spatial_dimension(), "GaussLegendre");
     }
   }
 
@@ -4436,7 +4492,7 @@ Realm::setup_element_promotion()
       auto* superSuperset = &metaData_->declare_part(super_element_part_name(targetPart->name()), sideRank);
       for (const auto* subset : targetPart->subsets()) {
         if (subset->topology().rank() == sideRank) {
-          unsigned nodesPerSide = desc_->nodesPerSide;
+          unsigned nodesPerSide = desc.nodesPerSide;
           auto sideTopo = (metaData_->spatial_dimension() == 2) ?
               stk::create_superedge_topology(nodesPerSide)
             : stk::create_superface_topology(nodesPerSide);
@@ -4446,19 +4502,11 @@ Realm::setup_element_promotion()
           stk::mesh::Part* superFacePart = &metaData_->declare_part_with_topology(partName,sideTopo);
           superPartVector_.push_back(superFacePart);
           metaData_->declare_part_subset(*superSuperset, *superFacePart);
-
-          // Create elements for future use
-          sierra::nalu::MasterElementRepo::get_surface_master_element(sideTopo, meta_data().spatial_dimension(), "GaussLegendre");
-          sierra::nalu::MasterElementRepo::get_volume_master_element(sideTopo, meta_data().spatial_dimension(), "GaussLegendre");
         }
       }
     }
   }
-
   metaData_->declare_part("edge_part", stk::topology::EDGE_RANK);
-  if (metaData_->spatial_dimension() == 3) {
-    metaData_->declare_part("face_part", stk::topology::FACE_RANK);
-  }
 }
 
 //--------------------------------------------------------------------------
@@ -4470,16 +4518,13 @@ Realm::promote_mesh()
   NaluEnv::self().naluOutputP0() << "Realm::promote_elements() Begin " << std::endl;
   auto timeA = stk::wall_time();
 
-  auto* coords = metaData_->get_field<VectorFieldType>(stk::topology::NODE_RANK, "coordinates");
-
-  auto* edgePart = metaData_->get_part("edge_part");
-  auto* facePart = metaData_->get_part("face_part");
-
+  auto& coords = *metaData_->get_field<VectorFieldType>(stk::topology::NODE_RANK, "coordinates");
   if (!restarted_simulation()) {
-    promotion::promote_elements(*bulkData_, *desc_, *coords, basePartVector_, edgePart, facePart);
+    const auto gllNodes = gauss_lobatto_legendre_rule(promotionOrder_+ 1).first;
+    promotion::create_tensor_product_hex_elements(gllNodes, *bulkData_, coords, basePartVector_);
   }
   else {
-    promotion::create_boundary_elements(*bulkData_, *desc_, basePartVector_);
+    promotion::create_promoted_boundary_elements(promotionOrder_, *bulkData_,  basePartVector_);
   }
 
   auto timeB = stk::wall_time();
@@ -4502,7 +4547,7 @@ Realm::create_promoted_output_mesh()
 
     auto* coords = metaData_->get_field<VectorFieldType>(stk::topology::NODE_RANK, "coordinates");
     promotionIO_ = make_unique<PromotedElementIO>(
-      *desc_,
+      promotionOrder_,
       *metaData_,
       *bulkData_,
       metaData_->get_mesh_parts(),
@@ -4831,11 +4876,6 @@ bool
   return solutionOptions_->activateAdaptivity_;
 }
 
-bool
-Realm::using_tensor_product_kernels() const
-{
-  return solutionOptions_->newHO_;
-}
 
 } // namespace nalu
 } // namespace Sierra

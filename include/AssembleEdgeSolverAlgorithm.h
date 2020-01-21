@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2019 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #ifndef ASSEMBLEEDGESOLVERALGORITHM_H
 #define ASSEMBLEEDGESOLVERALGORITHM_H
@@ -14,6 +17,8 @@
 #include "Realm.h"
 #include "ScratchViews.h"
 #include "SharedMemData.h"
+#include "EquationSystem.h"
+#include "LinearSystem.h"
 
 namespace stk {
 namespace mesh {
@@ -62,9 +67,9 @@ public:
     const auto entityRank = entityRank_;
     const auto rhsSize = rhsSize_;
 
-#ifndef KOKKOS_ENABLE_CUDA
+    auto coeffApplier = coeff_applier();
+
     const auto nodesPerEntity = nodesPerEntity_;
-#endif
 
     Kokkos::parallel_for(
       team_exec, KOKKOS_LAMBDA(const DeviceTeamHandleType& team) {
@@ -89,12 +94,9 @@ public:
 
             lambdaFunc(smdata, edgeIndex, nodeL, nodeR);
 
-#ifndef KOKKOS_ENABLE_CUDA
-            // TODO: scratchIds and sort permutations could be optimized away for edge based
-            this->apply_coeff(
+            coeffApplier(
               nodesPerEntity, smdata.ngpElemNodes, smdata.scratchIds,
               smdata.sortPermutation, smdata.rhs, smdata.lhs, __FILE__);
-#endif
           });
       });
   }
@@ -104,7 +106,7 @@ protected:
 
   static constexpr stk::mesh::EntityRank entityRank_{stk::topology::EDGE_RANK};
   static constexpr int nodesPerEntity_{2};
-  static constexpr int nDimMax_{3};
+  static constexpr int NDimMax_{3};
   const int rhsSize_;
 };
 

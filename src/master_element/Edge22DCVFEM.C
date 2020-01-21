@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #include <master_element/Edge22DCVFEM.h>
@@ -11,9 +14,6 @@
 #include <master_element/MasterElementFunctions.h>
 #include <master_element/MasterElementUtils.h>
 
-#include <element_promotion/LagrangeBasis.h>
-#include <element_promotion/TensorProductQuadratureRule.h>
-#include <element_promotion/QuadratureRule.h>
 #include <AlgTraits.h>
 
 #include <NaluEnv.h>
@@ -46,6 +46,8 @@ Edge2DSCS::Edge2DSCS()
   MasterElement::numIntPoints_ = numIntPoints_;
 }
 
+
+
 //--------------------------------------------------------------------------
 //-------- ipNodeMap -------------------------------------------------------
 //--------------------------------------------------------------------------
@@ -59,6 +61,37 @@ Edge2DSCS::ipNodeMap(int /*ordinal*/) const
 //--------------------------------------------------------------------------
 //-------- determinant -----------------------------------------------------
 //--------------------------------------------------------------------------
+void Edge2DSCS::determinant(
+    SharedMemView<DoubleType**, DeviceShmem> &coords,
+    SharedMemView<DoubleType**, DeviceShmem> &area) 
+{
+  constexpr int npe  = nodesPerElement_;
+  constexpr int dim  = nDim_;
+  DoubleType p[dim][npe], c[dim];
+
+  const DoubleType half = 0.5;
+
+  for (int i=0; i<npe; ++i) {
+    for (int idim=0; idim<dim; ++idim) {
+       p[idim][i] = coords(i,idim);
+    }
+  }
+  for (int idim=0; idim<dim; ++idim)
+    c[idim] = ( p[idim][0] + p[idim][1] ) * half;
+
+  DoubleType dx13 = coords(0,0) - c[0];
+  DoubleType dy13 = coords(0,1) - c[1];
+
+  area(0,0) = -dy13;
+  area(0,1) =  dx13;
+
+  dx13 = coords(1,0) - c[0];
+  dy13 = coords(1,1) - c[1];
+
+  area(1,0) =  dy13;
+  area(1,1) = -dx13;
+}
+
 void Edge2DSCS::determinant(
   const int nelem,
   const double *coords,
@@ -81,6 +114,14 @@ void Edge2DSCS::determinant(
 //--------------------------------------------------------------------------
 //-------- shape_fcn -------------------------------------------------------
 //--------------------------------------------------------------------------
+void Edge2DSCS::shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) 
+{
+  for ( int i =0; i < numIntPoints_; ++i ) {
+    shpfc(i,0) = 0.5-intgLoc_[i];
+    shpfc(i,1) = 0.5+intgLoc_[i];
+  }
+}
+
 void
 Edge2DSCS::shape_fcn(double *shpfc)
 {
@@ -94,6 +135,15 @@ Edge2DSCS::shape_fcn(double *shpfc)
 //--------------------------------------------------------------------------
 //-------- shifted_shape_fcn -----------------------------------------------
 //--------------------------------------------------------------------------
+void Edge2DSCS::shifted_shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) 
+{
+  for ( int i =0; i< numIntPoints_; ++i ) {
+    shpfc(i,0) = 0.5-intgLocShift_[i];
+    shpfc(i,1) = 0.5+intgLocShift_[i];
+  }
+}
+
+
 void
 Edge2DSCS::shifted_shape_fcn(double *shpfc)
 {

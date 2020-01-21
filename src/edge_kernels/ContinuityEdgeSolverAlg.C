@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2019 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #include "edge_kernels/ContinuityEdgeSolverAlg.h"
 #include "utils/StkHelpers.h"
@@ -20,12 +23,13 @@ ContinuityEdgeSolverAlg::ContinuityEdgeSolverAlg(
   const auto& meta = realm.meta_data();
 
   coordinates_ = get_field_ordinal(meta, realm.get_coordinates_name());
-  const std::string velField = realm.does_mesh_move()? "velocity_rtm" : "velocity";
-  velocityRTM_ = get_field_ordinal(meta, velField);
+  velocity_ = get_field_ordinal(meta, "velocity");
   densityNp1_ = get_field_ordinal(meta, "density", stk::mesh::StateNP1);
   pressure_ = get_field_ordinal(meta, "pressure");
   Gpdx_ = get_field_ordinal(meta, "dpdx");
   edgeAreaVec_ = get_field_ordinal(meta, "edge_area_vector", stk::topology::EDGE_RANK);
+  edgeFaceVelMag_ = 
+    get_field_ordinal(realm.meta_data(), "edge_face_velocity_mag", stk::topology::EDGE_RANK);
   Udiag_ = get_field_ordinal(meta, "momentum_diag");
 }
 
@@ -51,12 +55,13 @@ ContinuityEdgeSolverAlg::execute()
   // STK ngp::Field instances for capture by lambda
   const auto& fieldMgr = realm_.ngp_field_manager();
   const auto coordinates = fieldMgr.get_field<double>(coordinates_);
-  const auto velocity = fieldMgr.get_field<double>(velocityRTM_);
+  const auto velocity = fieldMgr.get_field<double>(velocity_);
   const auto Gpdx = fieldMgr.get_field<double>(Gpdx_);
   const auto density = fieldMgr.get_field<double>(densityNp1_);
   const auto pressure = fieldMgr.get_field<double>(pressure_);
   const auto udiag = fieldMgr.get_field<double>(Udiag_);
   const auto edgeAreaVec = fieldMgr.get_field<double>(edgeAreaVec_);
+  const auto edgeFaceVelMag = fieldMgr.get_field<double>(edgeFaceVelMag_);
 
   run_algorithm(
     realm_.bulk_data(),
@@ -67,7 +72,7 @@ ContinuityEdgeSolverAlg::execute()
       const stk::mesh::FastMeshIndex& nodeR)
     {
       // Scratch work array for edgeAreaVector
-      NALU_ALIGNED DblType av[nDimMax_];
+      NALU_ALIGNED DblType av[NDimMax_];
       // Populate area vector work array
       for (int d=0; d < ndim; ++d)
         av[d] = edgeAreaVec.get(edge, d);
@@ -93,7 +98,8 @@ ContinuityEdgeSolverAlg::execute()
       }
       const DblType inv_axdx = 1.0 / axdx;
 
-      DblType tmdot = -projTimeScale * (pressureR - pressureL) * asq * inv_axdx;
+      DblType tmdot = -projTimeScale * (pressureR - pressureL) * asq * inv_axdx
+        - rhoIp * edgeFaceVelMag.get(edge,0);
       for (int d = 0; d < ndim; ++d) {
         const DblType dxj =
           coordinates.get(nodeR, d) - coordinates.get(nodeL, d);

@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #include "kernels/UnitTestKernelUtils.h"
 #include "UnitTestUtils.h"
@@ -11,7 +14,6 @@
 
 #include "kernel/WallDistElemKernel.h"
 
-#ifndef KOKKOS_ENABLE_CUDA
 namespace {
 namespace hex8_golds {
 namespace wall_dist_default {
@@ -41,7 +43,6 @@ static constexpr double lhs[8][8] = {
 }
 } // hex8_golds
 } // anonymous
-#endif
 
 TEST_F(WallDistKernelHex8Mesh, NGP_wall_dist)
 {
@@ -65,7 +66,6 @@ TEST_F(WallDistKernelHex8Mesh, NGP_wall_dist)
   // Populate LHS and RHS
   helperObjs.execute();
 
-#ifndef KOKKOS_ENABLE_CUDA
   EXPECT_EQ(helperObjs.linsys->lhs_.extent(0), 8u);
   EXPECT_EQ(helperObjs.linsys->lhs_.extent(1), 8u);
   EXPECT_EQ(helperObjs.linsys->rhs_.extent(0), 8u);
@@ -73,7 +73,6 @@ TEST_F(WallDistKernelHex8Mesh, NGP_wall_dist)
   namespace gold_values = hex8_golds::wall_dist_default;
   unit_test_kernel_utils::expect_all_near(helperObjs.linsys->rhs_, 0.125);
   unit_test_kernel_utils::expect_all_near(helperObjs.linsys->lhs_, gold_values::lhs);
-#endif
 }
 
 TEST_F(WallDistKernelHex8Mesh, NGP_wall_dist_shifted)
@@ -99,7 +98,6 @@ TEST_F(WallDistKernelHex8Mesh, NGP_wall_dist_shifted)
   // Populate LHS and RHS
   helperObjs.execute();
 
-#ifndef KOKKOS_ENABLE_CUDA
   EXPECT_EQ(helperObjs.linsys->lhs_.extent(0), 8u);
   EXPECT_EQ(helperObjs.linsys->lhs_.extent(1), 8u);
   EXPECT_EQ(helperObjs.linsys->rhs_.extent(0), 8u);
@@ -107,5 +105,4 @@ TEST_F(WallDistKernelHex8Mesh, NGP_wall_dist_shifted)
   namespace gold_values = hex8_golds::wall_dist_lumped;
   unit_test_kernel_utils::expect_all_near(helperObjs.linsys->rhs_, 0.125);
   unit_test_kernel_utils::expect_all_near(helperObjs.linsys->lhs_, gold_values::lhs);
-#endif
 }

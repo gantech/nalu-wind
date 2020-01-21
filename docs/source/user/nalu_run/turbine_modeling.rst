@@ -11,7 +11,7 @@ Actuator Turbine Model
 
      actuator:
        type: ActLineFAST
-       search_method: boost_rtree
+       search_method: stk_kdtree
        search_target_part: Unspecified-2-HEX
 
        n_turbines_glob: 2
@@ -55,11 +55,11 @@ Actuator Turbine Model
 
 .. inpfile:: actuator.type
 
-   Type of actuator source. Options are ``ActLineFAST`` and ``ActLinePointDrag``. Only ``ActLineFAST`` is documented here.
+   Type of actuator source. Options are ``ActLineFAST`` and ``ActDiskFAST``. ``ActLineFAST`` is for actuator lines, and ``ActDiskFAST`` is for actuator disks.  The actuator disk uses a stationary actuator line model to compute forces at the blade locations and then the average force of the blades is spread azimuthally between the blades sampling points. 
 
 .. inpfile:: actuator.search_method
 
-   String specifying the type of search method used to identify the nodes within the search radius of the actuator points. Options are ``boost_rtree`` and ``stk_kdtree``. The default is ``stk_kdtree`` when the ``search_type`` is not specified.
+   String specifying the type of search method used to identify the nodes within the search radius of the actuator points. The recommended option is ``stk_kdtree``. The ``boost_rtree`` option is being deprecated by the STK search library.
 
 .. inpfile:: search_target_part
 
@@ -154,3 +154,7 @@ Actuator Turbine Model
 .. inpfile:: actuator.turb_id
 
    A unique turbine id for each turbine
+   
+.. inpfile:: actuator.num_swept_pts
+
+   This is an optional parameter specifically for actuator disks.  This parameter determines the number of points that are placed azimuthally between the actuator lines and spread the forcing over the disk's area.  When ``num_swept_pts`` is included the number of azimuthal points between the lines is forced to this value at all radial locations.  If ``num_swept_pts`` is omitted then the azimuthal sampling is computed automatically with different sampling at each radial location such that the average distance between points matches the radial spacing.   

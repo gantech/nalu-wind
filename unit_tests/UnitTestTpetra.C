@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #include "gtest/gtest.h"
 #include <stk_util/parallel/Parallel.hpp>
@@ -56,7 +59,7 @@ create_algorithm(sierra::nalu::Realm& realm, stk::mesh::Part& part)
   EXPECT_TRUE(solverAlgResult.second);
   ThrowRequireMsg(solverAlgResult.first != nullptr,"Error, failed to obtain non-null solver-algorithm object.");
 
-  if (realm.computeGeometryAlgDriver_ == nullptr) {
+  if (realm.geometryAlgDriver_ == nullptr) {
     realm.breadboard();
   }
   realm.register_interior_algorithm(&part);
@@ -216,8 +219,17 @@ sierra::nalu::Realm& setup_realm(unit_test_utils::NaluTest& naluObj, const std::
 {
   sierra::nalu::Realm& realm = naluObj.create_realm();
   realm.setup_nodal_fields();
+
+  sierra::nalu::TimeIntegrator timeIntegrator;
+  timeIntegrator.secondOrderTimeAccurate_ = false;
+  realm.timeIntegrator_ = &timeIntegrator;
+  auto& part = realm.meta_data().declare_part("block_1");
+  realm.register_nodal_fields(&part);
   unit_test_utils::fill_hex8_mesh(meshSpec, realm.bulk_data());
   realm.set_global_id();
+
+  // Reset it back to nullptr so that we don't carry around a stale pointer
+  realm.timeIntegrator_ = nullptr;
   return realm;
 }
 

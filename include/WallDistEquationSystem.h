@@ -1,15 +1,19 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2018 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #ifndef WALLDISTEQUATIONSYSTEM_H
 #define WALLDISTEQUATIONSYSTEM_H
 
 #include "EquationSystem.h"
 #include "FieldTypeDef.h"
+#include "ngp_algorithms/NodalGradAlgDriver.h"
 
 #include <memory>
 
@@ -17,7 +21,6 @@ namespace sierra {
 namespace nalu {
 
 class Realm;
-class AssembleNodalGradAlgorithmDriver;
 class EquationSystems;
 
 class WallDistEquationSystem : public EquationSystem
@@ -72,11 +75,12 @@ public:
 
   int pValue() { return pValue_; }
 
+  void compute_wall_distance();
+
 private:
   WallDistEquationSystem() = delete;
   WallDistEquationSystem(const WallDistEquationSystem&) = delete;
 
-  void compute_wall_distance();
 
   VectorFieldType* coordinates_{nullptr};
   ScalarFieldType* wallDistPhi_{nullptr};
@@ -85,7 +89,7 @@ private:
   ScalarFieldType* dualNodalVolume_{nullptr};
   VectorFieldType* edgeAreaVec_{nullptr};
 
-  std::unique_ptr<AssembleNodalGradAlgorithmDriver> assembleNodalGradAlgDriver_;
+  ScalarNodalGradAlgDriver nodalGradAlgDriver_;
 
   int pValue_{2};
 

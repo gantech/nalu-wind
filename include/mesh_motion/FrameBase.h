@@ -53,6 +53,10 @@ public:
   {
   }
 
+  stk::mesh::PartVector get_partvec() {
+    return partVec_;
+  };
+
 protected:
   //! Reference to the STK Mesh BulkData object
   stk::mesh::BulkData& bulk_;

@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef MomentumMassBDFNodeKernel_h
@@ -48,7 +51,9 @@ private:
   ngp::Field<double> densityN_;
   ngp::Field<double> densityNp1_;
   ngp::Field<double> dpdx_;
-  ngp::Field<double> dualNodalVolume_;
+  ngp::Field<double> dnvNp1_;
+  ngp::Field<double> dnvN_;
+  ngp::Field<double> dnvNm1_;  
 
   unsigned velocityNm1ID_ {stk::mesh::InvalidOrdinal};
   unsigned velocityNID_ {stk::mesh::InvalidOrdinal};
@@ -57,7 +62,9 @@ private:
   unsigned densityNID_ {stk::mesh::InvalidOrdinal};
   unsigned densityNp1ID_ {stk::mesh::InvalidOrdinal};
   unsigned dpdxID_ {stk::mesh::InvalidOrdinal};
-  unsigned dualNodalVolumeID_ {stk::mesh::InvalidOrdinal};
+  unsigned dnvNp1ID_ {stk::mesh::InvalidOrdinal};
+  unsigned dnvNID_ {stk::mesh::InvalidOrdinal};
+  unsigned dnvNm1ID_ {stk::mesh::InvalidOrdinal};
   
   double dt_;
   int nDim_;

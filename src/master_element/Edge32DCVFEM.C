@@ -1,17 +1,16 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #include <master_element/Edge32DCVFEM.h>
 #include <master_element/MasterElementFunctions.h>
-
-#include <element_promotion/LagrangeBasis.h>
-#include <element_promotion/TensorProductQuadratureRule.h>
-#include <element_promotion/QuadratureRule.h>
 #include <AlgTraits.h>
 
 #include <NaluEnv.h>
@@ -95,6 +94,32 @@ Edge32DSCS::ipNodeMap(
 //-------- determinant -----------------------------------------------------
 //--------------------------------------------------------------------------
 void Edge32DSCS::determinant(
+  SharedMemView<DoubleType**, DeviceShmem> &coords,
+  SharedMemView<DoubleType**, DeviceShmem> &area) {
+
+  NALU_ALIGNED DoubleType areaVector[2];
+  const DoubleType x0 = coords(0,0); const DoubleType y0 = coords(0,1);
+  const DoubleType x1 = coords(1,0); const DoubleType y1 = coords(1,1);
+  const DoubleType x2 = coords(2,0); const DoubleType y2 = coords(2,1);
+
+  for (int ip = 0; ip < numIntPoints_; ++ip) {
+    const DoubleType s = intgLoc_[ip];
+    const DoubleType dxds = 0.5 * (x1 - x0) + (x1 - 2.0 * x2 + x0) * s;
+    const DoubleType dyds = 0.5 * (y1 - y0) + (y1 - 2.0 * y2 + y0) * s;
+
+    areaVector[0] =  dyds;
+    areaVector[1] = -dxds;
+
+    // weight the area vector with the Gauss-quadrature weight for this IP
+    area(ip,0) = ipWeight_[ip] * areaVector[0];
+    area(ip,1) = ipWeight_[ip] * areaVector[1];
+  }
+
+}
+
+
+
+void Edge32DSCS::determinant(
   const int nelem,
   const double *coords,
   double *areav,
@@ -126,6 +151,17 @@ void Edge32DSCS::determinant(
 //--------------------------------------------------------------------------
 //-------- shape_fcn -------------------------------------------------------
 //--------------------------------------------------------------------------
+void 
+Edge32DSCS::shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) 
+{
+  for ( int i =0; i< numIntPoints_; ++i ) {
+    const DoubleType s = intgLoc_[i];
+    shpfc(i,0) = -s*(1.0-s)*0.5;
+    shpfc(i,1) =  s*(1.0+s)*0.5;
+    shpfc(i,2) =    (1.0-s)*(1.0+s);
+  }
+}
+
 void
 Edge32DSCS::shape_fcn(double *shpfc)
 {
@@ -141,6 +177,17 @@ Edge32DSCS::shape_fcn(double *shpfc)
 //--------------------------------------------------------------------------
 //-------- shifted_shape_fcn -----------------------------------------------
 //--------------------------------------------------------------------------
+void 
+Edge32DSCS::shifted_shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) 
+{
+  for ( int i =0; i< numIntPoints_; ++i ) {
+    const DoubleType s = intgLocShift_[i];
+    shpfc(i,0) = -s*(1.0-s)*0.5;
+    shpfc(i,1) =  s*(1.0+s)*0.5;
+    shpfc(i,2) =    (1.0-s)*(1.0+s);
+  }
+}
+
 void
 Edge32DSCS::shifted_shape_fcn(double *shpfc)
 {

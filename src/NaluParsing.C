@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 /*------------------------------------------------------------------------*/
 
@@ -180,17 +183,24 @@ namespace sierra
         case OversetBoundaryConditionData::TPL_TIOGA:
 #ifdef NALU_USES_TIOGA
           oversetBC.userData_.oversetBlocks_ = oversetUserData;
+          break;
 #else
           throw std::runtime_error(
             "TIOGA TPL support not enabled during compilation phase.");
-#endif
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
           break;
+#endif
+#endif
 
         case OversetBoundaryConditionData::OVERSET_NONE:
         default:
           throw std::runtime_error(
             "Invalid overset connectivity setting in input file.");
+// Avoid nvcc unreachable statement warnings
+#ifndef __CUDACC__
           break;
+#endif
       }
     }
 
@@ -203,6 +213,30 @@ namespace sierra
       symmetryBC.theBcType_ = SYMMETRY_BC;
       const YAML::Node& symmetryUserData = node["symmetry_user_data"];
       symmetryBC.userData_ = symmetryUserData.as<SymmetryUserData>();
+      if(symmetryUserData["use_projections"]){
+        symmetryBC.userData_.useProjections_ = symmetryUserData["use_projections"].as<bool>();
+      }
+      if(symmetryUserData["symmetry_type"]){
+        const std::string symmType =
+            symmetryUserData["symmetry_type"].as<std::string>();
+        if(symmType == "generalized_weak" || symmType == "default"){
+          // do nothing already set, but keep for parse checking
+        }
+        else if(symmType == "x_direction_strong"){
+          symmetryBC.userData_.symmType_ = SymmetryUserData::SymmetryTypes::X_DIR_STRONG;
+        }
+        else if(symmType == "y_direction_strong"){
+          symmetryBC.userData_.symmType_ = SymmetryUserData::SymmetryTypes::Y_DIR_STRONG;
+        }
+        else if(symmType == "z_direction_strong"){
+          symmetryBC.userData_.symmType_ = SymmetryUserData::SymmetryTypes::Z_DIR_STRONG;
+        }
+        else{
+          throw std::runtime_error(
+            "Unrecognized value for symmetry_type: " + symmType
+            );
+        }
+      }
     }
 
     void operator >>(const YAML::Node& node,

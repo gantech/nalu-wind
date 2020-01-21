@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef ElemDataRequests_h
@@ -33,10 +36,10 @@ enum ELEM_DATA_NEEDED {
   SCS_SHIFTED_GRAD_OP,
   SCS_GIJ,
   SCS_MIJ,
-  SCV_MIJ,
   SCS_SHAPE_FCN,
   SCS_SHIFTED_SHAPE_FCN, END_SCS = SCS_SHIFTED_SHAPE_FCN,
   SCV_VOLUME, BEGIN_SCV = SCV_VOLUME,
+  SCV_MIJ,
   SCV_GRAD_OP,
   SCV_SHIFTED_GRAD_OP,
   SCV_SHAPE_FCN,

@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2019 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #include "node_kernels/TKEKsgsNodeKernel.h"
 #include "Realm.h"
@@ -77,7 +80,7 @@ void TKEKsgsNodeKernel::execute(
 
   rhs(0) += (Pk - Dk) * dVol;
   lhs(0, 0) +=
-    1.5 * cEps_ * density * stk::math::sqrt(tke) / filter * dVol / relaxFac_;
+    1.5 * cEps_ * density * stk::math::sqrt(tke) / filter * dVol;
 }
 
 }  // nalu

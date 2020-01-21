@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #include <EquationSystem.h>
@@ -24,6 +27,9 @@
 
 // overset
 #include <overset/AssembleOversetSolverConstraintAlgorithm.h>
+
+// ngp
+#include "ngp_utils/NgpFieldBLAS.h"
 
 #include <stk_mesh/base/Field.hpp>
 
@@ -515,6 +521,24 @@ EquationSystem::post_iter_work()
   for (auto it: postIterAlgDriver_) {
     it->execute();
   }
+}
+
+void EquationSystem::solution_update(
+  const double delta_frac,
+  const stk::mesh::FieldBase& delta,
+  const double field_frac,
+  stk::mesh::FieldBase& field,
+  const unsigned numComponents,
+  const stk::topology::rank_t rank)
+{
+  const auto& meshInfo = realm_.mesh_info();
+  const auto& meta = realm_.meta_data();
+  const stk::mesh::Selector sel = (
+    meta.locally_owned_part() | meta.globally_shared_part() | meta.aura_part())
+    & stk::mesh::selectField(field);
+
+  nalu_ngp::field_axpby(
+    meshInfo, sel, delta_frac, delta, field_frac, field, numComponents, rank);
 }
 
 } // namespace nalu

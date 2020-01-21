@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #include <TpetraLinearSystemHelpers.h>
@@ -99,14 +102,15 @@ void fill_owned_and_shared_then_nonowned_ordered_by_proc(std::vector<LinSys::Glo
 
 stk::mesh::Entity get_entity_master(const stk::mesh::BulkData& bulk,
                                     stk::mesh::Entity entity,
-                                    stk::mesh::EntityId naluId)
+                                    stk::mesh::EntityId naluId,
+                                    bool throwIfMasterNotFound)
 {
   bool thisEntityIsMaster = (bulk.identifier(entity) == naluId);
   if (thisEntityIsMaster) {
     return entity;
   }
   stk::mesh::Entity master = bulk.get_entity(stk::topology::NODE_RANK, naluId);
-  if (!bulk.is_valid(master)) {
+  if (throwIfMasterNotFound && !bulk.is_valid(master)) {
     std::ostringstream os;
     const stk::mesh::Entity* elems = bulk.begin_elements(entity);
     unsigned numElems = bulk.num_elements(entity);
@@ -176,6 +180,31 @@ void add_lengths_to_comm(const stk::mesh::BulkData&  /* bulk */,
     }
 }
 
+void add_lengths_to_comm_tpet(const stk::mesh::BulkData&  bulk /* bulk */,
+                              TpetIDFieldType * tpetGID_label,
+                         stk::CommNeighbors& commNeighbors,
+                         int entity_a_owner,
+                         stk::mesh::EntityId entityId_a,
+                              //                         unsigned numDof,
+                         unsigned numColEntities,
+                         const stk::mesh::EntityId* colEntityIds,
+                         const int* colOwners)
+{
+    int owner = entity_a_owner;
+    stk::CommBufferV& sbuf = commNeighbors.send_buffer(owner);
+    const auto node = bulk.get_entity(stk::topology::NODE_RANK, entityId_a);
+    LinSys::GlobalOrdinal rowGid = * stk::mesh::field_data(*tpetGID_label, node);
+    ThrowRequireMsg( rowGid != 0 && rowGid != std::numeric_limits<LinSys::GlobalOrdinal>::max(), "add_lengths_to_comm_tpet");
+    sbuf.pack(rowGid);
+    sbuf.pack(numColEntities*2);
+    for(unsigned c=0; c<numColEntities; ++c) {
+      const auto centity = bulk.get_entity(stk::topology::NODE_RANK,colEntityIds[c]);
+      LinSys::GlobalOrdinal colGid0 = * stk::mesh::field_data(*tpetGID_label, centity);
+      ThrowRequireMsg( colGid0 != 0 && colGid0 != std::numeric_limits<LinSys::GlobalOrdinal>::max(), "add_lengths_to_comm_tpet");
+        sbuf.pack(colGid0);
+        sbuf.pack(colOwners[c]);
+    }
+}
 void communicate_remote_columns(const stk::mesh::BulkData& bulk,
                                 const std::vector<int>& neighborProcs,
                                 stk::CommNeighbors& commNeighbors,
@@ -192,6 +221,9 @@ void communicate_remote_columns(const stk::mesh::BulkData& bulk,
         while(rbuf.size_in_bytes() > 0) {
             LinSys::GlobalOrdinal rowGid = 0;
             rbuf.unpack(rowGid);
+
+            ThrowRequireMsg( rowGid != 0 && rowGid != std::numeric_limits<LinSys::GlobalOrdinal>::max(), "communicate_remote_columns");
+
             unsigned len = 0;
             rbuf.unpack(len);
             unsigned numCols = len/2;
@@ -205,6 +237,10 @@ void communicate_remote_columns(const stk::mesh::BulkData& bulk,
             for(unsigned i=0; i<numCols; ++i) {
                 LinSys::GlobalOrdinal colGid = 0;
                 rbuf.unpack(colGid);
+
+
+                ThrowRequireMsg( colGid != 0 && colGid != std::numeric_limits<LinSys::GlobalOrdinal>::max(), "communicate_remote_columns");
+
                 int owner = 0;
                 rbuf.unpack(owner);
                 for(unsigned dd=0; dd<numDof; ++dd) {
@@ -239,6 +275,9 @@ void insert_communicated_col_indices(const std::vector<int>& neighborProcs,
         while(rbuf.size_in_bytes() > 0) {
             stk::mesh::EntityId rowGid = 0;
             rbuf.unpack(rowGid);
+
+            ThrowRequireMsg( rowGid != 0 && rowGid != std::numeric_limits<LinSys::GlobalOrdinal>::max()," insert_communicated_col_indices");
+
             unsigned len = 0;
             rbuf.unpack(len);
             unsigned numCols = len/2;
@@ -247,6 +286,9 @@ void insert_communicated_col_indices(const std::vector<int>& neighborProcs,
             for(unsigned i=0; i<numCols; ++i) {
                 GlobalOrdinal colGid = 0;
                 rbuf.unpack(colGid);
+
+            ThrowRequireMsg( colGid != 0 && colGid != std::numeric_limits<LinSys::GlobalOrdinal>::max()," insert_communicated_col_indices");
+
                 int owner = 0;
                 rbuf.unpack(owner);
                 colLids[i] = colMap.getLocalElement(colGid);

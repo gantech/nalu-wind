@@ -1,0 +1,544 @@
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
+
+#include "kernels/UnitTestKernelUtils.h"
+#include "UnitTestHelperObjects.h"
+
+#include "AlgTraits.h"
+#include "ngp_algorithms/GeometryInteriorAlg.h"
+#include "ngp_algorithms/GeometryBoundaryAlg.h"
+#include "ngp_algorithms/WallFuncGeometryAlg.h"
+#include "ngp_algorithms/GeometryAlgDriver.h"
+#include "ngp_algorithms/MeshVelocityAlg.h"
+#include "ngp_algorithms/MeshVelocityEdgeAlg.h"
+#include "utils/StkHelpers.h"
+#include "utils/ComputeVectorDivergence.h"
+
+#include "mesh_motion/MotionTranslation.h"
+#include "mesh_motion/MotionRotation.h"
+#include "mesh_motion/MotionScaling.h"
+
+#include "UnitTestRealm.h"
+#include "UnitTestUtils.h"
+
+namespace {
+    
+    double VNm1_analytical=1.;
+		double VN_analytical=1.0327665042944956;
+    double VNp1_analytical=1.0655330085889911;
+    double dVdt=0.3276650429449557; //based on BDF1
+    std::vector<double> transform(
+        const sierra::nalu::MotionBase::TransMatType& transMat,
+        const double* xyz )
+    {
+        std::vector<double> transCoord(3,0.0);
+
+        // perform matrix multiplication between transformation matrix
+        // and original coordinates to obtain transformed coordinates
+        for (int d = 0; d < sierra::nalu::MotionBase::threeDVecSize; d++) {
+            transCoord[d] = transMat[d][0]*xyz[0]
+                +transMat[d][1]*xyz[1]
+                +transMat[d][2]*xyz[2]
+                +transMat[d][3];
+        }
+
+        return transCoord;
+    }
+
+}
+
+TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_vel_div_rotation)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+		const double tol = 1.0e-14;
+
+  MeshVelocityKernelHex8Mesh::fill_mesh_and_init_fields("generated:2x2x2",true,false);
+
+  unit_test_utils::HelperObjects helperObjs(
+    bulk_, stk::topology::HEX_8, 1, partVec_[0]);
+
+  sierra::nalu::TimeIntegrator timeIntegrator;
+  timeIntegrator.timeStepN_ = 0.1;
+  timeIntegrator.timeStepNm1_ = 0.1;
+  timeIntegrator.currentTime_ = 0.2;
+  timeIntegrator.gamma1_ = 1.0;
+  timeIntegrator.gamma2_ = -1.0;
+  timeIntegrator.gamma3_ = 0.0;
+  helperObjs.realm.timeIntegrator_ = &timeIntegrator;
+  // Force computation of edge area vector
+  helperObjs.realm.realmUsesEdges_ = false;
+  helperObjs.realm.solutionOptions_->meshMotion_ = true;
+
+  sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
+  geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
+    sierra::nalu::INTERIOR, partVec_[0], "geometry");
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
+
+  //First set the mesh displacement corresponding to rotation about x-axis
+  // create a yaml node describing rotation
+  const std::string rotInfo =
+      "omega: 1.0              \n"
+      "axis: [1.0,0.0,0.0]     \n"
+      "centroid: [0.0,0.0,0.0] \n"
+      ;
+  YAML::Node rotNode = YAML::Load(rotInfo);
+  sierra::nalu::MotionRotation rotClass(rotNode);
+  VectorFieldType *meshDispNp1 = &(meshDisp_->field_of_state(stk::mesh::StateNP1));
+  VectorFieldType *meshDispN = &(meshDisp_->field_of_state(stk::mesh::StateN));
+  VectorFieldType *meshDispNm1 = &(meshDisp_->field_of_state(stk::mesh::StateNM1));
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* dispNp1 = stk::mesh::field_data(*meshDispNp1, node);
+              double* dispN = stk::mesh::field_data(*meshDispN, node);
+              double* dispNm1 = stk::mesh::field_data(*meshDispNm1, node);
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+              dispNm1[0] = 0.0;
+              dispNm1[1] = 0.0;
+              dispNm1[2] = 0.0;
+
+              rotClass.build_transformation(0.1,mcoord);
+              std::vector<double> rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispN[0] = rot_xyz[0] - mcoord[0];
+              dispN[1] = rot_xyz[1] - mcoord[1];
+              dispN[2] = rot_xyz[2] - mcoord[2];
+
+              rotClass.build_transformation(0.2,mcoord);
+              rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispNp1[0] = rot_xyz[0] - mcoord[0];
+              dispNp1[1] = rot_xyz[1] - mcoord[1];
+              dispNp1[2] = rot_xyz[2] - mcoord[2];
+
+              ccoord[0] = rot_xyz[0];
+              ccoord[1] = rot_xyz[1];
+              ccoord[2] = rot_xyz[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  stk::mesh::PartVector bndyPartVec;
+  sierra::nalu::compute_scalar_divergence(bulk_, partVec_, bndyPartVec, faceVelMag_, divMeshVelField_);
+
+  double full_dnv_mdv = 1e15;
+  bool foundNode = false;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+    for (const auto* b: bkts) {
+      for (const auto node: *b) {
+        const double* meshVelDiv = stk::mesh::field_data(*divMeshVelField_,node);
+        if (bulk_.num_elements(node) == 8) {
+          full_dnv_mdv = *meshVelDiv;
+          foundNode = true;
+          break;
+        }
+        if (foundNode)
+          break;
+      }
+      if (foundNode)
+        break;
+    }
+  }
+  EXPECT_NEAR(0.0, full_dnv_mdv, tol);
+
+}
+
+TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_nodevel_div)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+
+  VectorFieldType* meshVel_ = &(meta_.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_velocity"));
+  stk::mesh::put_field_on_mesh(*meshVel_, meta_.universal_part(), nullptr);
+
+  MeshVelocityKernelHex8Mesh::fill_mesh_and_init_fields("generated:2x2x2|offset:0,65,0",false,false);
+
+  unit_test_utils::HelperObjects helperObjs(
+    bulk_, stk::topology::HEX_8, 1, partVec_[0]);
+
+  sierra::nalu::TimeIntegrator timeIntegrator;
+  timeIntegrator.timeStepN_ = 0.1;
+  timeIntegrator.timeStepNm1_ = 0.1;
+  timeIntegrator.currentTime_ = 0.2;
+  timeIntegrator.gamma1_ = 1.5;
+  timeIntegrator.gamma2_ = -2.0;
+  timeIntegrator.gamma3_ = 0.5;
+  helperObjs.realm.timeIntegrator_ = &timeIntegrator;
+  // Force computation of edge area vector
+  helperObjs.realm.realmUsesEdges_ = false;
+  helperObjs.realm.solutionOptions_->meshMotion_ = true;
+
+  sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
+  geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
+    sierra::nalu::INTERIOR, partVec_[0], "geometry");
+
+  bool foundNode = false;
+  stk::mesh::Entity full_dnv_node;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+    for (const auto* b: bkts) {
+      for (const auto node: *b) {
+        if (bulk_.num_elements(node) == 8) {
+          full_dnv_node = node;
+          foundNode = true;
+          break;
+        }
+      }
+      if (foundNode)
+        break;
+    }
+  }
+
+  //First set the mesh displacement corresponding to rotation about x-axis
+  // create a yaml node describing rotation
+  const std::string rotInfo =
+      "omega: 1.0              \n"
+      "axis: [1.0,0.0,0.0]     \n"
+      "centroid: [0.0,0.0,0.0] \n"
+      ;
+  YAML::Node rotNode = YAML::Load(rotInfo);
+  sierra::nalu::MotionRotation rotClass(rotNode);
+  VectorFieldType *meshDispNp1 = &(meshDisp_->field_of_state(stk::mesh::StateNP1));
+  VectorFieldType *meshDispN = &(meshDisp_->field_of_state(stk::mesh::StateN));
+  VectorFieldType *meshDispNm1 = &(meshDisp_->field_of_state(stk::mesh::StateNM1));
+
+  //Get dual nodal volume at time N-1
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+
+              ccoord[0] = mcoord[0];
+              ccoord[1] = mcoord[1];
+              ccoord[2] = mcoord[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  double dnv_nm1 = *(stk::mesh::field_data(*dnvField_,full_dnv_node));
+
+
+  //Get dual nodal volume at time N
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* dispNp1 = stk::mesh::field_data(*meshDispNp1, node);
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+
+              rotClass.build_transformation(0.1,mcoord);
+              std::vector<double> rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispNp1[0] = rot_xyz[0] - mcoord[0];
+              dispNp1[1] = rot_xyz[1] - mcoord[1];
+              dispNp1[2] = rot_xyz[2] - mcoord[2];
+
+              ccoord[0] = rot_xyz[0];
+              ccoord[1] = rot_xyz[1];
+              ccoord[2] = rot_xyz[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  double dnv_n = *(stk::mesh::field_data(*dnvField_,full_dnv_node));
+
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* dispNp1 = stk::mesh::field_data(*meshDispNp1, node);
+              double* dispN = stk::mesh::field_data(*meshDispN, node);
+              double* dispNm1 = stk::mesh::field_data(*meshDispNm1, node);
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+              double* meshVel = stk::mesh::field_data(*meshVel_, node);
+
+              dispNm1[0] = 0.0;
+              dispNm1[1] = 0.0;
+              dispNm1[2] = 0.0;
+
+              rotClass.build_transformation(0.1,mcoord);
+              std::vector<double> rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispN[0] = rot_xyz[0] - mcoord[0];
+              dispN[1] = rot_xyz[1] - mcoord[1];
+              dispN[2] = rot_xyz[2] - mcoord[2];
+
+              rotClass.build_transformation(0.2,mcoord);
+              rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispNp1[0] = rot_xyz[0] - mcoord[0];
+              dispNp1[1] = rot_xyz[1] - mcoord[1];
+              dispNp1[2] = rot_xyz[2] - mcoord[2];
+
+              for (int j=0; j < 3; j++)
+                meshVel[j] = (1.5 * dispNp1[j] - 2.0 * dispN[j] + 0.5 * dispNm1[j])/0.1;
+
+              ccoord[0] = rot_xyz[0];
+              ccoord[1] = rot_xyz[1];
+              ccoord[2] = rot_xyz[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  double dnv_np1 = *(stk::mesh::field_data(*dnvField_, full_dnv_node));
+
+  std::cerr << "Volume at times N-1, N, N+1 = " << dnv_nm1 << ", " << dnv_n << ", " << dnv_np1 << std::endl ;
+  std::cerr << "V_np1 - Vn = " << dnv_np1 - dnv_n << std::endl;
+  std::cerr << "V_n - V_nm1 = " << dnv_n - dnv_nm1 << std::endl;
+  stk::mesh::PartVector bndyPartVec;
+  sierra::nalu::compute_vector_divergence(bulk_, partVec_, bndyPartVec, meshVel_, divMeshVelField_);
+
+  const double tol = 1.0e-14;
+  double full_dnv_mdv = *(stk::mesh::field_data(*divMeshVelField_, full_dnv_node));
+  EXPECT_NEAR(0.0, full_dnv_mdv, tol);
+
+}
+
+/*
+TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_vel_div_edge)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+
+  MeshVelocityKernelHex8Mesh::fill_mesh_and_init_fields("generated:2x2x2",true,false);
+
+  unit_test_utils::HelperObjects helperObjs(
+    bulk_, stk::topology::HEX_8, 1, partVec_[0]);
+
+  sierra::nalu::TimeIntegrator timeIntegrator;
+  timeIntegrator.timeStepN_ = 0.1;
+  timeIntegrator.timeStepNm1_ = 0.1;
+  timeIntegrator.currentTime_ = 0.2;
+  timeIntegrator.gamma1_ = 1.0;
+  timeIntegrator.gamma2_ = -1.0;
+  timeIntegrator.gamma3_ = 0.0;
+  helperObjs.realm.timeIntegrator_ = &timeIntegrator;
+  // Force computation of edge area vector
+  helperObjs.realm.realmUsesEdges_ = true;
+  helperObjs.realm.solutionOptions_->meshMotion_ = true;
+
+  sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
+  geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
+    sierra::nalu::INTERIOR, partVec_[0], "geometry");
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityEdgeAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
+
+  //First set the mesh displacement corresponding to rotation about x-axis
+  // create a yaml node describing rotation
+  const std::string rotInfo =
+      "omega: 1.0              \n"
+      "axis: [1.0,0.0,0.0]     \n"
+      "centroid: [0.0,0.0,0.0] \n"
+      ;
+  YAML::Node rotNode = YAML::Load(rotInfo);
+  sierra::nalu::MotionRotation rotClass(rotNode);
+  VectorFieldType *meshDispNp1 = &(meshDisp_->field_of_state(stk::mesh::StateNP1));
+  VectorFieldType *meshDispN = &(meshDisp_->field_of_state(stk::mesh::StateN));
+  VectorFieldType *meshDispNm1 = &(meshDisp_->field_of_state(stk::mesh::StateNM1));
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* dispNp1 = stk::mesh::field_data(*meshDispNp1, node);
+              double* dispN = stk::mesh::field_data(*meshDispN, node);
+              double* dispNm1 = stk::mesh::field_data(*meshDispNm1, node);
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+              dispNm1[0] = 0.0;
+              dispNm1[1] = 0.0;
+              dispNm1[2] = 0.0;
+
+              rotClass.build_transformation(0.1,mcoord);
+              std::vector<double> rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispN[0] = rot_xyz[0] - mcoord[0];
+              dispN[1] = rot_xyz[1] - mcoord[1];
+              dispN[2] = rot_xyz[2] - mcoord[2];
+
+              rotClass.build_transformation(0.2,mcoord);
+              rot_xyz = transform(rotClass.get_trans_mat(), mcoord);
+              dispNp1[0] = rot_xyz[0] - mcoord[0];
+              dispNp1[1] = rot_xyz[1] - mcoord[1];
+              dispNp1[2] = rot_xyz[2] - mcoord[2];
+
+              ccoord[0] = rot_xyz[0];
+              ccoord[1] = rot_xyz[1];
+              ccoord[2] = rot_xyz[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  stk::mesh::PartVector bndyPartVec;
+  sierra::nalu::compute_edge_scalar_divergence(bulk_, partVec_, bndyPartVec, edgeFaceVelMag_, divMeshVelField_);
+
+  const double tol = 1.0e-14;
+  double full_dnv_mdv = 1e15;
+  bool foundNode = false;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+    for (const auto* b: bkts) {
+      for (const auto node: *b) {
+        const double* meshVelDiv = stk::mesh::field_data(*divMeshVelField_,node);
+        if (bulk_.num_elements(node) == 8) {
+          full_dnv_mdv = *meshVelDiv;
+          foundNode = true;
+          break;
+        }
+        if (foundNode)
+          break;
+      }
+      if (foundNode)
+        break;
+    }
+  }
+  EXPECT_NEAR(0.0, full_dnv_mdv, tol);
+
+}
+
+TEST_F(MeshVelocityKernelHex8Mesh, NGP_mesh_vel_div_scaling)
+{
+  // Only execute for 1 processor runs
+  if (bulk_.parallel_size() > 1) return;
+
+  MeshVelocityKernelHex8Mesh::fill_mesh_and_init_fields("generated:2x2x2",true,false);
+
+  unit_test_utils::HelperObjects helperObjs(
+    bulk_, stk::topology::HEX_8, 1, partVec_[0]);
+
+  sierra::nalu::TimeIntegrator timeIntegrator;
+  timeIntegrator.timeStepN_ = 0.1;
+  timeIntegrator.timeStepNm1_ = 0.1;
+  timeIntegrator.currentTime_ = 0.2;
+  timeIntegrator.gamma1_ = 1.0;
+  timeIntegrator.gamma2_ = -1.0;
+  timeIntegrator.gamma3_ = 0.0;
+  helperObjs.realm.timeIntegrator_ = &timeIntegrator;
+  // Force computation of edge area vector
+  helperObjs.realm.realmUsesEdges_ = false;
+  helperObjs.realm.solutionOptions_->meshMotion_ = true;
+
+  sierra::nalu::GeometryAlgDriver geomAlgDriver(helperObjs.realm);
+  geomAlgDriver.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
+    sierra::nalu::INTERIOR, partVec_[0], "geometry");
+  geomAlgDriver.register_elem_algorithm<
+    sierra::nalu::MeshVelocityAlg>(sierra::nalu::INTERIOR, partVec_[0], "mesh_vel");
+
+  bool foundNode = false;
+  stk::mesh::Entity full_dnv_node;
+  {
+    stk::mesh::Selector sel = meta_.universal_part();
+    const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+    for (const auto* b: bkts) {
+      for (const auto node: *b) {
+        if (bulk_.num_elements(node) == 8) {
+          full_dnv_node = node;
+          foundNode = true;
+          break;
+        }
+      }
+      if (foundNode)
+        break;
+    }
+  }
+
+  //First set the mesh displacement corresponding to rotation about x-axis
+  // create a yaml node describing rotation
+  const std::string scaleInfo =
+      "rate: [1.0,1.0,1.0]     \n"
+      "centroid: [0.0,0.0,0.0] \n"
+      ;
+  YAML::Node scaleNode = YAML::Load(scaleInfo);
+  sierra::nalu::MotionScaling scaleClass(meta_, scaleNode);
+  VectorFieldType *meshDispNp1 = &(meshDisp_->field_of_state(stk::mesh::StateNP1));
+  VectorFieldType *meshDispN = &(meshDisp_->field_of_state(stk::mesh::StateN));
+  VectorFieldType *meshDispNm1 = &(meshDisp_->field_of_state(stk::mesh::StateNM1));
+
+  //Get dual nodal volume at time N
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* dispNp1 = stk::mesh::field_data(*meshDispNp1, node);
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+
+              scaleClass.build_transformation(0.1,mcoord);
+              std::vector<double> rot_xyz = transform(scaleClass.get_trans_mat(), mcoord);
+              dispNp1[0] = rot_xyz[0] - mcoord[0];
+              dispNp1[1] = rot_xyz[1] - mcoord[1];
+              dispNp1[2] = rot_xyz[2] - mcoord[2];
+
+              ccoord[0] = rot_xyz[0];
+              ccoord[1] = rot_xyz[1];
+              ccoord[2] = rot_xyz[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  Double dnv_n = *(stk::mesh::field_data(*dnvField_,full_dnv_node));
+
+  //Now do the full thing at time N+1
+  {
+      stk::mesh::Selector sel = meta_.universal_part();
+      const auto& bkts = bulk_.get_buckets(stk::topology::NODE_RANK, sel);
+      for (const auto* b: bkts) {
+          for (const auto node: *b) {
+              double* dispNp1 = stk::mesh::field_data(*meshDispNp1, node);
+              double* dispN = stk::mesh::field_data(*meshDispN, node);
+              double* dispNm1 = stk::mesh::field_data(*meshDispNm1, node);
+              double* ccoord = stk::mesh::field_data(*cCoords_, node);
+              double* mcoord = stk::mesh::field_data(*coordinates_, node);
+              dispNm1[0] = 0.0;
+              dispNm1[1] = 0.0;
+              dispNm1[2] = 0.0;
+
+              scaleClass.build_transformation(0.1,mcoord);
+              std::vector<double> rot_xyz = transform(scaleClass.get_trans_mat(), mcoord);
+              dispN[0] = rot_xyz[0] - mcoord[0];
+              dispN[1] = rot_xyz[1] - mcoord[1];
+              dispN[2] = rot_xyz[2] - mcoord[2];
+
+              scaleClass.build_transformation(0.2,mcoord);
+              rot_xyz = transform(scaleClass.get_trans_mat(), mcoord);
+              dispNp1[0] = rot_xyz[0] - mcoord[0];
+              dispNp1[1] = rot_xyz[1] - mcoord[1];
+              dispNp1[2] = rot_xyz[2] - mcoord[2];
+
+              ccoord[0] = rot_xyz[0];
+              ccoord[1] = rot_xyz[1];
+              ccoord[2] = rot_xyz[2];
+          }
+      }
+  }
+  geomAlgDriver.execute();
+  double dnv_np1 = *(stk::mesh::field_data(*dnvField_,full_dnv_node));
+  double dvdt = (dnv_np1 - dnv_n)/0.1;
+
+  stk::mesh::PartVector bndyPartVec;
+  sierra::nalu::compute_scalar_divergence(bulk_, partVec_, bndyPartVec, faceVelMag_, divMeshVelField_);
+  double full_dnv_mdv = *(stk::mesh::field_data(*divMeshVelField_,full_dnv_node));
+
+  const double tol = 1.0e-14;
+  EXPECT_NEAR(dvdt, full_dnv_mdv, tol);
+
+}
+*/

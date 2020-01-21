@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 // nalu
@@ -62,6 +65,7 @@ TurbViscWaleAlgorithm::execute()
 
   const int nDim = meta_data.spatial_dimension();
   const double invNdim = 1.0/double(nDim);
+  std::vector<double> dudxSq(nDim*nDim, 0);
 
   // save some factors
   const double threeHalves = 3.0/2.0;
@@ -89,7 +93,21 @@ TurbViscWaleAlgorithm::execute()
 
       const double *dudx = stk::mesh::field_data(*dudx_, b[k] );
 
-      // ignore divU term for now..
+      for (int i = 0; i < nDim; ++i)  {
+        for (int j = 0; j < nDim; ++j) {
+          double acc = 0;
+          for (int l = 0; l < nDim; ++l) {
+            acc += dudx[i * nDim + l] * dudx[l * nDim + j];
+          }
+          dudxSq[i * nDim + j] = acc;
+        }
+      }
+
+      double traceDudxSq = 0;
+      for (int i = 0; i < nDim; ++i) {
+        traceDudxSq += dudxSq[i * nDim + i];
+      }
+
       double SijSq = 0.0;
       double SijdSq = 0.0;
       for ( int i = 0; i < nDim; ++i ) {
@@ -97,14 +115,8 @@ TurbViscWaleAlgorithm::execute()
         for ( int j = 0; j < nDim; ++j ) {
           const int offSetJ = nDim*j;
           const double Sij = 0.5*(dudx[offSetI+j] + dudx[offSetJ+i]);
-          double gijSq = 0.0;
-          double gjiSq = 0.0;
-          for ( int l = 0; l < nDim; ++l ) {
-            const int offSetL = nDim*l;
-            gijSq += dudx[offSetI+l]*dudx[offSetL+j];
-            gjiSq += dudx[offSetJ+l]*dudx[offSetL+i];
-          }
-          const double Sijd = 0.5*(gijSq + gjiSq);
+          const double traceKron = (i == j) ? traceDudxSq/nDim : 0;
+          const double Sijd = 0.5*(dudxSq[offSetI + j] + dudxSq[offSetJ + i]) - traceKron;
           SijSq += Sij*Sij;
           SijdSq += Sijd*Sijd;
         }

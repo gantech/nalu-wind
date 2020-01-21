@@ -1,7 +1,9 @@
 
 #include "mesh_motion/FrameBase.h"
 
+#include "mesh_motion/MotionDeformingInterior.h"
 #include "mesh_motion/MotionPulsatingSphere.h"
+#include "mesh_motion/MotionWaves.h"
 #include "mesh_motion/MotionRotation.h"
 #include "mesh_motion/MotionScaling.h"
 #include "mesh_motion/MotionTranslation.h"
@@ -50,9 +52,13 @@ void FrameBase::load(const YAML::Node& node)
     get_required(motion_def, "type", type);
 
     // determine type of mesh motion based on user definition in input file
-    if (type == "pulsating_sphere")
+    if (type == "deforming_interior")
+      meshMotionVec_[i].reset(new MotionDeformingInterior(meta_,motion_def));
+    else if (type == "pulsating_sphere")
       meshMotionVec_[i].reset(new MotionPulsatingSphere(meta_,motion_def));
-    else if (type == "rotation")
+    else if (type == "water_waves")
+			meshMotionVec_[i].reset(new MotionWaves(meta_,motion_def));
+		else if (type == "rotation")
       meshMotionVec_[i].reset(new MotionRotation(motion_def));
     else if (type == "scaling")
       meshMotionVec_[i].reset(new MotionScaling(meta_,motion_def));
@@ -62,6 +68,7 @@ void FrameBase::load(const YAML::Node& node)
       throw std::runtime_error("FrameBase: Invalid mesh motion type: " + type);
 
   } // end for loop - i index
+
 }
 
 void FrameBase::populate_part_vec(const YAML::Node& node)

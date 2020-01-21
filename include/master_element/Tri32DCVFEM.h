@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef Tri32DCVFEM_h   
@@ -62,6 +65,12 @@ public:
     SharedMemView<DoubleType***, DeviceShmem>& metric,
     SharedMemView<DoubleType***, DeviceShmem>& deriv) override;
 
+  KOKKOS_FUNCTION virtual void shape_fcn(
+    SharedMemView<DoubleType**, DeviceShmem> &shpfc) override;
+
+  KOKKOS_FUNCTION virtual void shifted_shape_fcn(
+    SharedMemView<DoubleType**, DeviceShmem> &shpfc) override;
+
   void Mij(
     const double *coords,
     double *metric,
@@ -73,11 +82,16 @@ public:
     double *areav,
     double * error ) override;
 
+
   void shape_fcn(
     double *shpfc) override;
 
   void shifted_shape_fcn (
     double *shpfc) override;
+
+  KOKKOS_FUNCTION void tri_shape_fcn(
+    const double *par_coord, 
+    SharedMemView<DoubleType**, DeviceShmem> &shape_fcn);
 
   void tri_shape_fcn(
     const int npts,
@@ -170,7 +184,8 @@ public:
   KOKKOS_FUNCTION void face_grad_op(
     int face_ordinal,
     SharedMemView<DoubleType**, DeviceShmem>& coords,
-    SharedMemView<DoubleType***, DeviceShmem>& gradop) final;
+    SharedMemView<DoubleType***, DeviceShmem>& gradop,
+    SharedMemView<DoubleType***, DeviceShmem>& deriv) final;
 
   void face_grad_op(
     const int nelem,
@@ -183,7 +198,8 @@ public:
   KOKKOS_FUNCTION void shifted_face_grad_op(
     int face_ordinal,
     SharedMemView<DoubleType**, DeviceShmem>& coords,
-    SharedMemView<DoubleType***, DeviceShmem>& gradop) final;
+    SharedMemView<DoubleType***, DeviceShmem>& gradop,
+    SharedMemView<DoubleType***, DeviceShmem>& deriv) final;
 
   void shifted_face_grad_op(
     const int nelem,
@@ -217,14 +233,24 @@ public:
 
   KOKKOS_FUNCTION const int * adjacentNodes() final;
 
-  const int * scsIpEdgeOrd() override;
+  KOKKOS_FUNCTION const int * scsIpEdgeOrd() final;
+
+  KOKKOS_FUNCTION virtual void shape_fcn(
+    SharedMemView<DoubleType**, DeviceShmem> &shpfc) override;
 
   void shape_fcn(
     double *shpfc) override;
 
+  KOKKOS_FUNCTION virtual void shifted_shape_fcn(
+    SharedMemView<DoubleType**, DeviceShmem> &shpfc) override;
+
   void shifted_shape_fcn(
     double *shpfc) override;
   
+  KOKKOS_FUNCTION void tri_shape_fcn(
+    const double *par_coord, 
+    SharedMemView<DoubleType**, DeviceShmem> &shape_fcn);
+
   void tri_shape_fcn(
     const int npts,
     const double *par_coord, 
@@ -270,7 +296,7 @@ public:
     const double *side_pcoords,
     double *elem_pcoords) override;
 
-  const int* side_node_ordinals(int sideOrdinal) const final;
+  KOKKOS_FUNCTION const int* side_node_ordinals(int sideOrdinal) const final;
 
   virtual const double* integration_locations() const final {
     return intgLoc_;

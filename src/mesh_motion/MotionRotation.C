@@ -3,6 +3,7 @@
 
 #include <NaluEnv.h>
 #include <NaluParsing.h>
+#include "utils/ComputeVectorDivergence.h"
 
 #include <cmath>
 
@@ -163,6 +164,34 @@ MotionBase::ThreeDVecType MotionRotation::compute_velocity(
 
   return vel;
 }
+
+
+void MotionRotation::post_compute_geometry(
+    stk::mesh::BulkData& bulk,
+    stk::mesh::PartVector& partVec,
+    stk::mesh::PartVector& partVecBc,
+    bool& computedMeshVelDiv)
+{
+    if(computedMeshVelDiv) return;
+
+    // compute divergence of mesh velocity
+    ScalarFieldType* meshDivVelocity = bulk.mesh_meta_data().get_field<ScalarFieldType>(
+      stk::topology::NODE_RANK, "div_mesh_velocity");
+    
+    GenericFieldType* faceVelMag = bulk.mesh_meta_data().get_field<GenericFieldType>(
+        stk::topology::ELEMENT_RANK, "face_velocity_mag");
+    if(faceVelMag == NULL) {
+      std::cerr << "Using edge algorithm for mesh vel div" << std::endl;
+      faceVelMag = bulk.mesh_meta_data().get_field<GenericFieldType>(
+        stk::topology::EDGE_RANK, "edge_face_velocity_mag");
+      compute_edge_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+    } else {
+      std::cerr << "Using element algorithm for mesh vel div" << std::endl;
+      compute_scalar_divergence(bulk, partVec, partVecBc, faceVelMag, meshDivVelocity);
+    }
+    computedMeshVelDiv = true;
+}
+
 
 } // nalu
 } // sierra

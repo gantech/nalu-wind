@@ -40,6 +40,7 @@ private:
   MotionBase::TransMatType compute_transformation(
     const double,
     const double*);
+
 };
 
 } // nalu

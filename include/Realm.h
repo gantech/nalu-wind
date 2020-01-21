@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef Realm_h
@@ -53,7 +56,7 @@ namespace nalu{
 class Algorithm;
 class AlgorithmDriver;
 class AuxFunctionAlgorithm;
-class ComputeGeometryAlgorithmDriver;
+class GeometryAlgDriver;
 
 class NonConformalManager;
 class ErrorIndicatorAlgorithmDriver;
@@ -84,7 +87,6 @@ class BdyLayerStatistics;
 class TensorProductQuadratureRule;
 class LagrangeBasis;
 class PromotedElementIO;
-struct ElementDescription;
 
 /** Representation of a computational domain and physics equations solved on
  * this domain.
@@ -177,7 +179,7 @@ class Realm {
   void initialize_post_processing_algorithms();
 
   void compute_geometry();
-  void compute_vrtm();
+  void compute_vrtm(const std::string& = "velocity");
   void compute_l2_scaling();
   void output_converged_results();
   void provide_output();
@@ -233,6 +235,10 @@ class Realm {
     stk::mesh::FieldBase *theField,
     const unsigned &sizeOfTheField,
     const bool &bypassFieldCheck = true) const;
+
+  void periodic_field_max(
+    stk::mesh::FieldBase *theField,
+    const unsigned &sizeOfTheField) const;
 
   void periodic_delta_solution_update(
      stk::mesh::FieldBase *theField,
@@ -359,7 +365,9 @@ class Realm {
 
   inline NgpMeshInfo& mesh_info()
   {
-    if (!meshInfo_) {
+    if ((meshModCount_ != bulkData_->synchronized_count()) ||
+        (!meshInfo_)) {
+      meshModCount_ = bulkData_->synchronized_count();
       meshInfo_.reset(new NgpMeshInfo(*bulkData_));
     }
     return *meshInfo_;
@@ -412,7 +420,7 @@ class Realm {
   GlobalIdFieldType *naluGlobalId_;
 
   // algorithm drivers managed by region
-  ComputeGeometryAlgorithmDriver *computeGeometryAlgDriver_;
+  std::unique_ptr<GeometryAlgDriver> geometryAlgDriver_;
   ErrorIndicatorAlgorithmDriver *errorIndicatorAlgDriver_;
 # if defined (NALU_USES_PERCEPT)  
   Adapter *adapter_;
@@ -446,7 +454,7 @@ class Realm {
   ABLForcingAlgorithm *ablForcingAlg_;
   BdyLayerStatistics* bdyLayerStats_{nullptr};
   std::unique_ptr<MeshMotionAlg> meshMotionAlg_;
-
+    
   std::vector<Algorithm *> propertyAlg_;
   std::map<PropertyIdentifier, ScalarFieldType *> propertyMap_;
   std::vector<Algorithm *> initCondAlg_;
@@ -606,7 +614,6 @@ class Realm {
   const YAML::Node & node_;
 
   // tools
-  std::unique_ptr<ElementDescription> desc_; // holds topo info
   std::unique_ptr<PromotedElementIO> promotionIO_; // mesh outputer
   std::vector<std::string> superTargetNames_;
 
@@ -657,6 +664,7 @@ class Realm {
    *  endIdx(MPI_rank) + 1.
    */
   HypreIDFieldType* hypreGlobalId_{nullptr};
+  TpetIDFieldType* tpetGlobalId_{nullptr};
 
   /** Flag indicating whether Hypre solver is being used for any of the equation
    * systems.
@@ -665,6 +673,8 @@ class Realm {
 
 protected:
   std::unique_ptr<NgpMeshInfo> meshInfo_;
+
+  unsigned meshModCount_{0};
 
 };
 

@@ -1,20 +1,18 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #include <master_element/Tri32DCVFEM.h>
 #include <master_element/MasterElementFunctions.h>
-
-#include <master_element/MasterElementHO.h>
 #include <master_element/MasterElementUtils.h>
 
-#include <element_promotion/LagrangeBasis.h>
-#include <element_promotion/TensorProductQuadratureRule.h>
-#include <element_promotion/QuadratureRule.h>
 #include <AlgTraits.h>
 
 #include <NaluEnv.h>
@@ -124,6 +122,11 @@ Tri32DSCV::ipNodeMap(
 //-------- shape_fcn -------------------------------------------------------
 //--------------------------------------------------------------------------
 void
+Tri32DSCV::shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) {
+  tri_shape_fcn(intgLoc_, shpfc);
+}
+
+void
 Tri32DSCV::shape_fcn(double *shpfc)
 {
   tri_shape_fcn(numIntPoints_, &intgLoc_[0], shpfc);
@@ -133,6 +136,12 @@ Tri32DSCV::shape_fcn(double *shpfc)
 //-------- shifted_shape_fcn -----------------------------------------------
 //--------------------------------------------------------------------------
 void
+Tri32DSCV::shifted_shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc)
+{
+  tri_shape_fcn(intgLocShift_, shpfc);
+}
+
+void
 Tri32DSCV::shifted_shape_fcn(double *shpfc)
 {
   tri_shape_fcn(numIntPoints_, intgLocShift_, shpfc);
@@ -140,6 +149,22 @@ Tri32DSCV::shifted_shape_fcn(double *shpfc)
 
 //--------------------------------------------------------------------------
 //-------- tri_shape_fcn ---------------------------------------------------
+//--------------------------------------------------------------------------
+void
+Tri32DSCV::tri_shape_fcn(
+  const double *isoParCoord,
+  SharedMemView<DoubleType**, DeviceShmem> &shape_fcn)
+{
+  for (int j = 0; j < numIntPoints_; ++j ) {
+    const int k = 2*j;
+    const double xi = isoParCoord[k];
+    const double eta = isoParCoord[k+1];
+    shape_fcn(j,0) = 1.0 - xi - eta;
+    shape_fcn(j,1) = xi;
+    shape_fcn(j,2) = eta;
+  }
+}
+
 //--------------------------------------------------------------------------
 void
 Tri32DSCV::tri_shape_fcn(
@@ -541,13 +566,9 @@ void Tri32DSCS::shifted_grad_op(
 void Tri32DSCS::face_grad_op(
   int /*face_ordinal*/,
   SharedMemView<DoubleType**, DeviceShmem>& coords,
-  SharedMemView<DoubleType***, DeviceShmem>& gradop)
+  SharedMemView<DoubleType***, DeviceShmem>& gradop,
+  SharedMemView<DoubleType***, DeviceShmem>& deriv)
 {
-  using traits = AlgTraitsEdge2DTri32D;
-
-  constexpr int derivSize = traits::numFaceIp_ * traits::nodesPerElement_ * traits::nDim_;
-  DoubleType psi[derivSize];
-  SharedMemView<DoubleType***, DeviceShmem> deriv(psi, traits::numFaceIp_, traits::nodesPerElement_, traits::nDim_);
   tri_derivative(deriv);
   generic_grad_op<AlgTraitsEdge2DTri32D>(deriv, coords, gradop);
 }
@@ -600,10 +621,11 @@ void Tri32DSCS::face_grad_op(
 void Tri32DSCS::shifted_face_grad_op(
   int face_ordinal,
   SharedMemView<DoubleType**, DeviceShmem>& coords,
-  SharedMemView<DoubleType***, DeviceShmem>& gradop)
+  SharedMemView<DoubleType***, DeviceShmem>& gradop,
+  SharedMemView<DoubleType***, DeviceShmem>& deriv)
 {
   // same as regular face_grad_op
-  face_grad_op(face_ordinal, coords, gradop);
+  face_grad_op(face_ordinal, coords, gradop, deriv);
 }
 
 void Tri32DSCS::shifted_face_grad_op(
@@ -759,6 +781,11 @@ Tri32DSCS::scsIpEdgeOrd()
 //-------- shape_fcn -------------------------------------------------------
 //--------------------------------------------------------------------------
 void
+Tri32DSCS::shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) {
+  tri_shape_fcn(intgLoc_, shpfc);
+}
+
+void
 Tri32DSCS::shape_fcn(double *shpfc)
 {
   tri_shape_fcn(numIntPoints_, intgLoc_, shpfc);
@@ -768,6 +795,11 @@ Tri32DSCS::shape_fcn(double *shpfc)
 //-------- shifted_shape_fcn -----------------------------------------------
 //--------------------------------------------------------------------------
 void
+Tri32DSCS::shifted_shape_fcn(SharedMemView<DoubleType**, DeviceShmem> &shpfc) {
+  tri_shape_fcn(intgLocShift_, shpfc);
+}
+
+void
 Tri32DSCS::shifted_shape_fcn(double *shpfc)
 {
   tri_shape_fcn(numIntPoints_, intgLocShift_, shpfc);
@@ -776,6 +808,21 @@ Tri32DSCS::shifted_shape_fcn(double *shpfc)
 //--------------------------------------------------------------------------
 //-------- tri_shape_fcn ---------------------------------------------------
 //--------------------------------------------------------------------------
+void
+Tri32DSCS::tri_shape_fcn(
+  const double *isoParCoord, 
+  SharedMemView<DoubleType**, DeviceShmem> &shape_fcn)
+{
+  for (int j = 0; j < numIntPoints_; ++j ) {
+    const int k = 2*j;
+    const double xi = isoParCoord[k];
+    const double eta = isoParCoord[k+1];
+    shape_fcn(j,0) = 1.0 - xi - eta;
+    shape_fcn(j,1) = xi;
+    shape_fcn(j,2) = eta;
+  }
+}
+
 void
 Tri32DSCS::tri_shape_fcn(
   const int   npts,

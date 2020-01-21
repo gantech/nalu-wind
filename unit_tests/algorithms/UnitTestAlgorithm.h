@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 National Renewable Energy Laboratory.                  */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 #ifndef UNITTESTALGORITHM_H
 #define UNITTESTALGORITHM_H
@@ -97,6 +100,7 @@ public:
   ScalarFieldType* sdr_{nullptr};
   ScalarFieldType* minDistance_{nullptr};
   GenericFieldType* dudx_{nullptr};
+  GenericFieldType* openMassFlowRate_{nullptr};
   ScalarFieldType* tvisc_{nullptr};
   ScalarFieldType* maxLengthScale_{nullptr};
   ScalarFieldType* fOneBlend_{nullptr};
@@ -106,6 +110,9 @@ public:
   VectorFieldType* dwdx_{nullptr};
   VectorFieldType* dhdx_{nullptr};
   ScalarFieldType* specificHeat_{nullptr};
+  ScalarFieldType* tkebc_{nullptr};
+  GenericFieldType* avgDudx_{nullptr};
+  ScalarFieldType* avgTime_{nullptr};
 };
 
 struct NodeSuppHelper {

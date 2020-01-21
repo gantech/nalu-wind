@@ -1,9 +1,12 @@
-/*------------------------------------------------------------------------*/
-/*  Copyright 2014 Sandia Corporation.                                    */
-/*  This software is released under the license detailed                  */
-/*  in the file, LICENSE, which is located in the top-level Nalu          */
-/*  directory structure                                                   */
-/*------------------------------------------------------------------------*/
+// Copyright 2017 National Technology & Engineering Solutions of Sandia, LLC
+// (NTESS), National Renewable Energy Laboratory, University of Texas Austin,
+// Northwest Research Associates. Under the terms of Contract DE-NA0003525
+// with NTESS, the U.S. Government retains certain rights in this software.
+//
+// This software is released under the BSD 3-clause license. See LICENSE file
+// for more details.
+//
+
 
 
 #ifndef EquationSystem_h
@@ -236,6 +239,17 @@ public:
     get_required(node, "convergence_tolerance", convergenceTolerance_);
   }
 
+  /** Update field with delta solution of linear solve
+   */
+  virtual void solution_update(
+    const double delta_frac,
+    const stk::mesh::FieldBase& delta,
+    const double field_frac,
+    stk::mesh::FieldBase& field,
+    const unsigned numComponents = 1,
+    const stk::topology::rank_t rank = stk::topology::NODE_RANK);
+
+
   Simulation *root();
   EquationSystems *parent();
 
@@ -342,6 +356,7 @@ public:
   std::string dofName_{"undefined"};
 
   bool extractDiagonal_{false};
+  virtual ScalarFieldType* get_diagonal_field() { return nullptr; }
 
   // owner equation system
   /*EquationSystem *ownerEqs_;*/
