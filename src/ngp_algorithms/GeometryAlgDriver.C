@@ -76,6 +76,7 @@ void GeometryAlgDriver::mesh_motion_prework()
   const auto entityRank = realm_.realmUsesEdges_ ? stk::topology::EDGE_RANK : stk::topology::ELEM_RANK;
   const std::string fvmFieldName = realm_.realmUsesEdges_ ? "edge_face_velocity_mag" :  "face_velocity_mag";
   auto ngpFaceVelMag = nalu_ngp::get_ngp_field(realm_.mesh_info(), fvmFieldName, entityRank);
+  ngpFaceVelMag.set_all(ngpMesh,0.0);
   const std::string svFieldName = realm_.realmUsesEdges_ ? "edge_swept_face_volume" :  "swept_face_volume";
   auto ngpSweptVol = nalu_ngp::get_ngp_field(realm_.mesh_info(), svFieldName, entityRank);
   ngpSweptVol.set_all(ngpMesh,0.0);
@@ -89,7 +90,9 @@ void GeometryAlgDriver::mesh_motion_prework()
     
     auto* sweptVolEdge = meta.template get_field<GenericFieldType>(
       stk::topology::EDGE_RANK, "edge_swept_face_volume");
-    nalu_ngp::field_axpby(ngpMesh, stk::mesh::selectField(*sweptVolEdge), (gamma1+gamma2)/dt,
+    const stk::mesh::Selector sel = stk::mesh::selectField(*sweptVolEdge)
+        & meta.locally_owned_part();
+    nalu_ngp::field_axpby(ngpMesh, sel, (gamma1+gamma2)/dt,
                           ngpSweptVolEdgeN, 0.0, ngpFaceVelMag, 1, stk::topology::EDGE_RANK);
   }
 
@@ -113,6 +116,15 @@ void GeometryAlgDriver::post_work()
     auto* edgeAreaVec = meta.template get_field<VectorFieldType>(
       stk::topology::EDGE_RANK, "edge_area_vector");
     fields.push_back(edgeAreaVec);
+
+    if (realm_.has_mesh_motion()) {
+        auto* meshFaceVel = meta.get_field(
+            stk::topology::EDGE_RANK, "edge_face_velocity_mag");
+        fields.push_back(meshFaceVel);
+        auto* edgeSweptVol = meta.get_field(
+            stk::topology::EDGE_RANK, "edge_swept_face_volume");
+        fields.push_back(edgeSweptVol);
+    }
   }
 
   if (hasWallFunc_) {

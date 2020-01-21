@@ -281,11 +281,12 @@ void compute_edge_scalar_divergence(
   stk::mesh::FieldBase* scalarField)
 {
   stk::mesh::MetaData& meta = bulk.mesh_meta_data();
-  stk::mesh::Selector sel = ( meta.locally_owned_part() );
+  stk::mesh::Selector sel = ( meta.locally_owned_part() )
+      & stk::mesh::selectUnion(partVec);
   const auto& bkts =
       bulk.get_buckets( stk::topology::EDGE_RANK, sel );
   // reset divergence field
-  stk::mesh::field_fill(0.0, *scalarField, sel);
+  stk::mesh::field_fill(0.0, *scalarField);
   for (auto b: bkts) {
     size_t length = b->size();
     const double *ff = stk::mesh::field_data(*faceField, *b);
