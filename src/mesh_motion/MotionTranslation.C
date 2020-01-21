@@ -12,6 +12,9 @@ MotionTranslation::MotionTranslation(const YAML::Node& node)
   : MotionBase()
 {
   load(node);
+
+  // flag to denote if motion deforms elements
+  isDeforming_ = false;
 }
 
 void MotionTranslation::load(const YAML::Node& node)

@@ -19,6 +19,9 @@ MotionScaling::MotionScaling(
 {
   load(node);
 
+  // flag to denote if motion deforms elements
+  isDeforming_ = true;
+
   if( useRate_ ) {
     // declare divergence of mesh velocity for this motion
     ScalarFieldType *divV = &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));

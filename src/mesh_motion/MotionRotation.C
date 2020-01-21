@@ -14,6 +14,9 @@ MotionRotation::MotionRotation(const YAML::Node& node)
   : MotionBase()
 {
   load(node);
+
+  // flag to denote if motion deforms elements
+  isDeforming_ = false;
 }
 
 void MotionRotation::load(const YAML::Node& node)

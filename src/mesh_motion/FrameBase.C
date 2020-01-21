@@ -24,6 +24,11 @@ FrameBase::FrameBase(
     isInertial_(isInertial)
 {
   load(node);
+
+  // set deformation flag based on motions in the frame
+  for (auto& mm: meshMotionVec_)
+    if ( mm->is_deforming() )
+      isDeforming_ = true;
 }
 
 void FrameBase::load(const YAML::Node& node)

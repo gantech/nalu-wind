@@ -18,6 +18,9 @@ MotionDeformingInterior::MotionDeformingInterior(
 {
   load(node);
 
+  // flag to denote if motion deforms elements
+  isDeforming_ = true;
+
   // declare divergence of mesh velocity for this motion
   ScalarFieldType *divV = &(meta.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
   stk::mesh::put_field_on_mesh(*divV, meta.universal_part(), nullptr);

@@ -75,6 +75,11 @@ public:
   {
   }
 
+  bool is_deforming()
+  {
+    return isDeforming_;
+  }
+
   static const TransMatType identityMat_;
 
 protected:
@@ -99,6 +104,8 @@ protected:
 
   double startTime_{0.0};
   double endTime_{std::numeric_limits<double>::max()};
+
+  bool isDeforming_ = false; // flag to denote if motion deforms elements
 
 private:
     MotionBase(const MotionBase&) = delete;
