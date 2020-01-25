@@ -81,6 +81,8 @@ public:
 
   double get_upw_factor(const std::string&) const;
 
+  double get_upw_time_blend(const double);
+
   double get_relaxation_factor(const std::string&) const;
 
   bool primitive_uses_limiter(const std::string&) const;
@@ -102,6 +104,8 @@ public:
   double alphaDefault_;
   double alphaUpwDefault_;
   double upwDefault_;
+  double upwTimeOn_;
+  double upwTimeDelta_;
   // Relaxation factors for equations
   double relaxFactorDefault_{1.0};
   double lamScDefault_;

@@ -64,6 +64,8 @@ MomentumEdgeSolverAlg::execute()
 
   const DblType om_alpha = 1.0 - alpha;
   const DblType om_alphaUpw = 1.0 - alphaUpw;
+  const DblType pecfac = realm_.get_upw_time_blend();
+  const DblType om_pecfac = 1.0 - pecfac;
 
   // STK ngp::Field instances for capture by lambda
   const auto& fieldMgr = realm_.ngp_field_manager();
@@ -102,17 +104,14 @@ MomentumEdgeSolverAlg::execute()
       const DblType viscosityR = viscosity.get(nodeR, 0);
 
       const DblType viscIp = 0.5 * (viscosityL + viscosityR);
-      const DblType diffIp = 0.5 * (viscosityL / densityL + viscosityR / densityR);
 
       // Compute area vector related quantities and (U dot areaVec)
       DblType axdx = 0.0;
       DblType asq = 0.0;
-      DblType udotx = 0.0;
       for (int d=0; d < ndim; ++d) {
         const DblType dxj = coordinates.get(nodeR, d) - coordinates.get(nodeL, d);
         asq += av[d] * av[d];
         axdx += av[d] * dxj;
-        udotx += 0.5 * dxj * (vrtm.get(nodeR, d) + vrtm.get(nodeL, d));
       }
       const DblType inv_axdx = 1.0 / axdx;
 
@@ -131,10 +130,6 @@ MomentumEdgeSolverAlg::execute()
           duR[i] += dxj * dudx.get(nodeR, offset + j);
         }
       }
-
-      const DblType pecnum = stk::math::abs(udotx) / (diffIp + eps);
-      const DblType pecfac = pecFunc->execute(pecnum);
-      const DblType om_pecfac = 1.0 - pecfac;
 
       NALU_ALIGNED DblType limitL[NDimMax_] = { 1.0, 1.0, 1.0};
       NALU_ALIGNED DblType limitR[NDimMax_] = { 1.0, 1.0, 1.0};

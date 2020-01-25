@@ -35,6 +35,8 @@ SolutionOptions::SolutionOptions()
     alphaDefault_(0.0),
     alphaUpwDefault_(1.0),
     upwDefault_(1.0),
+    upwTimeOn_(-100.0),
+    upwTimeDelta_(1.0),
     lamScDefault_(1.0),
     turbScDefault_(1.0),
     turbPrDefault_(1.0),
@@ -222,6 +224,12 @@ SolutionOptions::load(const YAML::Node & y_node)
     get_if_present(y_solution_options, "explicitly_zero_open_pressure_gradient",
       explicitlyZeroOpenPressureGradient_, explicitlyZeroOpenPressureGradient_);
 
+    get_if_present(y_solution_options, "upw_time_on",
+                   upwTimeOn_, upwTimeOn_);
+
+    get_if_present(y_solution_options, "upw_time_delta",
+                   upwTimeDelta_, upwTimeDelta_);
+    
     // first set of options; hybrid, source, etc.
     const YAML::Node y_options = expect_sequence(y_solution_options, "options", required);
     if (y_options)
@@ -685,6 +693,13 @@ SolutionOptions::get_upw_factor(const std::string& dofName) const
     factor = iter->second;
 
   return factor;
+}
+
+
+double
+SolutionOptions::get_upw_time_blend(const double t)
+{
+  return 1.0 - (std::tanh( (t - upwTimeOn_)/upwTimeDelta_) * 0.5 + 0.5);
 }
 
 double

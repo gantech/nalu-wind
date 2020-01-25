@@ -294,6 +294,7 @@ class Realm {
     const std::string dofname);
   double get_upw_factor(
     const std::string dofname);
+  double get_upw_time_blend();
   bool primitive_uses_limiter(
     const std::string dofname);
   double get_lam_schmidt(
