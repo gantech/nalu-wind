@@ -25,6 +25,8 @@ public:
 
   stk::mesh::PartVector get_partvec();
 
+  bool is_deforming(){ return isDeforming_; }
+
 private:
   MeshMotionAlg() = delete;
   MeshMotionAlg(const MeshMotionAlg&) = delete;
@@ -32,6 +34,8 @@ private:
   void load(
     stk::mesh::BulkData&,
     const YAML::Node&);
+
+  void set_deformation_flag();
 
   void compute_set_centroid();
 
@@ -48,6 +52,8 @@ private:
    *  Size is the number of motion groups with reference frames
    */
   std::map<int, std::shared_ptr<FrameBase>> refFrameMap_;
+
+  bool isDeforming_ = false; // flag to denote if mesh deformation exists
 
   //! flag to guard against multiple invocations of initialize()
   bool isInit_ = false;
