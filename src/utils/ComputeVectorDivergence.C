@@ -235,7 +235,7 @@ void compute_scalar_divergence(
   const auto& bkts =
       bulk.get_buckets( stk::topology::ELEMENT_RANK, sel );
   // reset divergence field
-  stk::mesh::field_fill(0.0, *scalarField, sel);
+  stk::mesh::field_fill(0.0, *scalarField);
   for (auto b: bkts) {
     MasterElement* meSCS =
         MasterElementRepo::get_surface_master_element(b->topology());
