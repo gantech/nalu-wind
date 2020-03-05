@@ -226,7 +226,7 @@ TimeIntegrator::integrate_realm()
 
   // provide for initial transfer
   for ( ii = realmVec_.begin(); ii!=realmVec_.end(); ++ii) {
-    (*ii)->process_multi_physics_transfer();
+    (*ii)->process_init_multi_physics_transfer();
   }
 
   // provide output/restart for initial condition
@@ -276,10 +276,10 @@ TimeIntegrator::integrate_realm()
       (*ii)->populate_external_variables_from_input(currentTime_);
     }
     
-    // pre-step work; mesh motion, search, etc
-    for ( ii = realmVec_.begin(); ii!=realmVec_.end(); ++ii) {
-      (*ii)->pre_timestep_work();
-    }
+    // // pre-step work; mesh motion, search, etc
+    // for ( ii = realmVec_.begin(); ii!=realmVec_.end(); ++ii) {
+    //   (*ii)->pre_timestep_work();
+    // }
 
     // populate boundary data
     for ( ii = realmVec_.begin(); ii!=realmVec_.end(); ++ii) {
@@ -303,6 +303,7 @@ TimeIntegrator::integrate_realm()
         << "   Realm Nonlinear Iteration: " << k+1 << "/" << nonlinearIterations_ << std::endl
         << std::endl;
       for ( ii = realmVec_.begin(); ii!=realmVec_.end(); ++ii) {
+        (*ii)->pre_timestep_work();
         (*ii)->advance_time_step();
         (*ii)->process_multi_physics_transfer();
       }

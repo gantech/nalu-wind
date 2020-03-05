@@ -147,6 +147,18 @@ public:
   // setup part creation and nodal field registration (after populate_mesh())
   virtual void initialize() = 0;
 
+  // predict initial structural model states
+  virtual void init_predict_struct_states() = 0;
+    
+  // predict the state of the structural model at the next time step
+  virtual void predict_struct_time_step() = 0;
+
+  // firmly advance the state of the structural model to the next time step
+  virtual void advance_struct_time_step() = 0;
+  
+  // sample velocity at the actuator points and send to the structural model
+  virtual void sample_vel() = 0;
+  
   // populate nodal field and output norms (if appropriate)
   virtual void execute() = 0;
 

@@ -81,8 +81,10 @@ class MeshMotionAlg;
 
 class SolutionNormPostProcessing;
 class TurbulenceAveragingPostProcessing;
+class SurfaceFMPostProcessing;
 class DataProbePostProcessing;
 class Actuator;
+class OpenfastFSI;    
 class ABLForcingAlgorithm;
 class BdyLayerStatistics;
 
@@ -450,11 +452,12 @@ class Realm {
 
   SolutionOptions *solutionOptions_;
   OutputInfo *outputInfo_;
-  PostProcessingInfo *postProcessingInfo_;
   SolutionNormPostProcessing *solutionNormPostProcessing_;
   TurbulenceAveragingPostProcessing *turbulenceAveragingPostProcessing_;
+  std::unique_ptr<SurfaceFMPostProcessing> surfaceFMPostProcessing_;
   DataProbePostProcessing *dataProbePostProcessing_;
   Actuator *actuator_;
+  OpenfastFSI *openfast_;
   ABLForcingAlgorithm *ablForcingAlg_;
   BdyLayerStatistics* bdyLayerStats_{nullptr};
   std::unique_ptr<MeshMotionAlg> meshMotionAlg_;
@@ -582,6 +585,7 @@ class Realm {
   std::vector<Transfer *> ioTransferVec_;
   std::vector<Transfer *> externalDataTransferVec_;
   void augment_transfer_vector(Transfer *transfer, const std::string transferObjective, Realm *toRealm);
+  void process_init_multi_physics_transfer();    
   void process_multi_physics_transfer();
   void process_initialization_transfer();
   void process_io_transfer();
@@ -602,6 +606,7 @@ class Realm {
   bool get_is_terminate_based_on_time();
   double get_total_sim_time();
   int get_max_time_step_count();
+  int get_restart_frequency();
 
   // restart
   bool restarted_simulation();

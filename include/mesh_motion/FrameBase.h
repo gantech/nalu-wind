@@ -22,11 +22,15 @@ public:
     const YAML::Node&,
     bool);
 
+  FrameBase(
+    stk::mesh::BulkData&,
+    bool);
+    
   virtual ~FrameBase()
   {
   }
 
-  void setup();
+  virtual void setup();
 
   virtual void update_coordinates_velocity(const double) = 0;
 

@@ -209,6 +209,18 @@ public:
 
     virtual void create_point_info_map_class_specific() = 0;
 
+    // predict initial structural model states
+    void init_predict_struct_states();
+
+    // predict the state of the structural model at the next time step
+    void predict_struct_time_step();
+
+    // firmly advance the state of the structural model to the next time step
+    void advance_struct_time_step();
+
+    // sample velocity at the actuator points and send to the structural model
+    void sample_vel();
+    
     // populate nodal field and output norms (if appropriate)
     void execute() override;
 

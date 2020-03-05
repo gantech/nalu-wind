@@ -38,8 +38,6 @@
 #include <NonConformalManager.h>
 #include <NonConformalInfo.h>
 #include <OutputInfo.h>
-#include <PostProcessingInfo.h>
-#include <PostProcessingData.h>
 #include <PecletFunction.h>
 #include <PeriodicManager.h>
 #include <Realms.h>
@@ -67,6 +65,7 @@
 // post processing
 #include <SolutionNormPostProcessing.h>
 #include <TurbulenceAveragingPostProcessing.h>
+#include <SurfaceFMPostProcessing.h>
 #include <DataProbePostProcessing.h>
 #include <wind_energy/BdyLayerStatistics.h>
 
@@ -76,6 +75,9 @@
 #include <actuator/ActuatorLineFAST.h>
 #include <actuator/ActuatorDiskFAST.h>
 #endif
+
+// OpenFAST coupling
+#include <OpenfastFSI.h>
 
 #include <wind_energy/ABLForcingAlgorithm.h>
 #include <wind_energy/SyntheticLidar.h>
@@ -211,11 +213,11 @@ namespace nalu{
     currentNonlinearIteration_(1),
     solutionOptions_(new SolutionOptions()),
     outputInfo_(new OutputInfo()),
-    postProcessingInfo_(new PostProcessingInfo()),
     solutionNormPostProcessing_(NULL),
     turbulenceAveragingPostProcessing_(NULL),
     dataProbePostProcessing_(NULL),
     actuator_(NULL),
+    openfast_(NULL),
     ablForcingAlg_(NULL),
     nodeCount_(0),
     estimateMemoryOnly_(false),
@@ -266,7 +268,7 @@ namespace nalu{
     inputMeshIdx_(std::numeric_limits<size_t>::max()),
     node_(node)
 {
-  // deal with specialty options that live off of the realm; 
+  // deal with specialty options that live off of the realm;
   // choose to do this now rather than waiting for the load stage
   look_ahead_and_creation(node);
 }
@@ -304,7 +306,6 @@ Realm::~Realm()
 
   delete solutionOptions_;
   delete outputInfo_;
-  delete postProcessingInfo_;
 
   // post processing-like objects
   if ( NULL != solutionNormPostProcessing_ )
@@ -318,6 +319,9 @@ Realm::~Realm()
 
   if ( NULL != actuator_ )
     delete actuator_;
+
+  if ( NULL != openfast_ )
+      delete openfast_;
 
   // delete non-conformal related things
   if ( NULL != nonConformalManager_ )
@@ -403,7 +407,7 @@ Realm::provide_memory_summary()
 //--------------------------------------------------------------------------
 //-------- convert_bytes ---------------------------------------------------
 //--------------------------------------------------------------------------
-std::string 
+std::string
 Realm::convert_bytes(double bytes)
 {
   const double K = 1024;
@@ -440,6 +444,11 @@ Realm::initialize()
   if (doPromotion_) {
     setup_element_promotion();
   }
+
+  // setup OpenFAST FSI stuff
+  if(openfast_ != NULL)
+      openfast_->setup();
+
   // field registration
   setup_nodal_fields();
   setup_edge_fields();
@@ -453,7 +462,7 @@ Realm::initialize()
 
   // create boundary conditions
   setup_bc();
-  
+
   // post processing algorithm creation
   setup_post_processing_algorithms();
 
@@ -525,7 +534,7 @@ Realm::initialize()
     bulkData_->sort_entities(EntityExposedFaceSorter());
     timerSortExposedFace_ += (NaluEnv::self().nalu_time() - timeSort);
   }
-  
+
   // variables that may come from the initial mesh
   input_variables_from_mesh();
 
@@ -541,8 +550,11 @@ Realm::initialize()
   if ( hasPeriodic_ )
     periodicManager_->build_constraints();
 
+  if (openfast_ != NULL)
+      openfast_->initialize(get_time_step_from_file(), get_restart_frequency(), get_current_time());
+
   if ( solutionOptions_->meshMotion_ )
-    meshMotionAlg_->initialize( get_current_time() );
+      meshMotionAlg_->initialize( get_current_time() );
 
   compute_geometry();
 
@@ -802,8 +814,27 @@ Realm::load(const YAML::Node & node)
   create_mesh();
   spatialDimension_ = metaData_->spatial_dimension();
 
-  // post processing
-  postProcessingInfo_->load(node);
+  // surface force moment post processing
+  const YAML::Node y_sfm_pp =
+      expect_sequence(node, "surface_force_moment", true);
+  if (y_sfm_pp) {
+      surfaceFMPostProcessing_ =
+          make_unique<SurfaceFMPostProcessing>(*this);
+      surfaceFMPostProcessing_->load(y_sfm_pp);
+  }
+
+  // look for OpenFAST FSI stuff
+  if (node["openfast_fsi"]) {
+      if (surfaceFMPostProcessing_ == NULL)
+          surfaceFMPostProcessing_ =
+              make_unique<SurfaceFMPostProcessing>(*this);
+
+      const YAML::Node openfastNode = node["openfast_fsi"];
+      openfast_ = new OpenfastFSI(meta_data(), bulk_data(),
+                                  openfastNode, surfaceFMPostProcessing_.get());
+      if (openfast_->get_meshmotion())
+          solutionOptions_->meshMotion_ = true;
+  }
 
   // boundary, init, material and equation systems "load"
   if ( type_ == "multi_physics" ) {
@@ -826,20 +857,17 @@ Realm::load(const YAML::Node & node)
   }
 
   // second set of options: mesh motion... this means that the Realm will expect to provide mesh motion
-  const YAML::Node meshMotionNode = expect_sequence(node, "mesh_motion", true);
-  if (meshMotionNode)
-  {
-    // has a user stated that mesh motion is external?
-    if ( solutionOptions_->meshDeformation_ ) {
-      NaluEnv::self().naluOutputP0() << "mesh motion set to external (will prevail over mesh motion specification)!" << std::endl;
-    }
-    else {
-      // mesh motion is active
+  YAML::Node meshMotionNode;
+  if (expect_sequence(node, "mesh_motion", true) ) {
+      std::cout << "Found mesh_motion" << std::endl;
+      meshMotionNode = expect_sequence(node, "mesh_motion", true);
       solutionOptions_->meshMotion_ = true;
+  }
 
-      // instantiate mesh motion class once the mesh has been created
-      meshMotionAlg_.reset(new MeshMotionAlg( *bulkData_, meshMotionNode));
-    }
+  if (solutionOptions_->meshMotion_)
+  {
+    // instantiate mesh motion class once the mesh has been created
+    meshMotionAlg_.reset(new MeshMotionAlg( *bulkData_, meshMotionNode, openfast_));
   }
 
   // set number of nodes, check job run size
@@ -969,53 +997,16 @@ Realm::setup_interior_algorithms()
 void
 Realm::setup_post_processing_algorithms()
 {
-  // get a pointer to the post processing data vector
-  std::vector<PostProcessingData* > &ppDataVec = postProcessingInfo_->ppDataVec_;
 
-  // iterate and set-up
-  std::vector<PostProcessingData *>::const_iterator ii;
-  for( ii=ppDataVec.begin(); ii!=ppDataVec.end(); ++ii ) {
-
-    PostProcessingData &theData = *(*ii);
-    // type
-    std::string theType = theData.type_;
-    NaluEnv::self().naluOutputP0() << "the post processing type is " << theType << std::endl;
-
-    // output name
-    std::string theFile = theData.outputFileName_;
-    NaluEnv::self().naluOutputP0() << "the post processing file name: " << theFile << std::endl;
-
-    // physics
-    std::string thePhysics = theData.physics_;
-    NaluEnv::self().naluOutputP0() << "the post processing physics name: " << thePhysics << std::endl;
-
-    // target
-    // map target names to physics parts
-    theData.targetNames_ = physics_part_names(theData.targetNames_);
-
-    const std::vector<std::string>& targetNames = theData.targetNames_;
-    for ( size_t in = 0; in < targetNames.size(); ++in)
-      NaluEnv::self().naluOutputP0() << "Target name(s): " << targetNames[in] << std::endl;
-
-    // params
-    std::vector<double> parameters = theData.parameters_;
-    for ( size_t in = 0; in < parameters.size(); ++in)
-      NaluEnv::self().naluOutputP0() << "Parameters used are: " << parameters[in] << std::endl;
-
-    // call through to the Eqsys
-    if ( theType == "surface" ) {
-      equationSystems_.register_surface_pp_algorithm(theData);
-    }
-    else {
-      throw std::runtime_error("Post Processing Error: only  surface-based is supported");
-    }
-  }
+  // check for surface force moment post processing
+  if (NULL != surfaceFMPostProcessing_ )
+      surfaceFMPostProcessing_->setup();
 
   // check for turbulence averaging fields
   if (NULL == turbulenceAveragingPostProcessing_ &&
      solutionOptions_->has_set_boussinesq_time_scale() ) {
 
-     turbulenceAveragingPostProcessing_ =  new TurbulenceAveragingPostProcessing(*this, {});
+     turbulenceAveragingPostProcessing_ = new TurbulenceAveragingPostProcessing(*this, {});
   }
 
   if ( NULL != turbulenceAveragingPostProcessing_ )
@@ -1913,6 +1904,11 @@ Realm::pre_timestep_work()
     timerAdapt_ += time;
   }
 
+  if (openfast_ != NULL) {
+      openfast_->predict_struct_states();
+      openfast_->get_displacements( get_current_time() );
+  }
+
   // check for mesh motion
   if ( solutionOptions_->meshMotion_ ) {
 
@@ -1921,6 +1917,10 @@ Realm::pre_timestep_work()
     compute_geometry();
 
     meshMotionAlg_->post_compute_geometry();
+
+    if (openfast_ != NULL) {
+        openfast_->compute_div_mesh_velocity();
+    }
 
     // and non-conformal algorithm
     if ( hasNonConformal_ )
@@ -4265,15 +4265,50 @@ Realm::augment_transfer_vector(Transfer *transfer, const std::string transferObj
 }
 
 //--------------------------------------------------------------------------
+//-------- process_init_multi_physics_transfer -----------------------------
+//--------------------------------------------------------------------------
+void
+Realm::process_init_multi_physics_transfer()
+{
+    double timeXfer = -NaluEnv::self().nalu_time();
+
+    // check for actuator line
+    if ( NULL != actuator_ ) {
+        actuator_->sample_vel();
+        actuator_->init_predict_struct_states();
+    }
+
+    if ( !hasMultiPhysicsTransfer_ )
+        return;
+  
+    std::vector<Transfer *>::iterator ii;
+    for( ii=multiPhysicsTransferVec_.begin(); ii!=multiPhysicsTransferVec_.end(); ++ii )
+        (*ii)->execute();
+    timeXfer += NaluEnv::self().nalu_time();
+    timerTransferExecute_ += timeXfer;
+}
+
+//--------------------------------------------------------------------------
 //-------- process_multi_physics_transfer ----------------------------------
 //--------------------------------------------------------------------------
 void
 Realm::process_multi_physics_transfer()
 {
-  if ( !hasMultiPhysicsTransfer_ )
-    return;
-
+    
   double timeXfer = -NaluEnv::self().nalu_time();
+  
+  if (openfast_ != NULL)
+      openfast_->predict_struct_timestep(get_current_time());
+
+  // check for actuator line
+  if ( NULL != actuator_ ) {
+      actuator_->sample_vel();
+      actuator_->predict_struct_time_step();
+  }
+
+  if ( !hasMultiPhysicsTransfer_ )
+      return;
+  
   std::vector<Transfer *>::iterator ii;
   for( ii=multiPhysicsTransferVec_.begin(); ii!=multiPhysicsTransferVec_.end(); ++ii )
     (*ii)->execute();
@@ -4346,10 +4381,20 @@ Realm::post_converged_work()
 {
   equationSystems_.post_converged_work();
 
+  if ( NULL != actuator_ ) {
+      actuator_->advance_struct_time_step();
+  }
+  
+  if (openfast_ != NULL)
+      openfast_->advance_struct_timestep(get_current_time());
+
   // FIXME: Consider a unified collection of post processing work
   if ( NULL != solutionNormPostProcessing_ )
     solutionNormPostProcessing_->execute();
-  
+
+  if ( NULL != surfaceFMPostProcessing_ )
+      surfaceFMPostProcessing_->execute();
+
   if ( NULL != turbulenceAveragingPostProcessing_ )
     turbulenceAveragingPostProcessing_->execute();
 
@@ -4556,6 +4601,10 @@ Realm::get_max_time_step_count() {
   return timeIntegrator_->get_max_time_step_count();
 }
 
+int
+Realm::get_restart_frequency() {
+  return outputInfo_->get_restart_frequency() ;
+}
 //--------------------------------------------------------------------------
 //-------- get_gamma1() ----------------------------------------------------
 //--------------------------------------------------------------------------

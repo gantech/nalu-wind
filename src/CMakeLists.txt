@@ -75,6 +75,7 @@ target_sources(nalu PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/ErrorIndicatorAlgorithmDriver.C
    ${CMAKE_CURRENT_SOURCE_DIR}/FieldFunctions.C
    ${CMAKE_CURRENT_SOURCE_DIR}/FixPressureAtNodeAlgorithm.C
+   ${CMAKE_CURRENT_SOURCE_DIR}/FSIturbine.C
    ${CMAKE_CURRENT_SOURCE_DIR}/HeatCondEquationSystem.C
    ${CMAKE_CURRENT_SOURCE_DIR}/HeatCondMassBDF2NodeSuppAlg.C
    ${CMAKE_CURRENT_SOURCE_DIR}/HeatCondMassBackwardEulerNodeSuppAlg.C
@@ -99,10 +100,10 @@ target_sources(nalu PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/NaluParsing.C
    ${CMAKE_CURRENT_SOURCE_DIR}/NonConformalInfo.C
    ${CMAKE_CURRENT_SOURCE_DIR}/NonConformalManager.C
+   ${CMAKE_CURRENT_SOURCE_DIR}/OpenfastFSI.C
    ${CMAKE_CURRENT_SOURCE_DIR}/OutputInfo.C
    ${CMAKE_CURRENT_SOURCE_DIR}/PecletFunction.C
    ${CMAKE_CURRENT_SOURCE_DIR}/PeriodicManager.C
-   ${CMAKE_CURRENT_SOURCE_DIR}/PostProcessingInfo.C
    ${CMAKE_CURRENT_SOURCE_DIR}/ProjectedNodalGradientEquationSystem.C
    ${CMAKE_CURRENT_SOURCE_DIR}/PstabErrorIndicatorEdgeAlgorithm.C
    ${CMAKE_CURRENT_SOURCE_DIR}/PstabErrorIndicatorElemAlgorithm.C
@@ -120,9 +121,7 @@ target_sources(nalu PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/SolverAlgorithmDriver.C
    ${CMAKE_CURRENT_SOURCE_DIR}/SpecificDissipationRateEquationSystem.C
    ${CMAKE_CURRENT_SOURCE_DIR}/SupplementalAlgorithm.C
-   ${CMAKE_CURRENT_SOURCE_DIR}/SurfaceForceAndMomentAlgorithm.C
-   ${CMAKE_CURRENT_SOURCE_DIR}/SurfaceForceAndMomentAlgorithmDriver.C
-   ${CMAKE_CURRENT_SOURCE_DIR}/SurfaceForceAndMomentWallFunctionAlgorithm.C
+   ${CMAKE_CURRENT_SOURCE_DIR}/SurfaceFMPostProcessing.C
    ${CMAKE_CURRENT_SOURCE_DIR}/TAMSAlgDriver.C
    ${CMAKE_CURRENT_SOURCE_DIR}/TimeIntegrator.C
    ${CMAKE_CURRENT_SOURCE_DIR}/TpetraLinearSystem.C

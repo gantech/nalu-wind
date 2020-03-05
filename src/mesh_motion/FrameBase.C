@@ -26,6 +26,16 @@ FrameBase::FrameBase(
   load(node);
 }
 
+FrameBase::FrameBase(
+  stk::mesh::BulkData& bulk,
+  bool isInertial
+) : bulk_(bulk),
+    meta_(bulk.mesh_meta_data()),
+    isInertial_(isInertial)
+{
+}
+
+
 void FrameBase::load(const YAML::Node& node)
 {
   // get any part names associated with current motion group
@@ -34,8 +44,9 @@ void FrameBase::load(const YAML::Node& node)
   // check if centroid needs to be computed
   get_if_present(node, "compute_centroid", computeCentroid_, computeCentroid_);
 
-  // extract the motions in the current group
-  const auto& motions = node["motion"];
+  if (node["motion"]) {
+      // extract the motions in the current group
+      const auto& motions = node["motion"];
 
   const int num_motions = motions.size();
   meshMotionVec_.resize(num_motions);
@@ -62,13 +73,14 @@ void FrameBase::load(const YAML::Node& node)
     else
       throw std::runtime_error("FrameBase: Invalid mesh motion type: " + type);
 
-  } // end for loop - i index
+      } // end for loop - i index
+  }
 }
 
 void FrameBase::populate_part_vec(const YAML::Node& node)
 {
-  // if nor parts specified and frame is inertial, return
-  if (!node["mesh_parts"] && isInertial_)
+  // if nor parts specified or frame is inertial, return
+  if (!node["mesh_parts"] || isInertial_)
     return;
 
   // declare temporary part name vectors

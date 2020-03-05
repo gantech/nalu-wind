@@ -130,24 +130,15 @@ ActuatorFAST::load(const YAML::Node& y_node)
 
       get_if_present(y_actuator, "dry_run", fi.dryRun, false);
       get_if_present(y_actuator, "debug", fi.debug, false);
-      get_required(y_actuator, "t_start", fi.tStart);
       std::string simStartType = "na";
       get_required(y_actuator, "simStart", simStartType);
       if (simStartType == "init") {
-        if (fi.tStart == 0) {
-          fi.simStart = fast::init;
-        } else {
-          throw std::runtime_error(
-            get_class_name() +
-            ": simStart type not consistent with start time for FAST");
-        }
+        fi.simStart = fast::INIT;
       } else if (simStartType == "trueRestart") {
-        fi.simStart = fast::trueRestart;
+        fi.simStart = fast::TRUERESTART;
       } else if (simStartType == "restartDriverInitFAST") {
-        fi.simStart = fast::restartDriverInitFAST;
+        fi.simStart = fast::RESTARTDRIVERINITFAST;
       }
-      get_required(y_actuator, "n_every_checkpoint", fi.nEveryCheckPoint);
-      get_required(y_actuator, "dt_fast", fi.dtFAST);
       get_required(
         y_actuator, "t_max",
         fi.tMax); // tMax is the total duration to which you want to run FAST.
@@ -276,35 +267,28 @@ ActuatorFAST::readTurbineData(
   int iTurb, fast::fastInputs& fi, YAML::Node turbNode)
 {
 
-  // Read turbine data for a given turbine using the YAML node
-  get_required(turbNode, "turb_id", fi.globTurbineData[iTurb].TurbID);
-  get_required(
-    turbNode, "fast_input_filename",
-    fi.globTurbineData[iTurb].FASTInputFileName);
-  get_required(
-    turbNode, "restart_filename",
-    fi.globTurbineData[iTurb].FASTRestartFileName);
-  if (turbNode["turbine_base_pos"].IsSequence()) {
-    fi.globTurbineData[iTurb].TurbineBasePos =
-      turbNode["turbine_base_pos"].as<std::vector<double>>();
-  }
-  if (turbNode["turbine_hub_pos"].IsSequence()) {
-    fi.globTurbineData[iTurb].TurbineHubPos =
-      turbNode["turbine_hub_pos"].as<std::vector<double>>();
-  }
-  get_required(
-    turbNode, "num_force_pts_blade",
-    fi.globTurbineData[iTurb].numForcePtsBlade);
-  get_required(
-    turbNode, "num_force_pts_tower", fi.globTurbineData[iTurb].numForcePtsTwr);
-  fi.globTurbineData[iTurb].nacelle_cd = 0.0;
-  fi.globTurbineData[iTurb].nacelle_area = 0.0;
-  fi.globTurbineData[iTurb].air_density = 0.0;
-  get_if_present(turbNode, "nacelle_cd", fi.globTurbineData[iTurb].nacelle_cd);
-  get_if_present(
-    turbNode, "nacelle_area", fi.globTurbineData[iTurb].nacelle_area);
-  get_if_present(
-    turbNode, "air_density", fi.globTurbineData[iTurb].air_density);
+    //Read turbine data for a given turbine using the YAML node
+    get_required(turbNode, "turb_id", fi.globTurbineData[iTurb].TurbID);
+    std::string emptyString = "";
+    get_if_present(turbNode, "fast_input_filename", fi.globTurbineData[iTurb].FASTInputFileName);
+    get_if_present(turbNode, "restart_filename", fi.globTurbineData[iTurb].FASTRestartFileName);
+    if ( (fi.globTurbineData[iTurb].FASTRestartFileName == emptyString) && (fi.globTurbineData[iTurb].FASTInputFileName == emptyString) )
+        std::cout << "Both FAST_input_filename and restart_filename are empty or not specified for Turbine " << iTurb ;
+    if (turbNode["turbine_base_pos"].IsSequence() ) {
+        fi.globTurbineData[iTurb].TurbineBasePos = turbNode["turbine_base_pos"].as<std::vector<float> >() ;
+    }
+    if (turbNode["turbine_hub_pos"].IsSequence() ) {
+        fi.globTurbineData[iTurb].TurbineHubPos = turbNode["turbine_hub_pos"].as<std::vector<double> >() ;
+    }
+    get_required(turbNode, "num_force_pts_blade", fi.globTurbineData[iTurb].numForcePtsBlade);
+    get_required(turbNode, "num_force_pts_tower", fi.globTurbineData[iTurb].numForcePtsTwr);
+    fi.globTurbineData[iTurb].nacelle_cd = 0.0;
+    fi.globTurbineData[iTurb].nacelle_area = 0.0;
+    fi.globTurbineData[iTurb].air_density = 0.0;
+    get_if_present(turbNode, "nacelle_cd", fi.globTurbineData[iTurb].nacelle_cd);
+    get_if_present(turbNode, "nacelle_area", fi.globTurbineData[iTurb].nacelle_area);
+    get_if_present(turbNode, "air_density", fi.globTurbineData[iTurb].air_density);
+
 }
 
 /** Called after load, but before initialize. The mesh isn't loaded yet. For
@@ -314,20 +298,7 @@ ActuatorFAST::readTurbineData(
 void
 ActuatorFAST::setup()
 {
-  // objective: declare the part, register coordinates; must be before
-  // populate_mesh()
-
-  double dtNalu = realm_.get_time_step_from_file();
-  tStepRatio_ = dtNalu / fi.dtFAST;
-  if (std::abs(dtNalu - tStepRatio_ * fi.dtFAST) < 0.001) { // TODO: Fix
-    // arbitrary number
-    // 0.001
-    NaluEnv::self().naluOutputP0()
-        << "Time step ratio  dtNalu/dtFAST: " << tStepRatio_ << std::endl;
-  } else {
-    throw std::runtime_error("ActuatorFAST: Ratio of Nalu's time step is not "
-                             "an integral multiple of FAST time step");
-  }
+  // Nothing to do here
 }
 
 /** This function searches for the processor containing the hub point of each
@@ -398,7 +369,10 @@ ActuatorFAST::initialize()
 
   allocateTurbinesToProcs();
 
+  std::cout << "Setting driver time step " << realm_.get_time_step_from_file() << std::endl;
+  FAST.setDriverTimeStep(realm_.get_time_step_from_file());
   FAST.init();
+  FAST.setDriverCheckpoint(realm_.get_restart_frequency());
 
   //
   // This is done to create the actuator point info map once
@@ -502,67 +476,72 @@ ActuatorFAST::update()
 
 }
 
-/** This function is called at each time step. This samples the velocity at each
- * actuator point, advances the OpenFAST turbine models to Nalu's next time step
- * and assembles the source terms in the momentum equation for Nalu.
- */
+// predict the state of OpenFAST at the next time step
 void
-ActuatorFAST::execute()
-{
-  // meta/bulk data and nDim
-  stk::mesh::MetaData& metaData = realm_.meta_data();
-  stk::mesh::BulkData& bulkData = realm_.bulk_data();
-  const int nDim = metaData.spatial_dimension();
+ActuatorFAST::predict_struct_time_step() {
 
-  // extract fields
-  VectorFieldType* coordinates = metaData.get_field<VectorFieldType>(
-                                   stk::topology::NODE_RANK, realm_.get_coordinates_name());
-  VectorFieldType* velocity =
-    metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
-  VectorFieldType* actuator_source = metaData.get_field<VectorFieldType>(
-                                       stk::topology::NODE_RANK, "actuator_source");
-  ScalarFieldType* actuator_source_lhs = metaData.get_field<ScalarFieldType>(
-      stk::topology::NODE_RANK, "actuator_source_lhs");
-  ScalarFieldType* g =
-    metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "g");
-  ScalarFieldType* density =
-    metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
-  ScalarFieldType* dualNodalVolume = metaData.get_field<ScalarFieldType>(
-                                       stk::topology::NODE_RANK, "dual_nodal_volume");
-  // deal with proper viscosity
-  //  const std::string viscName = realm_.is_turbulent() ? "effective_viscosity"
-  //  : "viscosity"; ScalarFieldType *viscosity
-  //    = metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK,
-  //    viscName);
+    if ( ! FAST.isDryRun() ) {
 
-  // fixed size scratch
-  std::vector<double> ws_pointGasVelocity(nDim);
-  std::vector<double> ws_elemCentroid(nDim);
-  std::vector<double> ws_nodeForce(nDim);
-  double ws_pointGasDensity;
-  //  double ws_pointGasViscosity;
+        FAST.interpolateVel_ForceToVelNodes();
 
-  // zero out source term; do this manually since there are custom ghosted
-  // entities
-  stk::mesh::Selector s_nodes = stk::mesh::selectField(*actuator_source);
-  stk::mesh::BucketVector const& node_buckets =
-    realm_.get_buckets(stk::topology::NODE_RANK, s_nodes);
-  for (stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
-       ib != node_buckets.end(); ++ib) {
-    stk::mesh::Bucket& b = **ib;
-    const stk::mesh::Bucket::size_type length = b.size();
-    double* actSrc = stk::mesh::field_data(*actuator_source, b);
-    double* actSrcLhs = stk::mesh::field_data(*actuator_source_lhs, b);
-    double* gF = stk::mesh::field_data(*g, b);
-    for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
-      actSrcLhs[k] = 0.0;
-      gF[k] = 0.0;
-      const int offSet = k * nDim;
-      for (int j = 0; j < nDim; ++j) {
-        actSrc[offSet + j] = 0.0;
-      }
+        //Updates states to the next CFD time step in OpenFAST
+        FAST.update_states_driver_time_step();
     }
-  }
+
+}
+
+// predict the state of OpenFAST at time zero
+void
+ActuatorFAST::init_predict_struct_states() {
+
+    if ( ! FAST.isDryRun() ) {
+
+        FAST.interpolateVel_ForceToVelNodes();
+
+        if ( FAST.isTimeZero() ) {
+            FAST.solution0();
+        }
+
+        update();
+        sample_vel();
+    }
+}
+
+// firmly advance OpenFAST to the next time step
+void
+ActuatorFAST::advance_struct_time_step() {
+
+    if ( ! FAST.isDryRun() ) {
+
+        //Move OpenFAST to next CFD time step
+        FAST.advance_to_next_driver_time_step();
+    }
+
+}
+
+// sample velocity at the actuator points and send to the structural model
+void ActuatorFAST::sample_vel() {
+
+    // meta/bulk data and nDim
+    stk::mesh::MetaData& metaData = realm_.meta_data();
+    stk::mesh::BulkData& bulkData = realm_.bulk_data();
+    const int nDim = metaData.spatial_dimension();
+
+    // extract fields
+    VectorFieldType* coordinates = metaData.get_field<VectorFieldType>(
+        stk::topology::NODE_RANK, realm_.get_coordinates_name());
+    VectorFieldType* velocity =
+        metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
+    ScalarFieldType* density =
+        metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
+    ScalarFieldType* dualNodalVolume = metaData.get_field<ScalarFieldType>(
+        stk::topology::NODE_RANK, "dual_nodal_volume");
+
+    // fixed size scratch
+    std::vector<double> ws_pointGasVelocity(nDim);
+    std::vector<double> ws_elemCentroid(nDim);
+    std::vector<double> ws_nodeForce(nDim);
+    double ws_pointGasDensity;
 
   // parallel communicate data to the ghosted elements; again can communicate
   // points to element ranks
@@ -642,21 +621,63 @@ ActuatorFAST::execute()
   // Add the filtered lifting line correction
   filtered_lifting_line();
 
-  if (!FAST.isDryRun()) {
+}
 
-    FAST.interpolateVel_ForceToVelNodes();
+/** This function is called at each time step. This samples the velocity at each
+ * actuator point, advances the OpenFAST turbine models to Nalu's next time step
+ * and assembles the source terms in the momentum equation for Nalu.
+ */
+void
+ActuatorFAST::execute()
+{
 
-    if (FAST.isTimeZero()) {
-      FAST.solution0();
+  FAST.predict_states();
+
+  // meta/bulk data and nDim
+  stk::mesh::MetaData& metaData = realm_.meta_data();
+  stk::mesh::BulkData& bulkData = realm_.bulk_data();
+  const int nDim = metaData.spatial_dimension();
+
+  // extract fields
+  VectorFieldType* coordinates = metaData.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, realm_.get_coordinates_name());
+  VectorFieldType* velocity =
+    metaData.get_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity");
+  VectorFieldType* actuator_source = metaData.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, "actuator_source");
+  ScalarFieldType* actuator_source_lhs = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "actuator_source_lhs");
+  ScalarFieldType* g =
+    metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "g");
+  ScalarFieldType* density =
+    metaData.get_field<ScalarFieldType>(stk::topology::NODE_RANK, "density");
+  ScalarFieldType* dualNodalVolume = metaData.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "dual_nodal_volume");
+
+  // zero out source term; do this manually since there are custom ghosted
+  // entities
+  stk::mesh::Selector s_nodes = stk::mesh::selectField(*actuator_source);
+  stk::mesh::BucketVector const& node_buckets =
+    realm_.get_buckets(stk::topology::NODE_RANK, s_nodes);
+  for (stk::mesh::BucketVector::const_iterator ib = node_buckets.begin();
+       ib != node_buckets.end(); ++ib) {
+    stk::mesh::Bucket& b = **ib;
+    const stk::mesh::Bucket::size_type length = b.size();
+    double* actSrc = stk::mesh::field_data(*actuator_source, b);
+    double* actSrcLhs = stk::mesh::field_data(*actuator_source_lhs, b);
+    double* gF = stk::mesh::field_data(*g, b);
+    for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
+      actSrcLhs[k] = 0.0;
+      gF[k] = 0.0;
+      const int offSet = k * nDim;
+      for (int j = 0; j < nDim; ++j) {
+        actSrc[offSet + j] = 0.0;
+      }
     }
-
-    // move for acuatorLines, do nothing for actuatorDisks
-    update_class_specific();
-
-    // Step FAST
-    for (int j = 0; j < tStepRatio_; j++)
-      FAST.step();
   }
+
+  // move for acuatorLines, do nothing for actuatorDisks
+  update_class_specific();
 
   // reset the thrust and torque from each turbine to zero
   const size_t nTurbinesGlob = FAST.get_nTurbinesGlob();
