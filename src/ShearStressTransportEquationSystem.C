@@ -251,8 +251,6 @@ ShearStressTransportEquationSystem::solve_and_update()
           stk::topology::NODE_RANK, "velocity");
       GenericFieldType * dudx = meta.get_field<GenericFieldType>(
           stk::topology::NODE_RANK, "dudx");
-      std::cerr << "Velocity = " << velocity << std::endl ;
-      std::cerr << "dudx = " << dudx << std::endl ;
       compute_vector_laplacian(realm_.bulk_data(),
                                realm_.interiorPartVec_,
                                realm_.bcPartVec_,
