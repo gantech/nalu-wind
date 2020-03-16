@@ -61,6 +61,7 @@
 #include <node_kernels/NodeKernelUtils.h>
 #include <node_kernels/ScalarMassBDFNodeKernel.h>
 #include <node_kernels/SDRSSTNodeKernel.h>
+#include <node_kernels/SDRSSTSASNodeKernel.h>
 #include <node_kernels/SDRSSTDESNodeKernel.h>
 #include <node_kernels/ScalarGclNodeKernel.h>
 
@@ -302,6 +303,9 @@ SpecificDissipationRateEquationSystem::register_interior_algorithm(
 
         if (SST == realm_.solutionOptions_->turbulenceModel_){
           nodeAlg.add_kernel<SDRSSTNodeKernel>(realm_.meta_data());
+        }
+        else if (SST_SAS == realm_.solutionOptions_->turbulenceModel_){
+            nodeAlg.add_kernel<SDRSSTSASNodeKernel>(realm_.meta_data());
         }
         else if (SST_DES == realm_.solutionOptions_->turbulenceModel_){
           nodeAlg.add_kernel<SDRSSTDESNodeKernel>(realm_.meta_data());

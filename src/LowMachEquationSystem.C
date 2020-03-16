@@ -1615,6 +1615,7 @@ MomentumEquationSystem::register_interior_algorithm(
         break;
 
       case SST:
+      case SST_SAS:
       case SST_DES:
         tviscAlg_.reset(new TurbViscSSTAlg(realm_, part, tvisc_));
         break;
