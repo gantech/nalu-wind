@@ -79,7 +79,6 @@ void compute_vector_laplacian(
     ws_deriv.resize(nDim*numScsIp*nodesPerElement);
     ws_det_j.resize(numScsIp);
     
-    meSCS->shape_fcn(ws_shape_function.data());
     meSCS->grad_op(1, wsCoordinates.data(), ws_dndx.data(), ws_deriv.data(), ws_det_j.data(), &scs_error);
 
     size_t length = b->size();
@@ -137,7 +136,7 @@ void compute_vector_laplacian(
           const int offSetDnDx = nDim*nodesPerElement*ip + icNdim;
           for ( int j=0; j < nDim; j++) {            
             for (int k=0; k < nDim; k++) {
-              const double r = p_dndx[offSetDnDx+j];
+              const double r = ws_dndx[offSetDnDx+j];
               gradVIp[j*nDim+k] += r * wsVector[ic*nDim+j];
             }
           }
@@ -158,10 +157,11 @@ void compute_vector_laplacian(
 
   // sum up interior divergence values and return if boundary part not specified
   if(bndyPartVec.size() == 0) {
-    stk::mesh::parallel_sum(bulk, {scalarField});
+    stk::mesh::parallel_sum(bulk, {laplacianField});
     return;
   }
 
+  std::vector<double> ws_shape_function;
   std::vector<double> wsGradVector;  
   GenericFieldType* exposedAreaVec =
     meta.get_field<GenericFieldType>(meta.side_rank(), "exposed_area_vector");
@@ -196,7 +196,8 @@ void compute_vector_laplacian(
         const double* gv = (double*)stk::mesh::field_data(*gradVectorField, node);
         for ( int j=0; j < nDim; j++) {
           for (int k=0; k < nDim; k++) 
-            wsGradVector[ni*Dim*nDim+j*nDim+k] = gv[j*nDim+k];
+            wsGradVector[ni*nDim*nDim+j*nDim+k] = gv[j*nDim+k];
+        }
       }
 
       // start assembly
@@ -219,26 +220,25 @@ void compute_vector_laplacian(
         for ( int ic = 0; ic < nodesPerFace; ++ic ) {
           for (int j=0; j < nDim; j++) {
             for (int k=0; k < nDim; k++) {
-              gradVIp[j*nDim+k] += ws_shape_function[offSet+ic]
+                gradVIp[j*nDim+k] += ws_shape_function[offSet+ic];
                 wsGradVector[ic*nDim*nDim+j*nDim+k];
             }
+          }
         }
 
         //Compute dot product with area
-        double mvDotArea = 0.0;
         for ( int j = 0; j < nDim; ++j ) {
-          snGradV[j] = 0.0;
-          for ( int k = 0; k < nDim; k++) {
-            snGradV[j] += gradVIp[j*nDim+k]*areaVec[ip*nDim+k];
-          }
-          laplV[j] += snGradV[j]/(*volNN);
+          snGradVIp[j] = 0.0;
+          for ( int k = 0; k < nDim; k++)
+            snGradVIp[j] += gradVIp[j*nDim+k]*areaVec[ip*nDim+k];
+          laplV[j] += snGradVIp[j]/(*volNN);
         }
 
       }
     }
   }
   // parallel sum the divergence across all processors
-  stk::mesh::parallel_sum(bulk, {scalarField});
+  stk::mesh::parallel_sum(bulk, {laplacianField});
 }
 
 }
