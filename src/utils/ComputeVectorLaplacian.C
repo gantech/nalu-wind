@@ -79,8 +79,6 @@ void compute_vector_laplacian(
     ws_deriv.resize(nDim*numScsIp*nodesPerElement);
     ws_det_j.resize(numScsIp);
     
-    meSCS->grad_op(1, wsCoordinates.data(), ws_dndx.data(), ws_deriv.data(), ws_det_j.data(), &scs_error);
-
     size_t length = b->size();
     for ( size_t k = 0 ; k < length ; ++k ) {
 
@@ -99,6 +97,7 @@ void compute_vector_laplacian(
       // compute geometry
       double scs_error = 0.0;
       meSCS->determinant(1, wsCoordinates.data(), wsScsArea.data(), &scs_error);
+      meSCS->grad_op(1, wsCoordinates.data(), ws_dndx.data(), ws_deriv.data(), ws_det_j.data(), &scs_error);
 
       for ( int ip = 0; ip < numScsIp; ++ip ) {
 
@@ -165,8 +164,9 @@ void compute_vector_laplacian(
   std::vector<double> wsGradVector;  
   GenericFieldType* exposedAreaVec =
     meta.get_field<GenericFieldType>(meta.side_rank(), "exposed_area_vector");
-  stk::mesh::Selector face_sel = meta.locally_owned_part()
-                               & stk::mesh::selectUnion(bndyPartVec);
+  // stk::mesh::Selector face_sel = meta.locally_owned_part()
+  //                               & stk::mesh::selectUnion(bndyPartVec);
+  stk::mesh::Selector face_sel = meta.locally_owned_part() & stk::mesh::selectField(*exposedAreaVec);
   const auto& face_bkts =
       bulk.get_buckets( meta.side_rank(), face_sel );
   for (auto b: face_bkts) {
@@ -184,8 +184,9 @@ void compute_vector_laplacian(
 
     size_t length = b->size();
     for ( stk::mesh::Bucket::size_type k = 0 ; k < length ; ++k ) {
+        
       // face data
-      const double* areaVec = (double*)stk::mesh::field_data(*exposedAreaVec, *b, k);
+        const double* areaVec = (double*)stk::mesh::field_data(*exposedAreaVec, *b, k);
       const stk::mesh::Entity* face_node_rels = b->begin_nodes(k);
       int num_nodes = b->num_nodes(k);
       // sanity check on num nodes
@@ -220,25 +221,26 @@ void compute_vector_laplacian(
         for ( int ic = 0; ic < nodesPerFace; ++ic ) {
           for (int j=0; j < nDim; j++) {
             for (int k=0; k < nDim; k++) {
-                gradVIp[j*nDim+k] += ws_shape_function[offSet+ic];
-                wsGradVector[ic*nDim*nDim+j*nDim+k];
+                gradVIp[j*nDim+k] += ws_shape_function[offSet+ic]
+                    * wsGradVector[ic*nDim*nDim+j*nDim+k];
             }
           }
         }
 
         //Compute dot product with area
         for ( int j = 0; j < nDim; ++j ) {
-          snGradVIp[j] = 0.0;
+            snGradVIp[j] = 0.0;
           for ( int k = 0; k < nDim; k++)
-            snGradVIp[j] += gradVIp[j*nDim+k]*areaVec[ip*nDim+k];
+              snGradVIp[j] += gradVIp[j*nDim+k] * areaVec[ip*nDim+k];
           laplV[j] += snGradVIp[j]/(*volNN);
         }
-
       }
+          
     }
   }
   // parallel sum the divergence across all processors
   stk::mesh::parallel_sum(bulk, {laplacianField});
+  return;
 }
 
 }

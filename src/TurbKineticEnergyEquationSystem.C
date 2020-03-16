@@ -162,8 +162,8 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
   realm_.push_equation_to_systems(this);
 
   // sanity check on turbulence model
-  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != SST_TAMS) ) {
-    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST, SST_DES or SST_TAMS");
+  if ( (turbulenceModel_ != SST) && (turbulenceModel_ != SST_SAS) && (turbulenceModel_ != KSGS) && (turbulenceModel_ != SST_DES) && (turbulenceModel_ != SST_TAMS) ) {
+    throw std::runtime_error("User has requested TurbKinEnergyEqs, however, turbulence model is not KSGS, SST, SST_SAS, SST_DES or SST_TAMS");
   }
 
   // create projected nodal gradient equation system
@@ -463,6 +463,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       break;
     }
     case SST:
+    case SST_SAS:
     case SST_DES:
     case SST_TAMS: {
       const double sigmaKOne = realm_.get_turb_model_constant(TM_sigmaKOne);
