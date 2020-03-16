@@ -31,6 +31,7 @@
 // stk_util
 #include <stk_util/parallel/Parallel.hpp>
 #include "utils/StkHelpers.h"
+#include "utils/ComputeVectorLaplacian.h"
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/BulkData.hpp>
@@ -144,6 +145,12 @@ ShearStressTransportEquationSystem::register_nodal_fields(
     stk::mesh::put_field_on_mesh(*maxLengthScale_, *part, nullptr);
   }
 
+  // SAS model
+  if ( SST_SAS == realm_.solutionOptions_->turbulenceModel_ ) {
+      laplacianU_ = &(meta_data.declare_field<VectorFieldType>(stk::topology::NODE_RANK, "laplacianU"));
+      stk::mesh::put_field_on_mesh(*laplacianU_, *part, nullptr);
+  }
+
   // add to restart field
   realm_.augment_restart_variable_list("minimum_distance_to_wall");
   realm_.augment_restart_variable_list("sst_f_one_blending");
@@ -235,8 +242,22 @@ ShearStressTransportEquationSystem::solve_and_update()
 
     if (SST_DES == realm_.solutionOptions_->turbulenceModel_)
       sstMaxLengthScaleAlgDriver_->execute();
+      
   }
 
+  if (SST_SAS == realm_.solutionOptions_->turbulenceModel_) {
+      auto& meta = realm_.meta_data();
+      VectorFieldType * velocity = meta.get_field<VectorFieldType>(
+          stk::topology::NODE_RANK, "velocity");
+      GenericFieldType * dudx = meta.get_field<GenericFieldType>(
+          stk::topology::NODE_RANK, "dudx");
+      compute_vector_laplacian(realm_.bulk_data(),
+                               realm_.interiorPartVec_,
+                               realm_.bcPartVec_,
+                               velocity, dudx, laplacianU_,
+                               realm_.has_mesh_motion());
+  }
+  
   // compute blending for SST model
   compute_f_one_blending();
 

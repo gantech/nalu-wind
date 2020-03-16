@@ -13,7 +13,6 @@
 #include "SolutionOptions.h"
 #include "SimdInterface.h"
 #include "utils/StkHelpers.h"
-#include "utils/ComputeVectorLaplacian.h"
 
 #include "stk_mesh/base/MetaData.hpp"
 

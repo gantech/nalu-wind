@@ -71,6 +71,7 @@ public:
   ScalarFieldType *minDistanceToWall_;
   ScalarFieldType *fOneBlending_;
   ScalarFieldType *maxLengthScale_;
+  VectorFieldType *laplacianU_;
 
   bool isInit_;
   AlgorithmDriver *sstMaxLengthScaleAlgDriver_;
