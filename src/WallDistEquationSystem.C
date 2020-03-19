@@ -284,12 +284,8 @@ WallDistEquationSystem::register_wall_bc(
   WallUserData userData = wallBCData.userData_;
   const bool ablWallFunctionActivated = userData.ablWallFunctionApproach_;
 
-  std::string partName = part->name();
-  auto found = partName.find("terrain");
-  bool partContainsTerrain = (found != std::string::npos);
   // Apply Dirichlet BC on non-ABL wall boundaries
-  if ((!ablWallFunctionActivated) || (partContainsTerrain) ) {
-    NaluEnv::self().naluOutputP0() << "Activating Dirichlet for part " << part->name() << " for wall distance equation system" << std::endl;
+  if (!ablWallFunctionActivated) {
     auto it = solverAlgDriver_->solverDirichAlgMap_.find(algType);
     if (it == solverAlgDriver_->solverDirichAlgMap_.end()) {
       DirichletBC* theAlg
