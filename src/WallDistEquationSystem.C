@@ -283,9 +283,11 @@ WallDistEquationSystem::register_wall_bc(
   // turbine, so we will disable Dirichlet for the terrain walls.
   WallUserData userData = wallBCData.userData_;
   const bool ablWallFunctionActivated = userData.ablWallFunctionApproach_;
+  const bool skipWallDistanceCalc = userData.skipWallDistanceCalc_;
 
   // Apply Dirichlet BC on non-ABL wall boundaries
-  if (!ablWallFunctionActivated) {
+  if (!ablWallFunctionActivated ||
+      !skipWallDistanceCalc) {
     auto it = solverAlgDriver_->solverDirichAlgMap_.find(algType);
     if (it == solverAlgDriver_->solverDirichAlgMap_.end()) {
       DirichletBC* theAlg

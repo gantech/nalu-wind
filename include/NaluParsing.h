@@ -82,6 +82,11 @@ struct WallUserData : public UserData {
 
   bool isFsiInterface_;
 
+  //! Flag indicating whether wall distance computations must be skipped for
+  //! this sideset
+  bool skipWallDistanceCalc_{false};
+    
+
   WallUserData()
     : UserData(),
       gravityComponent_(3),

@@ -912,6 +912,9 @@ namespace YAML
     {
       wallData.isFsiInterface_ = node["fsi_interface"].as<bool>();
     }
+    if (node["skip_wall_dist_calc"])
+        wallData.skipWallDistanceCalc_ = node["skip_wall_dist_calc"].as<bool>();
+    
 
     // not appropriate
     if (node["specific_dissipation_rate"])
