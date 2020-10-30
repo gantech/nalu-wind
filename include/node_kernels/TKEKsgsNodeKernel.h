@@ -50,6 +50,7 @@ private:
   stk::mesh::NgpField<double> tvisc_;
   stk::mesh::NgpField<double> dudx_;
   stk::mesh::NgpField<double> dualNodalVolume_;
+  stk::mesh::NgpField<double> stabLscale_;
 
   unsigned tkeID_             {stk::mesh::InvalidOrdinal};
   //unsigned sdrID_             {stk::mesh::InvalidOrdinal};
@@ -57,6 +58,7 @@ private:
   unsigned tviscID_           {stk::mesh::InvalidOrdinal};
   unsigned dudxID_            {stk::mesh::InvalidOrdinal};
   unsigned dualNodalVolumeID_ {stk::mesh::InvalidOrdinal};
+  unsigned stabLscaleID_      {stk::mesh::InvalidOrdinal};
 
   NodeKernelTraits::DblType cEps_;
   NodeKernelTraits::DblType tkeProdLimitRatio_;

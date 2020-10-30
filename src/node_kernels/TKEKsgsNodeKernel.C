@@ -28,6 +28,7 @@ TKEKsgsNodeKernel::TKEKsgsNodeKernel(
     tviscID_(get_field_ordinal(meta, "turbulent_viscosity")),
     dudxID_(get_field_ordinal(meta, "dudx")),
     dualNodalVolumeID_(get_field_ordinal(meta, "dual_nodal_volume")),
+    stabLscaleID_(get_field_ordinal(meta, "stab_lscale")),
     nDim_(meta.spatial_dimension())
 {}
 
@@ -41,6 +42,7 @@ TKEKsgsNodeKernel::setup(Realm& realm)
   tvisc_           = fieldMgr.get_field<double>(tviscID_);
   dudx_            = fieldMgr.get_field<double>(dudxID_);
   dualNodalVolume_ = fieldMgr.get_field<double>(dualNodalVolumeID_);
+  stabLscale_      = fieldMgr.get_field<double>(stabLscaleID_);
 
   const std::string dofName = "turbulent_ke";
   relaxFac_ = realm.solutionOptions_->get_relaxation_factor(dofName);
@@ -62,6 +64,7 @@ void TKEKsgsNodeKernel::execute(
   const DblType tvisc = tvisc_.get(node, 0);
   const DblType dVol = dualNodalVolume_.get(node, 0);
   const DblType filter = std::pow(dVol, 1.0 / nDim_);
+  const DblType stabLscale = stabLscale_.get(node, 0);
 
   DblType Pk = 0.0;
   for (int i=0; i < nDim_; ++i) {
@@ -73,8 +76,10 @@ void TKEKsgsNodeKernel::execute(
   }
   Pk *= tvisc;
 
+  const DblType ceps_local =
+      (cEps_ / 0.93) * (0.19 + (0.74 * stabLscale / filter));
   const DblType Dk =
-    cEps_ * density * stk::math::pow(tke, 1.5) / filter;
+    ceps_local * density * stk::math::pow(tke, 1.5) / filter;
 
   // Clip production term
   Pk = stk::math::min(tkeProdLimitRatio_ * Dk, Pk);
