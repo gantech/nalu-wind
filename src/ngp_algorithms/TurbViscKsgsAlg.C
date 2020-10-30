@@ -85,7 +85,7 @@ TurbViscKsgsAlg::execute()
       const DblType filter = stk::math::pow(dualNodalVolume.get(meshIdx, 0),
                                             invDim);
       const DblType strat =
-          beta_ *
+          -beta_ *
           (dhdx.get(meshIdx, 0)*gravity_[0]
            + dhdx.get(meshIdx, 1)*gravity_[1]
            + dhdx.get(meshIdx, 2)*gravity_[2])/specificHeat.get(meshIdx, 0);
