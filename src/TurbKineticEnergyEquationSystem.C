@@ -208,6 +208,11 @@ TurbKineticEnergyEquationSystem::register_nodal_fields(
   evisc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "effective_viscosity_tke"));
   stk::mesh::put_field_on_mesh(*evisc_, *part, nullptr);
 
+  if (turbulenceModel_ != KSGS)  {
+      stabLscale_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "stab_lscale"));
+      stk::mesh::put_field_on_mesh(*stabLscale_, *part, nullptr);
+  }
+
   // make sure all states are properly populated (restart can handle this)
   if ( numStates > 2 && (!realm_.restarted_simulation() || realm_.support_inconsistent_restart()) ) {
     ScalarFieldType &tkeN = tke_->field_of_state(stk::mesh::StateN);
@@ -249,7 +254,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
 
   // solver; interior contribution (advection + diffusion)
   if ( !realm_.solutionOptions_->useConsolidatedSolverAlg_ ) {
-    
+
     std::map<AlgorithmType, SolverAlgorithm *>::iterator itsi = solverAlgDriver_->solverAlgMap_.find(algType);
     if ( itsi == solverAlgDriver_->solverAlgMap_.end() ) {
       SolverAlgorithm *theAlg = NULL;
@@ -261,15 +266,15 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         theAlg = new AssembleScalarElemSolverAlgorithm(realm_, part, this, tke_, dkdx_, evisc_);
       }
       solverAlgDriver_->solverAlgMap_[algType] = theAlg;
-      
+
       // look for fully integrated source terms
-      std::map<std::string, std::vector<std::string> >::iterator isrc 
+      std::map<std::string, std::vector<std::string> >::iterator isrc
         = realm_.solutionOptions_->elemSrcTermsMap_.find("turbulent_ke");
       if ( isrc != realm_.solutionOptions_->elemSrcTermsMap_.end() ) {
-        
+
         if ( realm_.realmUsesEdges_ )
           throw std::runtime_error("TurbKineticEnergyElemSrcTerms::Error can not use element source terms for an edge-based scheme");
-        
+
         std::vector<std::string> mapNameVec = isrc->second;
         for (size_t k = 0; k < mapNameVec.size(); ++k ) {
           std::string sourceName = mapNameVec[k];
@@ -301,16 +306,16 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
           }
           else {
             throw std::runtime_error("TurbKineticEnergyElemSrcTerms::Error Source term is not supported: " + sourceName);
-          }     
+          }
           NaluEnv::self().naluOutputP0() << "TurbKineticEnergyElemSrcTerms::added() " << sourceName << std::endl;
-          theAlg->supplementalAlg_.push_back(suppAlg); 
+          theAlg->supplementalAlg_.push_back(suppAlg);
         }
       }
     }
     else {
       itsi->second->partVec_.push_back(part);
     }
-    
+
     // Check if the user has requested CMM or LMM algorithms; if so, do not
     // include Nodal Mass algorithms
     std::vector<std::string> checkAlgNames = {"turbulent_ke_time_derivative",
@@ -340,7 +345,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
           std::runtime_error("TKEEqSys: Invalid turbulence model, only SST, "
                              "SST_DES, SST_TAMS and  Ksgs supported");
           break;
-        }          
+        }
       },
       [&](AssembleNGPNodeSolverAlgorithm& nodeAlg, std::string& srcName) {
         if (srcName == "rodi") {
@@ -353,7 +358,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
         }
         else
           throw std::runtime_error("TKEEqSys: Invalid source term " + srcName);
-        
+
         NaluEnv::self().naluOutputP0() << " -  " << srcName << std::endl;
       });
   }
@@ -361,16 +366,16 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
     // Homogeneous kernel implementation
     if ( realm_.realmUsesEdges_ )
       throw std::runtime_error("TurbKineticEnergyEquationSystem::Error can not use element source terms for an edge-based scheme");
-    
+
     stk::topology partTopo = part->topology();
     auto& solverAlgMap = solverAlgDriver_->solverAlgorithmMap_;
-    
+
     AssembleElemSolverAlgorithm* solverAlg = nullptr;
     bool solverAlgWasBuilt = false;
-    
+
     std::tie(solverAlg, solverAlgWasBuilt) = build_or_add_part_to_solver_alg
       (*this, *part, solverAlgMap);
-    
+
     ElemDataRequests& dataPreReqs = solverAlg->dataNeededByKernels_;
     auto& activeKernels = solverAlg->activeKernels_;
 
@@ -378,11 +383,11 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarMassElemKernel>
         (partTopo, *this, activeKernels, "turbulent_ke_time_derivative",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dataPreReqs, false);
-      
+
       build_topo_kernel_if_requested<ScalarMassElemKernel>
         (partTopo, *this, activeKernels, "lumped_turbulent_ke_time_derivative",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dataPreReqs, true);
-      
+
       build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, evisc_, dataPreReqs);
@@ -390,7 +395,7 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "TAMS_advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, evisc_, dataPreReqs);
-      
+
       build_topo_kernel_if_requested<ScalarUpwAdvDiffElemKernel>
         (partTopo, *this, activeKernels, "upw_advection_diffusion",
          realm_.bulk_data(), *realm_.solutionOptions_, this, tke_, dkdx_, evisc_, dataPreReqs);
@@ -426,19 +431,19 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_2ND",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 0.0, 0.0, dataPreReqs);
-      
+
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_2ND_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 0.0, 1.0, dataPreReqs);
-      
+
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_4TH",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 1.0, 0.0, dataPreReqs);
-      
+
       build_topo_kernel_if_requested<ScalarNSOElemKernel>
         (partTopo, *this, activeKernels, "NSO_4TH_ALT",
          realm_.bulk_data(), *realm_.solutionOptions_, tke_, dkdx_, evisc_, 1.0, 1.0, dataPreReqs);
-      
+
       report_invalid_supp_alg_names();
       report_built_supp_alg_names();
     }
@@ -610,27 +615,27 @@ TurbKineticEnergyEquationSystem::register_open_bc(
 
   // solver open; lhs
   else if ( realm_.solutionOptions_->useConsolidatedBcSolverAlg_ ) {
-    
+
     auto& solverAlgMap = solverAlgDriver_->solverAlgorithmMap_;
-    
+
     stk::topology elemTopo = get_elem_topo(realm_, *part);
-    
+
     AssembleFaceElemSolverAlgorithm* faceElemSolverAlg = nullptr;
     bool solverAlgWasBuilt = false;
-    
-    std::tie(faceElemSolverAlg, solverAlgWasBuilt) 
+
+    std::tie(faceElemSolverAlg, solverAlgWasBuilt)
       = build_or_add_part_to_face_elem_solver_alg(algType, *this, *part, elemTopo, solverAlgMap, "open");
-    
+
     auto& activeKernels = faceElemSolverAlg->activeKernels_;
-    
+
     if (solverAlgWasBuilt) {
-      
+
       build_face_elem_topo_kernel_automatic<ScalarOpenAdvElemKernel>
         (partTopo, elemTopo, *this, activeKernels, "turbulent_ke_open",
          realm_.meta_data(), *realm_.solutionOptions_,
-         this, tke_, theBcField, dkdx_, evisc_, 
+         this, tke_, theBcField, dkdx_, evisc_,
          faceElemSolverAlg->faceDataNeeded_, faceElemSolverAlg->elemDataNeeded_);
-      
+
     }
   }
   else {
@@ -782,7 +787,7 @@ TurbKineticEnergyEquationSystem::register_non_conformal_bc(
 
   // non-solver; contribution to dkdx; DG algorithm decides on locations for integration points
   if ( !managePNG_ ) {
-    if ( edgeNodalGradient_ ) {    
+    if ( edgeNodalGradient_ ) {
       nodalGradAlgDriver_.register_face_algorithm<ScalarNodalGradBndryElemAlg>(
           algType, part, "tke_nodal_grad", &tkeNp1, &dkdxNone, edgeNodalGradient_);
     }
@@ -1074,7 +1079,7 @@ TurbKineticEnergyEquationSystem::manage_projected_nodal_gradient(
   EquationSystems& eqSystems)
 {
   if ( NULL == projectedNodalGradEqs_ ) {
-    projectedNodalGradEqs_ 
+    projectedNodalGradEqs_
       = new ProjectedNodalGradientEquationSystem(eqSystems, EQ_PNG_TKE, "dkdx", "qTmp", "turbulent_ke", "PNGradTkeEQS");
   }
   // fill the map for expected boundary condition names; can be more complex...

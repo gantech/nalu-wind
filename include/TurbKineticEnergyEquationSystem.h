@@ -45,12 +45,12 @@ public:
 
   void register_interior_algorithm(
     stk::mesh::Part *part);
-  
+
   void register_inflow_bc(
     stk::mesh::Part *part,
     const stk::topology &theTopo,
     const InflowBoundaryConditionData &inflowBCData);
-  
+
   void register_open_bc(
     stk::mesh::Part *part,
     const stk::topology &partTopo,
@@ -60,7 +60,7 @@ public:
     stk::mesh::Part *part,
     const stk::topology &theTopo,
     const WallBoundaryConditionData &wallBCData);
-  
+
   virtual void register_symmetry_bc(
     stk::mesh::Part *part,
     const stk::topology &theTopo,
@@ -74,9 +74,9 @@ public:
 
   void initialize();
   void reinitialize_linear_system();
-  
+
   void predict_state();
-  
+
   void solve_and_update();
   void initial_work();
 
@@ -89,7 +89,7 @@ public:
   void compute_projected_nodal_gradient();
 
   void post_external_data_transfer_work();
-  
+
   const bool managePNG_;
 
   ScalarFieldType *tke_;
@@ -98,7 +98,8 @@ public:
   ScalarFieldType *visc_;
   ScalarFieldType *tvisc_;
   ScalarFieldType *evisc_;
-  
+  ScalarFieldType *stabLscale_;
+
   ScalarNodalGradAlgDriver nodalGradAlgDriver_;
   std::unique_ptr<TKEWallFuncAlgDriver> wallFuncAlgDriver_;
   std::unique_ptr<Algorithm> effDiffFluxCoeffAlg_;
