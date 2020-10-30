@@ -35,6 +35,8 @@ EnthalpyEffDiffFluxCoeffAlg::EnthalpyEffDiffFluxCoeffAlg(
     thermalCond_(thermalCond->mesh_meta_data_ordinal()),
     specHeat_(specHeat->mesh_meta_data_ordinal()),
     evisc_(evisc->mesh_meta_data_ordinal()),
+    stabLscale_(get_field_ordinal(realm.meta_data(), "stab_lscale")),
+    dualNodalVolume_(get_field_ordinal(realm.meta_data(), "dual_nodal_volume")),
     invSigmaTurb_(1.0 / sigmaTurb),
     isTurbulent_(isTurbulent)
 {
@@ -60,8 +62,10 @@ EnthalpyEffDiffFluxCoeffAlg::execute()
   const auto& fieldMgr = meshInfo.ngp_field_manager();
   const auto thermalCond = fieldMgr.get_field<double>(thermalCond_);
   const auto specHeat = fieldMgr.get_field<double>(specHeat_);
+  const auto dualNodalVolume = fieldMgr.get_field<double>(dualNodalVolume_);
+  const auto stabLscale = fieldMgr.get_field<double>(stabLscale_);
   auto evisc = fieldMgr.get_field<double>(evisc_);
-  const DblType invSigmaTurb = invSigmaTurb_;
+  const DblType invDim = 1.0 / static_cast<double>(meta.spatial_dimension());
 
   if (isTurbulent_) {
     const auto tvisc = fieldMgr.get_field<double>(tvisc_);
@@ -69,6 +73,10 @@ EnthalpyEffDiffFluxCoeffAlg::execute()
       "EnthalpyEffDiffFluxCoeffAlg_turbulent",
       ngpMesh, stk::topology::NODE_RANK, sel,
       KOKKOS_LAMBDA(const Traits::MeshIndex& meshIdx) {
+        const DblType filter = stk::math::pow(dualNodalVolume.get(meshIdx, 0),
+                                              invDim);
+        const DblType invSigmaTurb =
+            (1.0 + 2.0 * stabLscale.get(meshIdx, 0)/filter);
         evisc.get(meshIdx, 0) = (
           thermalCond.get(meshIdx, 0) / specHeat.get(meshIdx, 0) +
           tvisc.get(meshIdx, 0) * invSigmaTurb);

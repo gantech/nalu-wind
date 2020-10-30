@@ -47,8 +47,10 @@ private:
   unsigned specHeat_ {stk::mesh::InvalidOrdinal};
   unsigned tvisc_ {stk::mesh::InvalidOrdinal};
   unsigned evisc_ {stk::mesh::InvalidOrdinal};
-  const DblType invSigmaTurb_;  
-  const bool isTurbulent_;  
+  unsigned stabLscale_ {stk::mesh::InvalidOrdinal};
+  unsigned dualNodalVolume_  {stk::mesh::InvalidOrdinal};
+  const DblType invSigmaTurb_;
+  const bool isTurbulent_;
 };
 
 } // namespace nalu
