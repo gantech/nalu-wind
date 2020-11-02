@@ -208,7 +208,7 @@ TurbKineticEnergyEquationSystem::register_nodal_fields(
   evisc_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "effective_viscosity_tke"));
   stk::mesh::put_field_on_mesh(*evisc_, *part, nullptr);
 
-  if (turbulenceModel_ != KSGS)  {
+  if (turbulenceModel_ == KSGS)  {
       stabLscale_ = &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "stab_lscale"));
       stk::mesh::put_field_on_mesh(*stabLscale_, *part, nullptr);
   }
