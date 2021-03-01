@@ -165,8 +165,9 @@ enum TurbulenceModel {
   SST_DES = 5,
   SST_AMS = 6,
   SST_IDDES = 7,
+  SST_IDDES_ABL = 8,
   TurbulenceModel_END
-};  
+};
 
 // matching string name index into above enums (must match PERFECTLY)
 static const std::string TurbulenceModelNames[] = {
@@ -177,7 +178,8 @@ static const std::string TurbulenceModelNames[] = {
   "sst",
   "sst_des",
   "sst_ams",
-  "sst_iddes"};
+  "sst_iddes",
+  "sst_iddes_abl"};
 
 enum TurbulenceModelConstant {
   TM_cMu = 0,
@@ -313,7 +315,7 @@ enum class EntrainmentMethod { SPECIFIED = 0, COMPUTED = 1, CLASSIC = 2 };
 
 static std::map<std::string, EntrainmentMethod> EntrainmentMethodMap
 {
-  {"computed", EntrainmentMethod::COMPUTED}, 
+  {"computed", EntrainmentMethod::COMPUTED},
   {"specified", EntrainmentMethod::SPECIFIED}
 };
 

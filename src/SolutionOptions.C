@@ -123,9 +123,9 @@ SolutionOptions::load(const YAML::Node & y_node)
     // divU factor for stress
     get_if_present(y_solution_options, "divU_stress_scaling", includeDivU_, includeDivU_);
 
-    // mdot interpolation procedure 
+    // mdot interpolation procedure
     get_if_present(y_solution_options, "interp_rhou_together_for_mdot", mdotInterpRhoUTogether_, mdotInterpRhoUTogether_);
-    
+
     // external mesh motion expected
     get_if_present(y_solution_options, "externally_provided_mesh_deformation", externalMeshDeformation_, externalMeshDeformation_);
 
@@ -152,7 +152,7 @@ SolutionOptions::load(const YAML::Node & y_node)
     get_if_present(y_solution_options, "eigenvalue_perturbation_delta", eigenvaluePerturbDelta_);
     get_if_present(y_solution_options, "eigenvalue_perturbation_bias_towards", eigenvaluePerturbBiasTowards_);
     get_if_present(y_solution_options, "eigenvalue_perturbation_turbulent_ke", eigenvaluePerturbTurbKe_);
-    
+
     std::string projected_timescale_type = "default";
     get_if_present(y_solution_options, "projected_timescale_type",
                    projected_timescale_type, projected_timescale_type);
@@ -164,7 +164,7 @@ SolutionOptions::load(const YAML::Node & y_node)
       throw std::runtime_error("SolutionOptions: Invalid option provided for projected_timescale_type");
 
     // reset running AMS averages to instantaneous quantities during intialization
-    // you would want to do this when restarting from a RANS simulation 
+    // you would want to do this when restarting from a RANS simulation
     get_if_present(y_solution_options, "reset_AMS_averages_on_init", resetAMSAverages_, resetAMSAverages_);
 
     // extract turbulence model; would be nice if we could parse an enum..
@@ -447,7 +447,7 @@ SolutionOptions::load(const YAML::Node & y_node)
       }
     }
   }
-  
+
    NaluEnv::self().naluOutputP0() << std::endl;
    NaluEnv::self().naluOutputP0() << "Turbulence Model Review:   " << std::endl;
    NaluEnv::self().naluOutputP0() << "===========================" << std::endl;
@@ -471,7 +471,7 @@ SolutionOptions::load(const YAML::Node & y_node)
        cvfemReducedSensPoisson_ = true;
      }
    }
-   
+
    // overview gradient operator for CVFEM
    if ( shiftedGradOpMap_.size() > 0 ) {
      NaluEnv::self().naluOutputP0() << std::endl;
@@ -479,7 +479,7 @@ SolutionOptions::load(const YAML::Node & y_node)
      NaluEnv::self().naluOutputP0() << "===========================" << std::endl;
      for ( const auto& shiftIt : shiftedGradOpMap_ ) {
        NaluEnv::self().naluOutputP0() << " dof: " << shiftIt.first
-                                      << " shifted: " << (shiftIt.second ? "yes" : "no") << std::endl; 
+                                      << " shifted: " << (shiftIt.second ? "yes" : "no") << std::endl;
      }
    }
 }
@@ -488,19 +488,20 @@ SolutionOptions::load(const YAML::Node & y_node)
 //-------- initialize_turbulence_constants ---------------------------------
 //--------------------------------------------------------------------------
 void
-SolutionOptions::initialize_turbulence_constants() 
+SolutionOptions::initialize_turbulence_constants()
 {
   // set the default map values; resize to max turbulence model enum
-  turbModelConstantMap_[TM_cMu] = 0.09; 
+  turbModelConstantMap_[TM_cMu] = 0.09;
   turbModelConstantMap_[TM_kappa] = 0.41;
-  turbModelConstantMap_[TM_cDESke] = 0.61; 
+  turbModelConstantMap_[TM_cDESke] = 0.61;
   turbModelConstantMap_[TM_cDESkw] = 0.78;
   turbModelConstantMap_[TM_tkeProdLimitRatio] =
     (turbulenceModel_ == SST || turbulenceModel_ == SST_DES ||
-     turbulenceModel_ == SST_AMS || turbulenceModel_ == SST_IDDES)
+     turbulenceModel_ == SST_AMS || turbulenceModel_ == SST_IDDES
+     || turbulenceModel_ == SST_IDDES_ABL)
       ? 10.0
       : 500.0;
-  turbModelConstantMap_[TM_cmuEps] = 0.0856; 
+  turbModelConstantMap_[TM_cmuEps] = 0.0856;
   turbModelConstantMap_[TM_cEps] = 0.845;
   turbModelConstantMap_[TM_betaStar] = 0.09;
   turbModelConstantMap_[TM_aOne] = 0.31;

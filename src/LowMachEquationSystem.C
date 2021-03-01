@@ -142,6 +142,7 @@
 #include "ngp_algorithms/EffDiffFluxCoeffAlg.h"
 #include "ngp_algorithms/TurbViscKsgsAlg.h"
 #include "ngp_algorithms/TurbViscSSTAlg.h"
+#include "ngp_algorithms/TurbViscSSTIDDESABLAlg.h"
 #include "ngp_algorithms/WallFuncGeometryAlg.h"
 #include "ngp_algorithms/DynamicPressureOpenAlg.h"
 #include "ngp_utils/NgpLoopUtils.h"
@@ -546,7 +547,7 @@ LowMachEquationSystem::register_surface_pp_algorithm(
     if (RANSAblBcApproach) {
       std::cout << "surface_force_and_moment not implemented with RANS_abl_bc." << std::endl;
     }
-    
+
     ScalarFieldType *assembledArea =  &(meta_data.declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "assembled_area_force_moment"));
     stk::mesh::put_field_on_mesh(*assembledArea, stk::mesh::selectUnion(partVector), nullptr);
 	    if ( NULL == surfaceForceAndMomentAlgDriver_ )
@@ -687,7 +688,7 @@ void
 LowMachEquationSystem::pre_iter_work()
 {
   momentumEqSys_->pre_iter_work();
-  if (realm_.solutionOptions_->turbulenceModel_ == SST_AMS) 
+  if (realm_.solutionOptions_->turbulenceModel_ == SST_AMS)
       momentumEqSys_->AMSAlgDriver_->execute();
   continuityEqSys_->pre_iter_work();
 }
@@ -1126,7 +1127,8 @@ MomentumEquationSystem::register_nodal_fields(
     if (realm_.solutionOptions_->turbulenceModel_ == SST_AMS)
       AMSAlgDriver_->register_nodal_fields(part);
 
-    if (realm_.solutionOptions_->turbulenceModel_ == SST_IDDES) {
+    if ( (realm_.solutionOptions_->turbulenceModel_ == SST_IDDES) ||
+         (realm_.solutionOptions_->turbulenceModel_ == SST_IDDES_ABL) ) {
       iddesRansIndicator_ = &(meta_data.declare_field<ScalarFieldType>(
         stk::topology::NODE_RANK, "iddes_rans_indicator"));
       stk::mesh::put_field_on_mesh(*iddesRansIndicator_, *part, nullptr);
@@ -1247,7 +1249,8 @@ MomentumEquationSystem::register_interior_algorithm(
           theSolverSrcAlg = new AssembleAMSEdgeKernelAlg(realm_, part, this);
           solverAlgDriver_->solverAlgMap_[SRC] = theSolverSrcAlg;
         }
-        if (realm_.is_turbulent() && theTurbModel == SST_IDDES) {
+        if (realm_.is_turbulent() && ( (theTurbModel == SST_IDDES) ||
+                                       (theTurbModel == SST_IDDES_ABL) ) ) {
           pecletAlg_.reset(new StreletsUpwindEdgeAlg(realm_, part));
         } else {
           pecletAlg_.reset(new MomentumEdgePecletAlg(realm_, part, this));
@@ -1600,6 +1603,11 @@ MomentumEquationSystem::register_interior_algorithm(
 
         tviscAlg_.reset(new TurbViscSSTAlg(realm_, part, tvisc_));
         break;
+
+      case SST_IDDES_ABL:
+
+          tviscAlg_.reset(new TurbViscSSTIDDESABLAlg(realm_, part, tvisc_));
+          break;
 
       case SST_AMS:
         tviscAlg_.reset(new TurbViscSSTAlg(realm_, part, tvisc_, true));
@@ -1999,16 +2007,16 @@ MomentumEquationSystem::register_wall_bc(
 
     stk::topology::rank_t sideRank = static_cast<stk::topology::rank_t>(meta_data.side_rank());
 
-    GenericFieldType *wallFrictionVelocityBip 
+    GenericFieldType *wallFrictionVelocityBip
       =  &(meta_data.declare_field<GenericFieldType>(sideRank, "wall_friction_velocity_bip"));
     stk::mesh::put_field_on_mesh(*wallFrictionVelocityBip, *part, numScsBip, nullptr);
 
-    GenericFieldType *wallNormalDistanceBip 
+    GenericFieldType *wallNormalDistanceBip
       =  &(meta_data.declare_field<GenericFieldType>(sideRank, "wall_normal_distance_bip"));
     stk::mesh::put_field_on_mesh(*wallNormalDistanceBip, *part, numScsBip, nullptr);
 
     // need wall friction velocity for TKE boundary condition
-    if (RANSAblBcApproach) { 
+    if (RANSAblBcApproach) {
       const AlgorithmType wfAlgType = WALL_FCN;
 
       wallFuncAlgDriver_
@@ -2021,7 +2029,7 @@ MomentumEquationSystem::register_wall_bc(
       GenericFieldType *wallShearStressBip
         =  &(meta_data.declare_field<GenericFieldType>(sideRank, "wall_shear_stress_bip"));
       stk::mesh::put_field_on_mesh(*wallShearStressBip, *part, nDim*numScsBip, nullptr);
-    
+
       // register the standard time-space-invariant wall heat flux (not used by the ABL wall model).
       NormalHeatFlux heatFlux = userData.q_;
       std::vector<double> userSpec(1);
@@ -2033,7 +2041,7 @@ MomentumEquationSystem::register_wall_bc(
 
       // Atmospheric-boundary-layer-style wall model.
       if (ablWallFunctionApproach) {
-        
+
         const AlgorithmType wfAlgType = WALL_ABL;
 
         // register boundary data: wall_heat_flux_bip.  This is the ABL integration-point-based heat flux field.
@@ -2043,7 +2051,7 @@ MomentumEquationSystem::register_wall_bc(
         // register the algorithm that computes geometry that the wall model uses.
         realm_.geometryAlgDriver_->register_wall_func_algorithm<WallFuncGeometryAlg>(
           wfAlgType, part, get_elem_topo(realm_, *part), "geometry_wall_func");
-        
+
         // register the algorithm that calculates the momentum and heat flux on the wall.
         wallFuncAlgDriver_.register_face_elem_algorithm<ABLWallFluxesAlg>(
           wfAlgType, part, get_elem_topo(realm_, *part), "abl_wall_func", wallFuncAlgDriver_, realm_.realmUsesEdges_,

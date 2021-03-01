@@ -62,6 +62,7 @@
 #include <node_kernels/ScalarMassBDFNodeKernel.h>
 #include <node_kernels/SDRSSTNodeKernel.h>
 #include <node_kernels/SDRSSTDESNodeKernel.h>
+#include <node_kernels/SDRSSTIDDESABLNodeKernel.h>
 #include <node_kernels/ScalarGclNodeKernel.h>
 
 // ngp
@@ -302,8 +303,12 @@ SpecificDissipationRateEquationSystem::register_interior_algorithm(
         if (SST == realm_.solutionOptions_->turbulenceModel_){
           nodeAlg.add_kernel<SDRSSTNodeKernel>(realm_.meta_data());
         }
-        else if ( (SST_DES == realm_.solutionOptions_->turbulenceModel_) || (SST_IDDES == realm_.solutionOptions_->turbulenceModel_ ) ){
+        else if ( (SST_DES == realm_.solutionOptions_->turbulenceModel_)
+                  || (SST_IDDES == realm_.solutionOptions_->turbulenceModel_) ){
           nodeAlg.add_kernel<SDRSSTDESNodeKernel>(realm_.meta_data());
+        }
+        else if ((SST_IDDES_ABL == realm_.solutionOptions_->turbulenceModel_)){
+            nodeAlg.add_kernel<SDRSSTIDDESABLNodeKernel>(realm_.meta_data());
         }
         else if (SST_AMS == realm_.solutionOptions_->turbulenceModel_)
           nodeAlg.add_kernel<SDRSSTAMSNodeKernel>(
@@ -597,9 +602,9 @@ SpecificDissipationRateEquationSystem::register_wall_bc(
   WallUserData userData = wallBCData.userData_;
   bool wallFunctionApproach = userData.wallFunctionApproach_;
 
-  // is this RANS SST for an ABL? 
+  // is this RANS SST for an ABL?
   bool RANSAblBcApproach = userData.RANSAblBcApproach_;
- 
+
   // create proper algorithms to fill nodal omega and assembled wall area; utau managed by momentum
   if (!wallModelAlgDriver_)
     wallModelAlgDriver_.reset(new SDRWallFuncAlgDriver(realm_));
