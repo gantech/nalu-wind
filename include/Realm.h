@@ -102,7 +102,7 @@ class Realm {
 
   Realm(Realms&, const YAML::Node & node);
   virtual ~Realm();
-  
+
   typedef size_t SizeType;
 
   virtual void load(const YAML::Node & node);
@@ -135,7 +135,7 @@ class Realm {
   void enforce_bc_on_exposed_faces();
   void setup_initial_conditions();
   void setup_property();
-  void extract_universal_constant( 
+  void extract_universal_constant(
     const std::string name, double &value, const bool useDefault);
   void augment_property_map(
     PropertyIdentifier propID,
@@ -155,7 +155,7 @@ class Realm {
 
   void augment_output_variable_list(
       const std::string fieldName);
-  
+
   void augment_restart_variable_list(
       std::string restartFieldName);
 
@@ -279,9 +279,9 @@ class Realm {
   virtual void pre_timestep_work_epilog();
   virtual void output_banner();
   virtual void advance_time_step();
- 
+
   virtual void initial_work();
-  
+
   void set_global_id();
 
   /** Initialize the HYPRE global row IDs
@@ -289,7 +289,7 @@ class Realm {
    *  \sa Realm::hypreGlobalId_
    */
   void set_hypre_global_id();
- 
+
   /// check job for fitting in memory
   void check_job(bool get_node_count);
 
@@ -304,6 +304,7 @@ class Realm {
     const std::string dofname);
   double get_upw_factor(
     const std::string dofname);
+  double get_upw_time_blend();
   bool primitive_uses_limiter(
     const std::string dofname);
   double get_lam_schmidt(
@@ -338,7 +339,7 @@ class Realm {
   double get_mdot_interp();
   bool get_cvfem_shifted_mdot();
   bool get_cvfem_reduced_sens_poisson();
-  
+
   bool has_nc_gauss_labatto_quadrature();
   bool get_nc_alg_upwind_advection();
   bool get_nc_alg_include_pstab();
@@ -438,7 +439,7 @@ class Realm {
   BoundaryConditions boundaryConditions_;
   InitialConditions initialConditions_;
   MaterialPropertys materialPropertys_;
-  
+
   EquationSystems equationSystems_;
 
   double maxCourant_;
@@ -515,7 +516,7 @@ class Realm {
 
   // check if there are negative Jacobians
   bool checkJacobians_;
-  
+
   // types of physics
   bool isothermalFlow_;
   bool uniformFlow_;
@@ -528,9 +529,9 @@ class Realm {
 
   // STK rebalance options
   bool rebalanceMesh_{false};
-  
+
   std::string rebalanceMethod_;
-   
+
   // allow aura to be optional
   bool activateAura_;
 
@@ -589,7 +590,7 @@ class Realm {
   void process_initialization_transfer();
   void process_io_transfer();
   void process_external_data_transfer();
-  
+
   // process end of time step converged work
   void post_converged_work();
 
@@ -619,7 +620,7 @@ class Realm {
   // element promotion options
   bool doPromotion_; // conto
   unsigned promotionOrder_;
-  
+
   // id for the input mesh
   size_t inputMeshIdx_;
 

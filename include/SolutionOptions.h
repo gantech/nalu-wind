@@ -83,19 +83,21 @@ public:
 
   double get_upw_factor(const std::string&) const;
 
+  double get_upw_time_blend(const double);
+
   double get_relaxation_factor(const std::string&) const;
 
   bool primitive_uses_limiter(const std::string&) const;
 
   bool get_shifted_grad_op(const std::string&) const;
-  
+
   bool get_skew_symmetric(const std::string&) const;
 
   std::vector<double> get_gravity_vector(const unsigned nDim) const;
- 
+
   double get_turb_model_constant(
     TurbulenceModelConstant turbModelEnum) const;
-  
+
   bool get_noc_usage(const std::string &dofName) const;
 
   bool has_set_boussinesq_time_scale();
@@ -104,6 +106,8 @@ public:
   double alphaDefault_;
   double alphaUpwDefault_;
   double upwDefault_;
+  double upwTimeOn_;
+  double upwTimeDelta_;
   // Relaxation factors for equations
   double relaxFactorDefault_{1.0};
   double lamScDefault_;
@@ -159,7 +163,7 @@ public:
 
   // turbulence model coeffs
   std::map<TurbulenceModelConstant, double> turbModelConstantMap_;
-  
+
   // numerics related
   std::map<std::string, double> hybridMap_;
   std::map<std::string, double> alphaMap_;
@@ -190,10 +194,10 @@ public:
 
   // non-orthogonal correction
   std::map<std::string, bool> nocMap_;
-  
+
   // shifting of Laplace operator for the element-based grad_op
   std::map<std::string, bool> shiftedGradOpMap_;
-  
+
   // read any fields from input files
   std::map<std::string, std::string> inputVarFromFileMap_;
 

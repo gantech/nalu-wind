@@ -73,6 +73,7 @@ StreletsUpwindEdgeAlg::execute()
   const auto ngpMesh = meshInfo.ngp_mesh();
   const auto& fieldMgr = meshInfo.ngp_field_manager();
 
+  const DblType upw_t_blend = realm_.get_upw_time_blend();
   auto pecFactor = fieldMgr.get_field<double>(pecletFactor_);
   const auto fone = fieldMgr.get_field<double>(fOne_);
   const auto dnv = fieldMgr.get_field<double>(dualNodalVolume_);
@@ -196,8 +197,10 @@ StreletsUpwindEdgeAlg::execute()
       const DblType A =
         ch2 * stk::math::max(cdes * sstMaxLenEdge / l_turb / g - 0.5, 0.0);
 
-      pecFactor.get(edge, 0) =
-        sigmaMax * stk::math::tanh(stk::math::pow(A, ch1));
+      const DblType pecfac = sigmaMax * stk::math::tanh(stk::math::pow(A, ch1));
+
+      pecFactor.get(edge, 0) = stk::math::max(upw_t_blend, pecfac);
+
     });
 }
 
