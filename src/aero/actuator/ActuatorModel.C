@@ -17,8 +17,11 @@
 #endif
 
 #include <aero/actuator/ActuatorParsingSimple.h>
+#include <aero/actuator/ActuatorParsingVG.h>
 #include <aero/actuator/ActuatorBulkSimple.h>
+#include <aero/actuator/ActuatorBulkVG.h>
 #include <aero/actuator/ActuatorExecutorsSimpleNgp.h>
+#include <aero/actuator/ActuatorExecutorsVG.h>
 #include <string>
 #include <NaluParsing.h>
 
@@ -51,6 +54,11 @@ ActuatorModel::parse(const YAML::Node& actuatorNode)
     actMeta_.reset(
       new ActuatorMetaSimple(actuator_Simple_parse(actuatorNode, actMetaBase)));
     break;
+  }
+  case ActuatorType::ActLineVG: {
+      actMeta_.reset(
+          new ActuatorMetaVG(actuator_VG_parse(actuatorNode, actMetaBase)));
+      break;
   }
   default: {
     throw std::runtime_error(
@@ -121,6 +129,17 @@ ActuatorModel::setup(double timeStep, stk::mesh::BulkData& stkBulk)
     actExec_.reset(new ActuatorLineSimpleNGP(*tempMeta, *tempBulk, stkBulk));
     break;
   }
+  case (ActuatorType::ActLineVG): {
+      auto tempMeta =
+          dcast::dcast_and_check_pointer<ActuatorMeta, ActuatorMetaVG>(
+              actMeta_.get());
+      actBulk_.reset(new ActuatorBulkVG(*tempMeta));
+      auto tempBulk =
+          dcast::dcast_and_check_pointer<ActuatorBulk, ActuatorBulkVG>(
+              actBulk_.get());
+      actExec_.reset(new ActuatorLineVG(*tempMeta, *tempBulk, stkBulk));
+      break;
+  }
   default: {
     ThrowErrorMsg("Unsupported actuator type");
   }
@@ -150,9 +169,10 @@ ActuatorModel::init(stk::mesh::BulkData& stkBulk)
     break;
 #endif
   }
-  case (ActuatorType::ActLineSimpleNGP): {
+  case (ActuatorType::ActLineSimpleNGP):
     break;
-  }
+  case (ActuatorType::ActLineVG):
+    break;
   default: {
     ThrowErrorMsg("Unsupported actuator type");
   }

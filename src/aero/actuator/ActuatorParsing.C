@@ -38,6 +38,10 @@ actuator_instance_parse(ActuatorMeta& actMeta, const YAML::Node& y_actuator)
       key = "Blade" + std::to_string(i);
       break;
     }
+    case (ActuatorType::ActLineVG): {
+        key = "VG" + std::to_string(i);
+        break;
+    }
     default: {
       key = "Turbine" + std::to_string(i);
       break;
@@ -54,6 +58,9 @@ actuator_instance_parse(ActuatorMeta& actMeta, const YAML::Node& y_actuator)
     get_required(
       y_instance, "num_force_pts_blade",
       actMeta.numNearestPointsFllcInt_.h_view(i));
+    get_required(
+        y_instance, "num_force_pts_blade",
+        actMeta.num_force_pts_blade_;
     get_if_present_no_default(
       y_instance, "fllt_num_nearest_point",
       actMeta.numNearestPointsFllcInt_.h_view(i));
@@ -65,6 +72,8 @@ get_backward_compatible_type(const std::string typeName)
 {
   ActuatorType theParsedType = ActuatorTypeMap[typeName];
   switch (theParsedType) {
+  case (ActuatorType::ActLineVG):
+      return ActuatorType::ActLineVG;
   case (ActuatorType::ActLineSimpleNGP):
   case (ActuatorType::ActLineSimple):
     return ActuatorType::ActLineSimpleNGP;
@@ -109,11 +118,13 @@ actuator_parse(const YAML::Node& y_node)
 
   actModelType = get_backward_compatible_type(actuatorTypeName);
 
-  if (actModelType == ActuatorType::ActLineSimpleNGP) {
+  if (actModelType == ActuatorType::ActLineSimpleNGP)
+    get_required(y_actuator, "n_vgs", nTurbines);
+  else if (actModelType == ActuatorType::ActLineSimpleNGP)
     get_required(y_actuator, "n_simpleblades", nTurbines);
-  } else {
+  else
     get_required(y_actuator, "n_turbines_glob", nTurbines);
-  }
+
 
   ActuatorMeta actMeta(nTurbines, actModelType);
   // search specifications
