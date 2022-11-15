@@ -6,13 +6,13 @@
 // This software is released under the BSD 3-clause license. See LICENSE file
 // for more details.
 //
-#include <aero/actuator/ActuatorExecutorsVGNgp.h>
+#include <aero/actuator/ActuatorExecutorsVG.h>
 #include <aero/actuator/ActuatorFLLC.h>
 
 namespace sierra {
 namespace nalu {
 
-ActuatorLineVGNGP::ActuatorLineVGNGP(
+ActuatorLineVG::ActuatorLineVG(
   const ActuatorMetaVG& actMeta,
   ActuatorBulkVG& actBulk,
   stk::mesh::BulkData& stkBulk)
@@ -26,7 +26,7 @@ ActuatorLineVGNGP::ActuatorLineVGNGP(
 }
 
 void
-ActuatorLineVGNGP::operator()()
+ActuatorLineVG::operator()()
 {
   actBulk_.zero_source_terms(stkBulk_);
 
@@ -62,14 +62,12 @@ ActuatorLineVGNGP::operator()()
   actuator_utils::reduce_view_on_host(velReduce);
 
   Kokkos::parallel_for(
-    "interpolateDensityActuatorNgpVG", numActPoints_,
-    InterpActuatorDensity(actBulk_, stkBulk_));
+    "interpolateDensityActuatorVG", numActPoints_,
+    InterpActuatorDensityVG(actBulk_, stkBulk_));
   auto rhoReduce = actBulk_.density_.view_host();
   actuator_utils::reduce_view_on_host(rhoReduce);
 
   apply_fllc(actBulk_);
-
-  ActVGComputeRelativeVelocity(actBulk_, actMeta_);
 
   // This is for output purposes
   Kokkos::parallel_for(

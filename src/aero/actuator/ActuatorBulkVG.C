@@ -18,13 +18,11 @@ ActuatorMetaVG::ActuatorMetaVG(const int num_force_pts, const ActuatorMeta& actM
   : ActuatorMeta(actMeta),
     isotropicGaussian_(false),
     num_force_pts_(num_force_pts),
-    num_force_pts_blade_("numForcePtsBladeMeta", numberOfActuators_),
-    areas_("areas", numberOfActuators_ * num_force_pts_),
-    centers_("areas", numberOfActuators_ * num_force_pts_),
+    areas_("areas", numberOfActuators_ * num_force_pts),
+    centers_("areas", numberOfActuators_ * num_force_pts),
     bvec_("bvec", numberOfActuators_),
     tvec_("tvec", numberOfActuators_),
     nvec_("nvec", numberOfActuators_),
-    max_num_force_pts_blade_(0),
     output_filenames_(numberOfActuators_),
     has_output_file_(false)
 {
@@ -36,9 +34,9 @@ ActuatorBulkVG::ActuatorBulkVG(const ActuatorMetaVG& actMeta)
     density_("actDensity", actMeta.numPointsTotal_),
     alpha_("actAngleOfAttack", actMeta.numPointsTotal_),
     vg_force_("vgForce", actMeta.numberOfActuators_),
-    num_force_pts_blade_("numForcePtsVGBulk", actMeta.numberOfActuators_),
+    num_force_pts_(actMeta.num_force_pts_),
     assignedProc_("assignedProcBulk", actMeta.numberOfActuators_),
-    num_blades_(actMeta.numberOfActuators_),
+    num_vgs_(actMeta.numberOfActuators_),
     debug_output_(actMeta.debug_output_),
     output_cache_(
       actMeta.has_output_file_
@@ -70,16 +68,12 @@ ActuatorBulkVG::ActuatorBulkVG(const ActuatorMetaVG& actMeta)
       << std::endl;
   }
 
-  // Set up num_force_pts_blade_
-  for (int i = 0; i < actMeta.numberOfActuators_; ++i) {
-    num_force_pts_blade_.h_view(i) = actMeta.num_force_pts_blade_.h_view(i);
-  }
   // Double check offsets
   if (actMeta.debug_output_)
     for (int i = 0; i < actMeta.numberOfActuators_; ++i) {
       NaluEnv::self().naluOutputP0()
         << "Offset blade: " << i << " " << turbIdOffset_.h_view(i)
-        << " num_force_pts: " << num_force_pts_blade_.h_view(i)
+        << " num_force_pts: " << num_force_pts_
         << std::endl; // LCCOUT
     }
   init_epsilon(actMeta);
@@ -117,19 +111,16 @@ ActuatorBulkVG::init_epsilon(const ActuatorMetaVG& actMeta)
   for (int iVG = 0; iVG < nVGs; iVG++) {
     // LCC test this for non-isotropic
     if (NaluEnv::self().parallel_rank() == assignedProc_.h_view(iVG)) {
-      const int numForcePts = actMeta.num_force_pts_blade_.h_view(iVG);
+      const size_t numForcePts = actMeta.num_force_pts_;
       const int offset = turbIdOffset_.h_view(iVG);
-      auto epsilonRef =
-        Kokkos::subview(actMeta.epsilon_.view_host(), iVG, Kokkos::ALL);
+      auto areas = actMeta.areas_;
       for (int np = 0; np < numForcePts; np++) {
         auto epsilonLocal =
           Kokkos::subview(epsilon_.view_host(), np + offset, Kokkos::ALL);
-        auto areas =
-            Kokkos::subview(areas_.view_host(), np + offset, Kokkos::ALL);
 
         for (int i = 0; i < 3; i++) {
           // Define the optimal epsilon
-            epsilonLocal(i) = std::sqrt(areas);
+            epsilonLocal(i) = std::sqrt(areas.h_view(np+offset));
         }
         // The radius of the searching. This is given in terms of
         //   the maximum of epsilon.x/y/z/.
@@ -157,7 +148,7 @@ ActuatorBulkVG::init_points(const ActuatorMetaVG& actMeta)
   const int nVGs = actMeta.n_vgs_;
   for (int iVG = 0; iVG < nVGs; iVG++) {
     if (NaluEnv::self().parallel_rank() == assignedProc_.h_view(iVG)) {
-      const int numForcePts = actMeta.num_force_pts_blade_.h_view(iVG);
+      const size_t numForcePts = actMeta.num_force_pts_;
       const int offset = turbIdOffset_.h_view(iVG);
       const double denom = (double)numForcePts;
 
@@ -166,7 +157,7 @@ ActuatorBulkVG::init_points(const ActuatorMetaVG& actMeta)
         auto pointLocal =
           Kokkos::subview(pointCentroid_.view_host(), np + offset, Kokkos::ALL);
         auto centersLocal =
-            Kokkos::subview(centers_.view_host(), np + offset, Kokkos::ALL);
+            Kokkos::subview(actMeta.centers_.view_host(), np + offset, Kokkos::ALL);
 
         for (int i = 0; i < 3; i++)
             pointLocal(i) = centersLocal(i);
@@ -189,9 +180,9 @@ Kokkos::RangePolicy<ActuatorFixedExecutionSpace>
 ActuatorBulkVG::local_range_policy()
 {
   auto rank = NaluEnv::self().parallel_rank();
-  if (rank < num_blades_) {
+  if (rank < num_vgs_) {
     const int offset = turbIdOffset_.h_view(rank);
-    const int size = num_force_pts_blade_.h_view(rank);
+    const int size = num_force_pts_;
     return Kokkos::RangePolicy<ActuatorFixedExecutionSpace>(
       offset, offset + size);
   } else {

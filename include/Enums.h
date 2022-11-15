@@ -331,6 +331,7 @@ enum ActuatorType {
   ActDiskFASTNGP = 5,
   ActLineSimple = 6,
   ActLineSimpleNGP = 7,
+  ActLineVG = 8,
   ActuatorType_END
 };
 

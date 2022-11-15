@@ -58,9 +58,9 @@ actuator_instance_parse(ActuatorMeta& actMeta, const YAML::Node& y_actuator)
     get_required(
       y_instance, "num_force_pts_blade",
       actMeta.numNearestPointsFllcInt_.h_view(i));
-    get_required(
-        y_instance, "num_force_pts_blade",
-        actMeta.num_force_pts_blade_;
+    // get_required(
+    //     y_instance, "num_force_pts_blade",
+    //     actMeta.num_force_pts_blade_);
     get_if_present_no_default(
       y_instance, "fllt_num_nearest_point",
       actMeta.numNearestPointsFllcInt_.h_view(i));

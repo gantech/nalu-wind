@@ -67,14 +67,14 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
   else
     actMetaVG.debug_output_ = false;
 
-  size_t n_vgs_;
-  get_required(y_actuator, "n_vgs", n_vgs_);
-  actMetaVG.n_vgs_ = n_vgs_;
-  actMetaVG.numPointsTotal_ = n_vgs * num_force_pts;
+  size_t n_vgs;
+  get_required(y_actuator, "n_vgs", n_vgs);
+  actMetaVG.n_vgs_ = n_vgs;
+  actMetaVG.numPointsTotal_ = n_vgs * num_force_pts_vg;
 
   if (actMetaVG.n_vgs_ > 0) {
 
-    for (unsigned iVG = 0; iVG < n_vgs_; iVG++) {
+    for (unsigned iVG = 0; iVG < n_vgs; iVG++) {
 
       const YAML::Node cur_vg = y_actuator["VG" + std::to_string(iVG)];
       get_if_present_no_default(
@@ -83,10 +83,6 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
         !actMetaVG.output_filenames_[iVG].empty() &&
         NaluEnv::self().parallel_rank() == (int)iVG) {
         actMetaVG.has_output_file_ = true;
-      }
-
-      if (num_force_pts_vg > actMetaVG.max_num_force_pts_) {
-        actMetaVG.max_num_force_pts_blade_ = num_force_pts_blade;
       }
 
       if (actMetaVG.debug_output_)
@@ -119,11 +115,11 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
 
       YAML::Node centers = vg["centers"];
       YAML::Node areas = vg["areas"];
-      for (size_t j = 0; j < num_force_pts; j++) {
+      for (size_t j = 0; j < num_force_pts_vg; j++) {
           vec_tmp = centers[j].as<std::vector<double>>();
           for (size_t k = 0; k < 3; k++)
-              actMetaVG.centers_.h_view(iVG*num_force_pts + j, k) = vec_tmp[k];
-          actMetaVG.areas_.h_view(iVG*num_force_pts + j) =
+              actMetaVG.centers_.h_view(iVG*num_force_pts_vg + j, k) = vec_tmp[k];
+          actMetaVG.areas_.h_view(iVG*num_force_pts_vg + j) =
               areas[j].as<double>();
       }
 

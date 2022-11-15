@@ -19,11 +19,11 @@
 namespace sierra {
 namespace nalu {
 
-struct InterpActuatorDensity
+struct InterpActuatorDensityVG
 {
   using execution_space = ActuatorFixedExecutionSpace;
 
-  InterpActuatorDensity(
+  InterpActuatorDensityVG(
     ActuatorBulkVG& actBulk, stk::mesh::BulkData& stkBulk);
 
   void operator()(int index) const;

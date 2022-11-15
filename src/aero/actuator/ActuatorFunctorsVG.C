@@ -21,7 +21,7 @@
 namespace sierra {
 namespace nalu {
 
-InterpActuatorDensity::InterpActuatorDensity(
+InterpActuatorDensityVG::InterpActuatorDensityVG(
   ActuatorBulkVG& actBulk, stk::mesh::BulkData& stkBulk)
   : actBulk_(actBulk),
     stkBulk_(stkBulk),
@@ -35,7 +35,7 @@ InterpActuatorDensity::InterpActuatorDensity(
 }
 
 void
-InterpActuatorDensity::operator()(int index) const
+InterpActuatorDensityVG::operator()(int index) const
 {
   auto rho = actBulk_.density_.view_host();
   auto localCoord = actBulk_.localCoords_;
@@ -156,7 +156,6 @@ ActVGComputeForce(
   const int turbId = actBulk.localTurbineId_;
 
   const int debug_output = actBulk.debug_output_;
-  std::vector<std::string>* cache = &actBulk.output_cache_;
 
   //Loop 'index' over actuator points of all the vgs
   Kokkos::parallel_for(
@@ -178,7 +177,7 @@ ActVGComputeForce(
       // Magnitude of velocity
       double velmag_sq =
           vel(0) * vel(0) + vel(1) * vel(1) + vel(2) * vel(2);
-      double velmag =  sqrt(vel_mag_sq);
+      double velmag =  sqrt(velmag_sq);
 
       // Following eq. 1 in Troldborg et al.
       double alpha =
@@ -196,22 +195,17 @@ ActVGComputeForce(
       el[2] = vel(0) * bvecl(1) - vel(1) * bvecl(0) / velmag;
 
       // Set the pointForce
-      pointForce(0) = fmag * el[0];
-      pointForce(1) = fmag * el[1];
-      pointForce(2) = fmag * el[2];
+      pforce(0) = fmag * el[0];
+      pforce(1) = fmag * el[1];
+      pforce(2) = fmag * el[2];
 
       if (debug_output)
         NaluEnv::self().naluOutput()
           << "Blade " << turbId // LCCOUT
           << " pointId: " << localId << std::setprecision(5)
-          << " alpha: " << alpha(index) << " vel: " << vel(0) << " "
+          << " alpha: " << alpha << " vel: " << vel(0) << " "
           << vel(1) << " " << vel(2) << std::endl;
-      if (actMeta.has_output_file_) {
-        std::ostringstream stream;
-        stream << localId << ", " << alpha(index) << ", " << cl << ", " << cd
-               << ", " << lift << ", " << drag << ", ";
-        cache->at(localId) += stream.str();
-      }
+
     });
 
   actuator_utils::reduce_view_on_host(force);
@@ -228,15 +222,15 @@ ActVGComputeThrustInnerLoop::operator()(
 
   auto offsets = actBulk_.turbIdOffset_.view_host();
 
-  if (NaluEnv::self().parallel_rank() < actBulk_.num_blades_) {
+  if (NaluEnv::self().parallel_rank() < actBulk_.num_vgs_) {
     int turbId = NaluEnv::self().parallel_rank();
-    auto thrust = Kokkos::subview(actBulk_.turbineThrust_, turbId, Kokkos::ALL);
+    auto vgforce = Kokkos::subview(actBulk_.vg_force_, turbId, Kokkos::ALL);
 
-    double forceTerm[3];
+    double force_term[3];
 
-    for (int i = 0; i < 3; i++) {
-      forceTerm[i] = sourceTerm[i] * scvIp;
-      thrust(i) += forceTerm[i];
+    for (size_t i = 0; i < 3; i++) {
+      force_term[i] = sourceTerm[i] * scvIp;
+      vgforce(i) += force_term[i];
     }
   }
 }
@@ -265,32 +259,32 @@ ActVGSpreadForceWhProjInnerLoop::operator()(
   auto epsilon =
     Kokkos::subview(actBulk_.epsilon_.view_host(), pointId, Kokkos::ALL);
 
-  auto orientation = Kokkos::subview(
-    actBulk_.orientationTensor_.view_host(), pointId, Kokkos::ALL);
+  /* auto orientation = Kokkos::subview( */
+  /*   actBulk_.orientationTensor_.view_host(), pointId, Kokkos::ALL); */
 
   double distance[3] = {0, 0, 0};
-  double projectedDistance[3] = {0, 0, 0};
-  double projectedForce[3] = {0, 0, 0};
+  // double projectedDistance[3] = {0, 0, 0};
+  // double projectedForce[3] = {0, 0, 0};
 
   actuator_utils::compute_distance(
     3, nodeCoords, pointCoords.data(), &distance[0]);
 
-  // transform distance from Cartesian to blade coordinate system
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-      projectedDistance[i] += distance[j] * orientation(i + j * 3);
-    }
-  }
+  /* // transform distance from Cartesian to blade coordinate system */
+  /* for (size_t i = 0; i < 3; i++) { */
+  /*   for (size_t j = 0; j < 3; j++) { */
+  /*     projectedDistance[i] += distance[j] * orientation(i + j * 3); */
+  /*   } */
+  /* } */
 
   const double gauss = actuator_utils::Gaussian_projection(
-    3, &projectedDistance[0], epsilon.data());
+    3, &distance[0], epsilon.data());
 
-  for (int j = 0; j < 3; j++) {
-    projectedForce[j] = gauss * pointForce(j);
-  }
+  /* for (size_t j = 0; j < 3; j++) { */
+  /*   projectedForce[j] = gauss * pointForce(j); */
+  /* } */
 
-  for (int j = 0; j < 3; j++) {
-    sourceTerm[j] += projectedForce[j] * scvIp / dual_vol;
+  for (size_t j = 0; j < 3; j++) {
+    sourceTerm[j] += gauss * pointForce[j] * scvIp / dual_vol;
   }
 }
 

@@ -17,7 +17,7 @@ namespace nalu {
 
 struct ActuatorMetaVG : public ActuatorMeta
 {
-  ActuatorMetaVG(const ActuatorMeta& actMeta);
+  ActuatorMetaVG(const int num_force_pts, const ActuatorMeta& actMeta);
   virtual ~ActuatorMetaVG() {}
 
   // HOST ONLY
@@ -27,7 +27,8 @@ struct ActuatorMetaVG : public ActuatorMeta
   bool debug_output_;
   bool useSpreadActuatorForce;
   std::size_t num_force_pts_;
-  doule Cvg_;            // Constant
+  std::size_t n_vgs_;
+  double Cvg_;            // Constant
 
   ActScalarDblDv areas_;         // Areas of actuator points
   ActVectorDblDv centers_;       // Coordinates of actuator points
@@ -65,7 +66,7 @@ struct ActuatorBulkVG : public ActuatorBulk
   ActFixVectorDbl vg_force_;
 
   // Stuff for VGs
-  ActScalarIntDv num_force_pts_;
+  const size_t num_force_pts_;
   ActScalarIntDv assignedProc_;
   const int num_vgs_;
   const bool debug_output_;
