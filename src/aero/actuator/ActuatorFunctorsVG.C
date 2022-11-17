@@ -203,8 +203,17 @@ ActVGComputeForce(
         NaluEnv::self().naluOutput()
           << "Blade " << turbId // LCCOUT
           << " pointId: " << localId << std::setprecision(5)
-          << " alpha: " << alpha << " vel: " << vel(0) << " "
-          << vel(1) << " " << vel(2) << std::endl;
+          << " cvg = " << cvg
+          << " alpha: " << alpha
+          << " rho = " << rho
+          << " vel: " << vel(0) << ", " << vel(1) << ", " << vel(2)
+          << " area = " << areas(index)
+          << " nvecl = " << nvecl(0) << ", " << nvecl(1) << ", " << nvecl(2)
+          << " tvecl = " << tvecl(0) << ", " << tvecl(1) << ", " << tvecl(2)
+          << " bvecl = " << bvecl(0) << ", " << bvecl(1) << ", " << bvecl(2)
+          << " fmag = " << fmag
+          << " el = " << el[0] << ", " << el[1] << ", " << el[2]
+          << std::endl;
 
     });
 

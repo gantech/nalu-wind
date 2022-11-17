@@ -60,6 +60,8 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
   get_required(y_actuator, "num_force_pts_vg", num_force_pts_vg);
   ActuatorMetaVG actMetaVG(num_force_pts_vg, actMeta);
 
+  get_if_present(y_actuator, "c_vg", actMeta.Cvg_);
+
   // Load the debug option
   const YAML::Node debug_output = y_actuator["debug_output"];
   if (debug_output)
@@ -111,7 +113,7 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
 
       get_required(vg, "nvec", vec_tmp);
       for (size_t j = 0; j < 3; j++)
-          actMetaVG.bvec_.h_view(iVG, j) = vec_tmp[j];
+          actMetaVG.nvec_.h_view(iVG, j) = vec_tmp[j];
 
       YAML::Node centers = vg["centers"];
       YAML::Node areas = vg["areas"];

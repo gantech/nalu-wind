@@ -18,6 +18,7 @@ ActuatorMetaVG::ActuatorMetaVG(const int num_force_pts, const ActuatorMeta& actM
   : ActuatorMeta(actMeta),
     isotropicGaussian_(false),
     num_force_pts_(num_force_pts),
+    Cvg_(4.0),
     areas_("areas", numberOfActuators_ * num_force_pts),
     centers_("areas", numberOfActuators_ * num_force_pts),
     bvec_("bvec", numberOfActuators_),

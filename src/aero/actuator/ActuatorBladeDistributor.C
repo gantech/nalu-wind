@@ -9,6 +9,7 @@
 
 #include <aero/actuator/ActuatorBladeDistributor.h>
 #include <aero/actuator/ActuatorBulkSimple.h>
+#include <aero/actuator/ActuatorBulkVG.h>
 #include <NaluEnv.h>
 #ifdef NALU_USES_OPENFAST
 #include <aero/actuator/ActuatorBulkFAST.h>
@@ -50,6 +51,20 @@ compute_blade_distributions(const ActuatorMeta& actMeta, ActuatorBulk& actBulk)
       results.push_back({offset, nPoints, nNeighbor});
     }
     break;
+  }
+  case (ActuatorType::ActLineVG): {
+      auto actMetaVG = dynamic_cast<const ActuatorMetaVG&>(actMeta);
+      // one vg per processor for this case, but we could change this
+      if (!actMeta.entityFLLC_(actBulk.localTurbineId_))
+          break;
+      if (rank == actBulk.localTurbineId_) {
+          const int iBlade = actBulk.localTurbineId_;
+          const int offset = actBulk.turbIdOffset_.h_view(iBlade);
+          const int nPoints = actMetaVG.num_force_pts_;
+          const int nNeighbor = actMetaVG.numNearestPointsFllcInt_.h_view(iBlade);
+          results.push_back({offset, nPoints, nNeighbor});
+      }
+      break;
   }
   case (ActuatorType::ActDiskFASTNGP):
   case (ActuatorType::ActLineFASTNGP): {

@@ -343,7 +343,8 @@ static std::map<std::string, ActuatorType> ActuatorTypeMap = {
   {"ActLineSimpleNGP", ActuatorType::ActLineSimpleNGP},
   {"ActLineFASTNGP", ActuatorType::ActLineFASTNGP},
   {"AdvActLineFASTNGP", ActuatorType::AdvActLineFASTNGP},
-  {"ActDiskFASTNGP", ActuatorType::ActDiskFASTNGP}};
+  {"ActDiskFASTNGP", ActuatorType::ActDiskFASTNGP},
+  {"ActLineVG", ActuatorType::ActLineVG}};
 
 enum class EntrainmentMethod { SPECIFIED = 0, COMPUTED = 1, CLASSIC = 2 };
 
