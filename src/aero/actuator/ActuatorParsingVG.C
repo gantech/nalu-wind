@@ -60,7 +60,7 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
   get_required(y_actuator, "num_force_pts_vg", num_force_pts_vg);
   ActuatorMetaVG actMetaVG(num_force_pts_vg, actMeta);
 
-  get_if_present(y_actuator, "c_vg", actMeta.Cvg_);
+  get_if_present(y_actuator, "c_vg", actMetaVG.Cvg_);
 
   // Load the debug option
   const YAML::Node debug_output = y_actuator["debug_output"];
@@ -77,6 +77,8 @@ actuator_VG_parse(const YAML::Node& y_node, const ActuatorMeta& actMeta)
   if (actMetaVG.n_vgs_ > 0) {
 
     for (unsigned iVG = 0; iVG < n_vgs; iVG++) {
+
+      actMetaVG.numPointsTurbine_.h_view(iVG) = num_force_pts_vg;
 
       const YAML::Node cur_vg = y_actuator["VG" + std::to_string(iVG)];
       get_if_present_no_default(

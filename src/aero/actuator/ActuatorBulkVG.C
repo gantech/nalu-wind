@@ -26,9 +26,7 @@ ActuatorMetaVG::ActuatorMetaVG(const int num_force_pts, const ActuatorMeta& actM
     nvec_("nvec", numberOfActuators_),
     output_filenames_(numberOfActuators_),
     has_output_file_(false)
-{
-    //Areas and Centers not initialized yet
-}
+{}
 
 ActuatorBulkVG::ActuatorBulkVG(const ActuatorMetaVG& actMeta)
   : ActuatorBulk(actMeta),
