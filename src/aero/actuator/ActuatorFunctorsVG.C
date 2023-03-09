@@ -190,14 +190,14 @@ ActVGComputeForce(
 
       // Force direction following convention in Troldborg et al.
       double el[3];
-      el[0] = vel(1) * bvecl(2) - vel(2) * bvecl(1) / velmag;
-      el[1] = vel(2) * bvecl(0) - vel(0) * bvecl(2) / velmag;
-      el[2] = vel(0) * bvecl(1) - vel(1) * bvecl(0) / velmag;
+      el[0] = (vel(1) * bvecl(2) - vel(2) * bvecl(1)) / velmag;
+      el[1] = (vel(2) * bvecl(0) - vel(0) * bvecl(2)) / velmag;
+      el[2] = (vel(0) * bvecl(1) - vel(1) * bvecl(0)) / velmag;
 
       // Set the pointForce
-      pforce(0) = fmag * el[0];
-      pforce(1) = fmag * el[1];
-      pforce(2) = fmag * el[2];
+      pforce(0) = -fmag * el[0];
+      pforce(1) = -fmag * el[1];
+      pforce(2) = -fmag * el[2];
 
       if (debug_output)
         NaluEnv::self().naluOutput()
