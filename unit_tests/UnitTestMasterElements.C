@@ -563,8 +563,10 @@ protected:
     bulk = meshBuilder.create();
     meta = &bulk->mesh_meta_data();
     elem = unit_test_utils::create_one_reference_element(*bulk, topo);
-    meSS = sierra::nalu::MasterElementRepo::get_surface_master_element(topo);
-    meSV = sierra::nalu::MasterElementRepo::get_volume_master_element(topo);
+    meSS =
+      sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(topo);
+    meSV =
+      sierra::nalu::MasterElementRepo::get_volume_master_element_on_host(topo);
   }
 
   void scs_interpolation(stk::topology topo)
@@ -645,15 +647,15 @@ protected:
   sierra::nalu::MasterElement* meSV;
 };
 
+#ifndef KOKKOS_ENABLE_GPU
+
 #define TEST_F_ALL_TOPOS(x, y)                                                 \
   TEST_F(x, tri##_##y) { y(stk::topology::TRI_3_2D); }                         \
   TEST_F(x, quad4##_##y) { y(stk::topology::QUAD_4_2D); }                      \
-  TEST_F(x, quad9##_##y) { y(stk::topology::QUAD_9_2D); }                      \
   TEST_F(x, tet##_##y) { y(stk::topology::TET_4); }                            \
   TEST_F(x, pyr##_##y) { y(stk::topology::PYRAMID_5); }                        \
   TEST_F(x, wedge##_##y) { y(stk::topology::WEDGE_6); }                        \
-  TEST_F(x, hex8##_##y) { y(stk::topology::HEX_8); }                           \
-  TEST_F(x, hex27##_##y) { y(stk::topology::HEX_27); }
+  TEST_F(x, hex8##_##y) { y(stk::topology::HEX_8); }
 
 #define TEST_F_ALL_P1_TOPOS(x, y)                                              \
   TEST_F(x, tri##_##y) { y(stk::topology::TRI_3_2D); }                         \
@@ -680,3 +682,5 @@ TEST_F_ALL_TOPOS(MasterElement, is_not_in_element)
 TEST_F_ALL_TOPOS(MasterElement, particle_interpolation)
 
 TEST_F_ALL_P1_TOPOS(MasterElement, general_shape_fcn)
+
+#endif // KOKKOS_ENABLE_GPU

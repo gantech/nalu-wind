@@ -264,7 +264,9 @@ ActuatorBulkFAST::interpolate_velocities_to_fast()
     if (openFast_.isDebug()) {
       openFast_.solution0();
     } else {
-      squash_fast_output(std::bind(&fast::OpenFAST::solution0, &openFast_));
+      // TODO(Ganesh)
+      /* squash_fast_output([&]() { openFast_.solution0(false); }); */
+      squash_fast_output([&]() { openFast_.solution0(); });
     }
   }
 }
@@ -278,7 +280,7 @@ ActuatorBulkFAST::step_fast()
     }
   } else {
     for (int j = 0; j < tStepRatio_; j++) {
-      squash_fast_output(std::bind(&fast::OpenFAST::step, &openFast_));
+      squash_fast_output([&]() { openFast_.step(); });
     }
   }
 }
@@ -298,13 +300,14 @@ void
 ActuatorBulkFAST::output_torque_info(stk::mesh::BulkData& stkBulk)
 {
   Kokkos::parallel_for(
-    "setUpTorqueCalc", hubLocations_.extent(0), ActFastSetUpThrustCalc(*this));
+    "setUpTorqueCalc", HostRangePolicy(0, hubLocations_.extent(0)),
+    ActFastSetUpThrustCalc(*this));
 
   actuator_utils::reduce_view_on_host(hubLocations_);
   actuator_utils::reduce_view_on_host(hubOrientation_);
 
   Kokkos::parallel_for(
-    "computeTorque", coarseSearchElemIds_.extent(0),
+    "computeTorque", HostRangePolicy(0, coarseSearchElemIds_.extent(0)),
     ActFastComputeThrust(*this, stkBulk));
   actuator_utils::reduce_view_on_host(turbineThrust_);
   actuator_utils::reduce_view_on_host(turbineTorque_);

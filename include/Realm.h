@@ -17,10 +17,12 @@
 #include <InitialConditions.h>
 #include <MaterialPropertys.h>
 #include <EquationSystems.h>
+#include <FieldManager.h>
 
 #if defined(NALU_USES_PERCEPT)
 #include <Teuchos_RCP.hpp>
 #endif
+#include <Teuchos_ParameterList.hpp>
 
 #include <ngp_utils/NgpFieldManager.h>
 #include "ngp_utils/NgpMeshInfo.h"
@@ -61,6 +63,7 @@ class GeometryAlgDriver;
 class NonConformalManager;
 class ErrorIndicatorAlgorithmDriver;
 class EquationSystems;
+class FieldManager;
 class OutputInfo;
 class OversetManager;
 class PostProcessingInfo;
@@ -303,6 +306,7 @@ public:
 
   // pressure poisson nuance
   double get_mdot_interp();
+  double get_incompressible_solve();
   bool get_cvfem_shifted_mdot();
   bool get_cvfem_reduced_sens_poisson();
 
@@ -364,6 +368,11 @@ public:
 
   void output_lidar();
 
+  // kind of annoying we have to do this, but the time ingetrator isn't
+  // populated when the Realm is constructured, so we have to wait until it is
+  // to be able to initialize the FieldManager
+  void setup_field_manager();
+
   Realms& realms_;
 
   std::string name_;
@@ -416,6 +425,7 @@ public:
   std::unique_ptr<AeroContainer> aeroModels_;
   ABLForcingAlgorithm* ablForcingAlg_;
   BdyLayerStatistics* bdyLayerStats_{nullptr};
+  std::unique_ptr<FieldManager> fieldManager_;
   std::unique_ptr<MeshMotionAlg> meshMotionAlg_;
   std::unique_ptr<MeshTransformationAlg> meshTransformationAlg_;
   std::unique_ptr<LidarLOS> lidarLOS_;
@@ -540,7 +550,7 @@ public:
   std::vector<Transfer*> externalDataTransferVec_;
   void augment_transfer_vector(
     Transfer* transfer, const std::string transferObjective, Realm* toRealm);
-  void process_multi_physics_transfer();
+  void process_multi_physics_transfer(bool isInit = false);
   void process_initialization_transfer();
   void process_io_transfer();
   void process_external_data_transfer();
@@ -560,6 +570,7 @@ public:
   bool get_is_terminate_based_on_time();
   double get_total_sim_time();
   int get_max_time_step_count();
+  int get_restart_frequency();
 
   // restart
   bool restarted_simulation();

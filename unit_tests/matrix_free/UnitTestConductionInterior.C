@@ -7,12 +7,7 @@
 // for more details.
 //
 
-#include "matrix_free/KokkosViewTypes.h"
-#include <Kokkos_Array.hpp>
-#include <Kokkos_CopyViews.hpp>
-#include <Kokkos_Macros.hpp>
-#include <Kokkos_Parallel.hpp>
-#include <Kokkos_View.hpp>
+#include <Kokkos_Core.hpp>
 #include <Teuchos_ArrayView.hpp>
 #include <Teuchos_DefaultMpiComm.hpp>
 #include <Teuchos_OrdinalTraits.hpp>
@@ -31,7 +26,7 @@
 #include "matrix_free/LinearDiffusionMetric.h"
 #include "matrix_free/LinearVolume.h"
 #include "matrix_free/KokkosViewTypes.h"
-#include "matrix_free/MakeRCP.h"
+
 #include "gtest/gtest.h"
 #include "mpi.h"
 
@@ -47,10 +42,10 @@ static constexpr int num_elems = 1;
 Teuchos::RCP<const Tpetra::Map<>>
 make_map()
 {
-  return matrix_free::make_rcp<Tpetra::Map<>>(
+  return Teuchos::make_rcp<Tpetra::Map<>>(
     Teuchos::OrdinalTraits<Tpetra::global_size_t>::invalid(),
     num_elems * nodes_per_elem, 1,
-    matrix_free::make_rcp<Teuchos::MpiComm<int>>(MPI_COMM_WORLD));
+    Teuchos::make_rcp<Teuchos::MpiComm<int>>(MPI_COMM_WORLD));
 }
 
 template <int p>

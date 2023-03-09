@@ -20,6 +20,7 @@
 #include <EquationSystem.h>
 #include <EquationSystems.h>
 #include <FieldTypeDef.h>
+#include <FieldManager.h>
 #include <LinearSystem.h>
 #include <LinearSolvers.h>
 #include <master_element/MasterElement.h>
@@ -42,7 +43,10 @@
 #include <element_promotion/PromotedElementIO.h>
 #include <element_promotion/PromotedPartHelper.h>
 #include <element_promotion/HexNElementDescription.h>
-#include <master_element/QuadratureRule.h>
+
+#ifdef NALU_HAS_MATRIXFREE
+#include <matrix_free/LobattoQuadratureRule.h>
+#endif
 
 // mesh motion
 #include <mesh_motion/MeshMotionAlg.h>
@@ -262,6 +266,9 @@ Realm::Realm(Realms& realms, const YAML::Node& node)
 Realm::~Realm()
 {
   meshInfo_.reset();
+  // hacky way of cleaing up openfast for now
+  if (aeroModels_->is_active())
+    aeroModels_->clean_up();
   delete ioBroker_;
 
   // prop algs
@@ -307,8 +314,14 @@ Realm::~Realm()
 
   if (nullptr != oversetManager_)
     delete oversetManager_;
+}
 
-  MasterElementRepo::clear();
+void
+Realm::setup_field_manager()
+{
+  assert(timeIntegrator_ != NULL);
+  fieldManager_ =
+    std::make_unique<FieldManager>(meta_data(), number_of_states());
 }
 
 void
@@ -410,6 +423,11 @@ Realm::initialize_prolog()
   if (doPromotion_) {
     setup_element_promotion();
   }
+
+  /* // setup OpenFAST FSI stuff */
+  /* if (openfast_ != NULL) */
+  /*   openfast_->setup(); */
+
   // field registration
   setup_nodal_fields();
   setup_edge_fields();
@@ -509,7 +527,7 @@ Realm::initialize_prolog()
     stk::topology::NODE_RANK, "iblank");
   stk::mesh::field_fill(1, *iblank);
 
-  if (has_mesh_deformation() || solutionOptions_->meshMotion_)
+  if (does_mesh_move())
     init_current_coordinates();
 
   if (hasPeriodic_)
@@ -520,6 +538,9 @@ Realm::initialize_prolog()
 
   if (solutionOptions_->meshMotion_)
     meshMotionAlg_->initialize(get_current_time());
+
+  if (aeroModels_->is_active())
+    aeroModels_->init(get_current_time(), outputInfo_->restartFreq_);
 
   compute_geometry();
 
@@ -658,7 +679,12 @@ Realm::load(const YAML::Node& node)
 
   get_if_present(node, "polynomial_order", promotionOrder_, promotionOrder_);
   if (promotionOrder_ > 2) {
+#ifdef NALU_HAS_MATRIXFREE
     doPromotion_ = true;
+#else
+    throw std::runtime_error(
+      "Nalu must be compiled with matrix-free support for promotion");
+#endif
   }
 
   if (promotionOrder_ >= 5) {
@@ -790,6 +816,16 @@ Realm::load(const YAML::Node& node)
   // post processing
   postProcessingInfo_->load(node);
 
+  // look for OpenFAST FSI stuff
+  /* if (node["openfast_fsi"]) { */
+
+  /*   const YAML::Node openfastNode = node["openfast_fsi"]; */
+  /*     openfast_ = new OpenfastFSI(meta_data(), bulk_data(), */
+  /*                                 openfastNode)); */
+  /*     if (openfast_->get_meshmotion()) */
+  /*       solutionOptions_->meshMotion_ = true; */
+  /* } */
+
   // boundary, init, material and equation systems "load"
   if (type_ == "multi_physics") {
     NaluEnv::self().naluOutputP0() << std::endl;
@@ -882,27 +918,26 @@ Realm::parent() const
 void
 Realm::setup_nodal_fields()
 {
-#ifdef NALU_USES_HYPRE
-  hypreGlobalId_ = &(meta_data().declare_field<HypreIDFieldType>(
-    stk::topology::NODE_RANK, "hypre_global_id"));
-#endif
-  tpetGlobalId_ = &(meta_data().declare_field<TpetIDFieldType>(
-    stk::topology::NODE_RANK, "tpet_global_id"));
-
-  // register global id and rank fields on all parts
-  const stk::mesh::PartVector parts = meta_data().get_parts();
-  for (size_t ipart = 0; ipart < parts.size(); ++ipart) {
-    naluGlobalId_ = &(meta_data().declare_field<GlobalIdFieldType>(
-      stk::topology::NODE_RANK, "nalu_global_id"));
-    stk::mesh::put_field_on_mesh(*naluGlobalId_, *parts[ipart], nullptr);
-
-#ifdef NALU_USES_HYPRE
-    stk::mesh::put_field_on_mesh(*hypreGlobalId_, *parts[ipart], nullptr);
-#endif
-    stk::mesh::put_field_on_mesh(*tpetGlobalId_, *parts[ipart], nullptr);
-    stk::mesh::field_fill(
-      std::numeric_limits<LinSys::GlobalOrdinal>::max(), *tpetGlobalId_);
+  if (!fieldManager_) {
+    setup_field_manager();
   }
+#ifdef NALU_USES_HYPRE
+  fieldManager_->register_field("hypre_global_id", meta_data().get_parts());
+  hypreGlobalId_ =
+    fieldManager_->get_field_ptr<HypreIDFieldType*>("hypre_global_id");
+#endif
+#ifdef NALU_USES_TRILINOS_SOLVERS
+  fieldManager_->register_field("tpet_global_id", meta_data().get_parts());
+  // TODO work on removing this variable from realm by accessing fields through
+  // the manager instead
+  tpetGlobalId_ =
+    fieldManager_->get_field_ptr<TpetIDFieldType*>("tpet_global_id");
+  stk::mesh::field_fill(
+    std::numeric_limits<LinSys::GlobalOrdinal>::max(), *tpetGlobalId_);
+#endif
+  fieldManager_->register_field("nalu_global_id", meta_data().get_parts());
+  naluGlobalId_ =
+    fieldManager_->get_field_ptr<GlobalIdFieldType*>("nalu_global_id");
 
   // loop over all material props targets and register nodal fields
   std::vector<std::string> targetNames = get_physics_target_names();
@@ -948,7 +983,7 @@ Realm::setup_element_fields()
       auto fieldSize = 1;
       if (!realmUsesEdges_) {
         auto* meSCS =
-          sierra::nalu::MasterElementRepo::get_surface_master_element(
+          sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
             targetPart->topology());
         fieldSize = meSCS->num_integration_points();
       }
@@ -968,8 +1003,19 @@ Realm::setup_interior_algorithms()
 {
   if (has_mesh_deformation()) {
     const AlgorithmType algType = INTERIOR;
-    stk::mesh::PartVector mmPartVec = meshMotionAlg_->get_partvec();
-    for (auto p : mmPartVec) {
+    stk::mesh::PartVector all_part_vec;
+    if (has_mesh_motion()) {
+      auto mmPartVec = meshMotionAlg_->get_partvec();
+      all_part_vec.insert(
+        all_part_vec.begin(), mmPartVec.begin(), mmPartVec.end());
+    }
+    if (aeroModels_->has_fsi()) {
+      auto fsi_part_vec = aeroModels_->fsi_parts();
+      all_part_vec.insert(
+        all_part_vec.end(), fsi_part_vec.begin(), fsi_part_vec.end());
+    }
+
+    for (auto p : all_part_vec) {
       if (p->topology() != stk::topology::HEX_8) {
         NaluEnv::self().naluOutputP0()
           << "Skipping registration of MeshVelocityEdgeAlg on part "
@@ -1064,7 +1110,7 @@ Realm::setup_post_processing_algorithms()
   }
 
   if (aeroModels_->is_active())
-    aeroModels_->setup(get_time_step_from_file(), bulk_data());
+    aeroModels_->setup(get_time_step_from_file(), bulkData_);
 
   // check for norm nodal fields
   if (NULL != solutionNormPostProcessing_)
@@ -1192,8 +1238,8 @@ Realm::enforce_bc_on_exposed_faces()
             << std::endl;
         }
 
-        // extract the element relations to report to the user and the number of
-        // elements connected
+        // extract the element relations to report to the user and the number
+        // of elements connected
         const stk::mesh::Entity* face_elem_rels =
           bulkData_->begin_elements(face);
         const unsigned numberOfElems = bulkData_->num_elements(face);
@@ -1356,11 +1402,11 @@ Realm::setup_property()
           // check for species-based cp
           if (matData->cpConstMap_.size() > 0.0) {
             if (uniformFlow_) {
-              throw std::runtime_error(
-                "uniform flow cp should simply use the single-valued constant");
+              throw std::runtime_error("uniform flow cp should simply use "
+                                       "the single-valued constant");
             } else {
-              // props computed based on local mass fractions, however, constant
-              // per species k
+              // props computed based on local mass fractions, however,
+              // constant per species k
               theCpPropEval = new SpecificHeatConstCpkPropertyEvaluator(
                 matData->cpConstMap_, meta_data());
               theEnthPropEval = new EnthalpyConstCpkPropertyEvaluator(
@@ -1438,6 +1484,21 @@ Realm::setup_property()
         }
       } break;
 
+      case VOF_MAT: {
+        // extract the volume of fluid field
+        ScalarFieldType* VOF = meta_data().get_field<ScalarFieldType>(
+          stk::topology::NODE_RANK, "volume_of_fluid");
+
+        // primary and secondary
+        const double propPrim = matData->primary_;
+        const double propSec = matData->secondary_;
+
+        LinearPropAlgorithm* auxAlg = new LinearPropAlgorithm(
+          *this, targetPart, thePropField, VOF, propPrim, propSec);
+        propertyAlg_.push_back(auxAlg);
+
+      } break;
+
       case POLYNOMIAL_MAT: {
 
         // switch on property id
@@ -1454,9 +1515,9 @@ Realm::setup_property()
 
             if (uniformFlow_) {
               // props computed based on YkRef and Tref
-              throw std::runtime_error(
-                "Realm::setup_property: Sorry, polynomial visc Ykref and Tref "
-                "is not supported");
+              throw std::runtime_error("Realm::setup_property: Sorry, "
+                                       "polynomial visc Ykref and Tref "
+                                       "is not supported");
             } else {
               // props computed based on Yk and Tref
               viscPropEval = new SutherlandsYkTrefPropertyEvaluator(
@@ -1644,8 +1705,8 @@ Realm::setup_property()
           propertyAlg_.push_back(auxAlg);
 
         } else {
-          throw std::runtime_error(
-            "Realm::setup_property: ideal_gas_yk only supported for density:");
+          throw std::runtime_error("Realm::setup_property: ideal_gas_yk only "
+                                   "supported for density:");
         }
       } break;
 
@@ -1757,8 +1818,9 @@ Realm::augment_property_map(
 void
 Realm::makeSureNodesHaveValidTopology()
 {
-  // To make sure nodes have valid topology, we have to make sure they are in a
-  // part that has NODE topology. So first, let's obtain the node topology part:
+  // To make sure nodes have valid topology, we have to make sure they are in
+  // a part that has NODE topology. So first, let's obtain the node topology
+  // part:
   const stk::mesh::Part& nodePart =
     bulkData_->mesh_meta_data().get_topology_root_part(stk::topology::NODE);
   stk::mesh::Selector nodesNotInNodePart =
@@ -1779,13 +1841,37 @@ void
 Realm::update_geometry_due_to_mesh_motion()
 {
   // check for mesh motion
-  if (solutionOptions_->meshMotion_) {
+  if (does_mesh_move()) {
+    if (aeroModels_->is_active()) {
 
-    meshMotionAlg_->execute(get_current_time());
+      aeroModels_->update_displacements(get_current_time());
+
+      if (aeroModels_->has_fsi()) {
+        auto part_vec = aeroModels_->fsi_parts();
+        for (auto* target_part : part_vec)
+          set_current_coordinates(target_part);
+      }
+    }
+
+    if (solutionOptions_->externalMeshDeformation_) {
+      std::vector<std::string> targetNames = get_physics_target_names();
+      for (size_t itarget = 0; itarget < targetNames.size(); ++itarget) {
+        stk::mesh::Part* targetPart =
+          meta_data().get_part(targetNames[itarget]);
+        set_current_coordinates(targetPart);
+      }
+    }
+
+    if (meshMotionAlg_)
+      meshMotionAlg_->execute(get_current_time());
 
     compute_geometry();
 
-    meshMotionAlg_->post_compute_geometry();
+    if (meshMotionAlg_)
+      meshMotionAlg_->post_compute_geometry();
+
+    if (aeroModels_->has_fsi())
+      aeroModels_->compute_div_mesh_velocity();
 
     // and non-conformal algorithm
     if (hasNonConformal_)
@@ -1796,26 +1882,12 @@ Realm::update_geometry_due_to_mesh_motion()
 void
 Realm::update_graph_connectivity_and_coordinates_due_to_mesh_motion()
 {
-  if (solutionOptions_->meshMotion_) {
+  if (does_mesh_move()) {
     // Reset the stk::mesh::NgpMesh instance
     meshInfo_.reset(new typename Realm::NgpMeshInfo(*bulkData_));
 
     // now re-initialize linear system
     equationSystems_.reinitialize_linear_system();
-  }
-
-  // deal with non-topology changes, however, moving mesh
-  if (has_mesh_deformation()) {
-    // extract target parts for this physics
-    if (solutionOptions_->externalMeshDeformation_) {
-      std::vector<std::string> targetNames = get_physics_target_names();
-      for (size_t itarget = 0; itarget < targetNames.size(); ++itarget) {
-        stk::mesh::Part* targetPart =
-          meta_data().get_part(targetNames[itarget]);
-        set_current_coordinates(targetPart);
-      }
-    }
-    compute_geometry();
   }
 
   // ask the equation system to do some work
@@ -1863,8 +1935,8 @@ Realm::advance_time_step()
     << "----------" << std::setw(16) << std::right << "-----------"
     << std::setw(14) << std::right << "----------" << std::endl;
 
-  // evaluate new geometry based on latest mesh motion geometry state (provided
-  // that external is active)
+  // evaluate new geometry based on latest mesh motion geometry state
+  // (provided that external is active)
   if (solutionOptions_->externalMeshDeformation_)
     compute_geometry();
 
@@ -2164,8 +2236,8 @@ Realm::input_variables_from_mesh()
         ? stk::io::MeshField::LINEAR_INTERPOLATION
         : stk::io::MeshField::CLOSEST;
 
-    // check for periodic cycling of data based on start time and periodic time;
-    // scale time set to unity
+    // check for periodic cycling of data based on start time and periodic
+    // time; scale time set to unity
     if (solutionOptions_->inputVariablesPeriodicTime_ > 0.0) {
       ioBroker_->get_mesh_database(inputMeshIdx_)
         .set_periodic_time(
@@ -2407,13 +2479,6 @@ Realm::initialize_post_processing_algorithms()
   if (NULL != ablForcingAlg_) {
     ablForcingAlg_->initialize();
   }
-
-  if (aeroModels_->is_active())
-    aeroModels_->init(bulk_data());
-
-  if (lidarLOS_) {
-    lidarLOS_->set_time_for_all(get_current_time());
-  }
 }
 
 //--------------------------------------------------------------------------
@@ -2422,11 +2487,7 @@ Realm::initialize_post_processing_algorithms()
 std::string
 Realm::get_coordinates_name()
 {
-  return (
-    (solutionOptions_->meshMotion_ ||
-     solutionOptions_->externalMeshDeformation_)
-      ? "current_coordinates"
-      : "coordinates");
+  return (does_mesh_move() ? "current_coordinates" : "coordinates");
 }
 
 //--------------------------------------------------------------------------
@@ -2445,10 +2506,12 @@ bool
 Realm::has_mesh_deformation() const
 {
   if (meshMotionAlg_) {
-    return meshMotionAlg_->is_deforming() ||
-           solutionOptions_->externalMeshDeformation_;
+    return (meshMotionAlg_->is_deforming() ||
+            solutionOptions_->externalMeshDeformation_) ||
+           aeroModels_->has_fsi();
   } else
-    return solutionOptions_->externalMeshDeformation_;
+    return (
+      solutionOptions_->externalMeshDeformation_ || aeroModels_->has_fsi());
 }
 
 //--------------------------------------------------------------------------
@@ -2660,51 +2723,36 @@ Realm::compute_l2_scaling()
 void
 Realm::register_nodal_fields(stk::mesh::Part* part)
 {
+  if (!fieldManager_) {
+    setup_field_manager();
+  }
   // register high level common fields
-  const int nDim = meta_data().spatial_dimension();
-
   // Declare volume/area_vector fields
   const int numVolStates = does_mesh_move() ? number_of_states() : 1;
-  auto& dualNodalVol = meta_data().declare_field<ScalarFieldType>(
-    stk::topology::NODE_RANK, "dual_nodal_volume", numVolStates);
-  stk::mesh::put_field_on_mesh(dualNodalVol, *part, 1, nullptr);
-  if (numVolStates > 1)
-    augment_restart_variable_list("dual_nodal_volume");
-  auto& elemVol = meta_data().declare_field<ScalarFieldType>(
-    stk::topology::ELEM_RANK, "element_volume");
-  stk::mesh::put_field_on_mesh(elemVol, *part, 1, nullptr);
+  fieldManager_->register_field("dual_nodal_volume", *part, numVolStates);
+  fieldManager_->register_field("element_volume", *part);
 
   if (realmUsesEdges_) {
-    auto& edgeAreaVec = meta_data().declare_field<VectorFieldType>(
-      stk::topology::EDGE_RANK, "edge_area_vector");
-    stk::mesh::put_field_on_mesh(
-      edgeAreaVec, *part, meta_data().spatial_dimension(), nullptr);
+    fieldManager_->register_field("edge_area_vector", *part);
   }
 
   // mesh motion/deformation is high level
-  // clang-format off
-  if ( does_mesh_move()) {
-    VectorFieldType *displacement = &(meta_data().declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_displacement",numVolStates));
-    stk::mesh::put_field_on_mesh(*displacement, *part, nDim, nullptr);
-    augment_restart_variable_list("mesh_displacement");
-    VectorFieldType *currentCoords = &(meta_data().declare_field<VectorFieldType>(stk::topology::NODE_RANK, "current_coordinates"));
-    stk::mesh::put_field_on_mesh(*currentCoords, *part, nDim, nullptr);
-    augment_restart_variable_list("current_coordinates");
-    VectorFieldType *meshVelocity = &(meta_data().declare_field<VectorFieldType>(stk::topology::NODE_RANK, "mesh_velocity"));
-    stk::mesh::put_field_on_mesh(*meshVelocity, *part, nDim, nullptr);
-    augment_restart_variable_list("mesh_velocity");
-    VectorFieldType *velocityRTM = &(meta_data().declare_field<VectorFieldType>(stk::topology::NODE_RANK, "velocity_rtm"));
-    stk::mesh::put_field_on_mesh(*velocityRTM, *part, nDim, nullptr);
-    if(has_mesh_deformation()){
-      ScalarFieldType *divV = &(meta_data().declare_field<ScalarFieldType>(stk::topology::NODE_RANK, "div_mesh_velocity"));
-      stk::mesh::put_field_on_mesh(*divV, *part, nullptr);
+  if (does_mesh_move()) {
+    fieldManager_->register_field("mesh_displacement", *part);
+    fieldManager_->register_field("current_coordinates", *part);
+    fieldManager_->register_field("mesh_velocity", *part);
+    fieldManager_->register_field("velocity_rtm", *part);
+    fieldManager_->register_field("div_mesh_velocity", *part);
+    if (has_mesh_deformation()) {
+      fieldManager_->register_field("div_mesh_velocity", *part);
     }
+    augment_restart_variable_list("dual_nodal_volume");
+    augment_restart_variable_list("mesh_displacement");
+    augment_restart_variable_list("current_coordinates");
+    augment_restart_variable_list("mesh_velocity");
   }
-  // clang-format on
 
-  ScalarIntFieldType& iblank = meta_data().declare_field<ScalarIntFieldType>(
-    stk::topology::NODE_RANK, "iblank");
-  stk::mesh::put_field_on_mesh(iblank, *part, nullptr);
+  fieldManager_->register_field("iblank", *part);
 }
 
 //--------------------------------------------------------------------------
@@ -2745,7 +2793,8 @@ Realm::register_wall_bc(stk::mesh::Part* part, const stk::topology& theTopo)
   const int nDim = meta_data().spatial_dimension();
 
   // register fields
-  MasterElement* meFC = MasterElementRepo::get_surface_master_element(theTopo);
+  MasterElement* meFC =
+    MasterElementRepo::get_surface_master_element_on_host(theTopo);
   const int numScsIp = meFC->num_integration_points();
 
   GenericFieldType* exposedAreaVec_ =
@@ -2780,7 +2829,8 @@ Realm::register_inflow_bc(stk::mesh::Part* part, const stk::topology& theTopo)
   const int nDim = meta_data().spatial_dimension();
 
   // register fields
-  MasterElement* meFC = MasterElementRepo::get_surface_master_element(theTopo);
+  MasterElement* meFC =
+    MasterElementRepo::get_surface_master_element_on_host(theTopo);
   const int numScsIp = meFC->num_integration_points();
 
   GenericFieldType* exposedAreaVec_ =
@@ -2815,7 +2865,8 @@ Realm::register_open_bc(stk::mesh::Part* part, const stk::topology& theTopo)
   const int nDim = meta_data().spatial_dimension();
 
   // register fields
-  MasterElement* meFC = MasterElementRepo::get_surface_master_element(theTopo);
+  MasterElement* meFC =
+    MasterElementRepo::get_surface_master_element_on_host(theTopo);
   const int numScsIp = meFC->num_integration_points();
 
   GenericFieldType* exposedAreaVec_ =
@@ -2849,7 +2900,8 @@ Realm::register_symmetry_bc(stk::mesh::Part* part, const stk::topology& theTopo)
   const int nDim = meta_data().spatial_dimension();
 
   // register fields
-  MasterElement* meFC = MasterElementRepo::get_surface_master_element(theTopo);
+  MasterElement* meFC =
+    MasterElementRepo::get_surface_master_element_on_host(theTopo);
   const int numScsIp = meFC->num_integration_points();
 
   GenericFieldType* exposedAreaVec_ =
@@ -2940,7 +2992,8 @@ Realm::register_non_conformal_bc(
 
   const int nDim = meta_data().spatial_dimension();
   // register fields
-  MasterElement* meFC = MasterElementRepo::get_surface_master_element(theTopo);
+  MasterElement* meFC =
+    MasterElementRepo::get_surface_master_element_on_host(theTopo);
   const int numScsIp = meFC->num_integration_points();
 
   // exposed area vector
@@ -2964,7 +3017,8 @@ Realm::register_overset_bc()
       const auto topo = part->topology();
       const int nDim = meta_data().spatial_dimension();
       // register fields
-      MasterElement* meFC = MasterElementRepo::get_surface_master_element(topo);
+      MasterElement* meFC =
+        MasterElementRepo::get_surface_master_element_on_host(topo);
       const int numScsIp = meFC->num_integration_points();
 
       // exposed area vector
@@ -3131,10 +3185,10 @@ Realm::provide_output()
       if (g_elapsedWallTime > outputInfo_->userWallTimeResults_.second) {
         forcedOutput = true;
         outputInfo_->userWallTimeResults_.first = false;
-        NaluEnv::self().naluOutputP0()
-          << "Realm::provide_output()::Forced Result output will be processed "
-             "at current time: "
-          << currentTime << std::endl;
+        NaluEnv::self().naluOutputP0() << "Realm::provide_output()::Forced "
+                                          "Result output will be processed "
+                                          "at current time: "
+                                       << currentTime << std::endl;
         NaluEnv::self().naluOutputP0()
           << " Elapsed (max) WALL time: " << g_elapsedWallTime << " (hours)"
           << std::endl;
@@ -3381,10 +3435,10 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
           << "The user may desire to set the "
              "support_inconsistent_multi_state_restart Realm line command"
           << std::endl;
-        NaluEnv::self().naluOutputP0()
-          << "This is applicable for a BDF2 restart run from a previously run "
-             "Backward Euler simulation"
-          << std::endl;
+        NaluEnv::self().naluOutputP0() << "This is applicable for a BDF2 "
+                                          "restart run from a previously run "
+                                          "Backward Euler simulation"
+                                       << std::endl;
       }
     }
     NaluEnv::self().naluOutputP0()
@@ -3402,15 +3456,31 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
         turbulenceAveragingPostProcessing_->currentTimeFilter_,
         abortIfNotFound);
     }
-    if (meshMotionAlg_) {
+
+    if (does_mesh_move()) {
+
       // Redo all the mesh and motionAlg setup after reading files from the
       // restart reset the current_coordinate and mesh_velocity fields after
       // reading them
       init_current_coordinates();
+
       // reset the current time for the meshMotionAlgs
-      meshMotionAlg_->restart_reinit(foundRestartTime);
+      if (has_mesh_motion())
+        meshMotionAlg_->restart_reinit(foundRestartTime);
+
+      if (aeroModels_->is_active()) {
+        aeroModels_->update_displacements(get_current_time());
+        if (aeroModels_->has_fsi()) {
+          auto part_vec = aeroModels_->fsi_parts();
+          for (auto* target_part : part_vec)
+            set_current_coordinates(target_part);
+        }
+      }
+
       compute_geometry();
-      meshMotionAlg_->post_compute_geometry();
+
+      if (has_mesh_motion())
+        meshMotionAlg_->post_compute_geometry();
     }
   }
   return foundRestartTime;
@@ -3469,6 +3539,13 @@ Realm::initial_work()
     bdyLayerStats_->execute();
   }
 
+  if (lidarLOS_) {
+    if (!lidarLOS_->start_time_has_been_set()) {
+      lidarLOS_->set_time_for_all(get_current_time());
+      output_lidar();
+    }
+  }
+
   equationSystems_.initial_work();
 }
 
@@ -3501,12 +3578,12 @@ Realm::set_hypre_global_id()
 #ifdef NALU_USES_HYPRE
   /* Create a mapping of Nalu Global ID (nodes) to Hypre Global ID.
    *
-   * Background: Hypre requires a contiguous mapping of row IDs for its IJMatrix
-   * and IJVector data structure, i.e., the startID(iproc+1) = endID(iproc) + 1.
-   * Therefore, this method first determines the total number of rows in each
-   * paritition and then determines the starting and ending IDs for the Hypre
-   * matrix and finally assigns the hypre ID for all the nodes on this partition
-   * in the hypreGlobalId_ field.
+   * Background: Hypre requires a contiguous mapping of row IDs for its
+   * IJMatrix and IJVector data structure, i.e., the startID(iproc+1) =
+   * endID(iproc) + 1. Therefore, this method first determines the total
+   * number of rows in each paritition and then determines the starting and
+   * ending IDs for the Hypre matrix and finally assigns the hypre ID for all
+   * the nodes on this partition in the hypreGlobalId_ field.
    */
 
   // Fill with an invalid value for future error checking
@@ -3652,7 +3729,8 @@ Realm::check_job(bool get_node_count)
   }
 
   /// estimate memory based on N*bandwidth, N = nodeCount*nDOF,
-  ///   bandwidth = NCon(=27 for Hex mesh)*nDOF - we are very conservative here
+  ///   bandwidth = NCon(=27 for Hex mesh)*nDOF - we are very conservative
+  ///   here
   unsigned BWFactor = 27;
   if (doPromotion_) {
     // Ignore boundary terms and assume a structured mesh
@@ -4241,6 +4319,12 @@ Realm::get_mdot_interp()
   return solutionOptions_->mdotInterpRhoUTogether_ ? 1.0 : 0.0;
 }
 
+double
+Realm::get_incompressible_solve()
+{
+  return solutionOptions_->solveIncompressibleContinuity_ ? 1.0 : 0.0;
+}
+
 //--------------------------------------------------------------------------
 //-------- get_cvfem_shifted_mdot ------------------------------------------
 //--------------------------------------------------------------------------
@@ -4394,20 +4478,53 @@ Realm::augment_transfer_vector(
   }
 }
 
+/* //--------------------------------------------------------------------------
+ */
+/* //-------- process_init_multi_physics_transfer -----------------------------
+ */
+/* //--------------------------------------------------------------------------
+ */
+/* void */
+/* Realm::process_init_multi_physics_transfer() */
+/* { */
+/*   double timeXfer = -NaluEnv::self().nalu_time(); */
+
+/*   if (!hasMultiPhysicsTransfer_) */
+/*     return; */
+
+/*   std::vector<Transfer*>::iterator ii; */
+/*   for (ii = multiPhysicsTransferVec_.begin(); */
+/*        ii != multiPhysicsTransferVec_.end(); ++ii) */
+/*     (*ii)->execute(); */
+/*   timeXfer += NaluEnv::self().nalu_time(); */
+/*   timerTransferExecute_ += timeXfer; */
+/* } */
+
 //--------------------------------------------------------------------------
 //-------- process_multi_physics_transfer ----------------------------------
 //--------------------------------------------------------------------------
 void
-Realm::process_multi_physics_transfer()
+Realm::process_multi_physics_transfer(bool initCall)
 {
-  if (!hasMultiPhysicsTransfer_)
-    return;
 
   double timeXfer = -NaluEnv::self().nalu_time();
-  std::vector<Transfer*>::iterator ii;
-  for (ii = multiPhysicsTransferVec_.begin();
-       ii != multiPhysicsTransferVec_.end(); ++ii)
-    (*ii)->execute();
+
+  if (!initCall) {
+    if (aeroModels_->is_active()) {
+      aeroModels_->predict_model_time_step(get_current_time());
+    }
+  }
+
+  /* if (openfast_ != NULL) */
+  /*   openfast_->predict_struct_timestep(get_current_time()); */
+
+  if (hasMultiPhysicsTransfer_) {
+    std::vector<Transfer*>::iterator ii;
+    for (ii = multiPhysicsTransferVec_.begin();
+         ii != multiPhysicsTransferVec_.end(); ++ii)
+      (*ii)->execute();
+  }
+
   timeXfer += NaluEnv::self().nalu_time();
   timerTransferExecute_ += timeXfer;
 }
@@ -4432,7 +4549,8 @@ Realm::process_initialization_transfer()
 }
 
 //--------------------------------------------------------------------------
-//-------- process_io_transfer ------------------------------------------------
+//-------- process_io_transfer
+//------------------------------------------------
 //--------------------------------------------------------------------------
 void
 Realm::process_io_transfer()
@@ -4499,6 +4617,9 @@ Realm::post_converged_work()
 {
   equationSystems_.post_converged_work();
 
+  if (aeroModels_->is_active())
+    aeroModels_->advance_model_time_step(get_current_time());
+
   // FIXME: Consider a unified collection of post processing work
   if (NULL != solutionNormPostProcessing_)
     solutionNormPostProcessing_->execute();
@@ -4551,7 +4672,8 @@ Realm::setup_element_promotion()
           throw std::runtime_error(
             "A part with name " + superName +
             " already exists in the mesh.  "
-            "This can happen if a restart mesh was used but a restart_time was "
+            "This can happen if a restart mesh was used but a restart_time "
+            "was "
             "not specified");
         }
 
@@ -4604,6 +4726,7 @@ Realm::setup_element_promotion()
 void
 Realm::promote_mesh()
 {
+
   NaluEnv::self().naluOutputP0()
     << "Realm::promote_elements() Begin " << std::endl;
   auto timeA = stk::wall_time();
@@ -4611,10 +4734,19 @@ Realm::promote_mesh()
   auto& coords = *meta_data().get_field<VectorFieldType>(
     stk::topology::NODE_RANK, "coordinates");
   if (!restarted_simulation()) {
-    const auto gllNodes =
-      gauss_lobatto_legendre_rule(promotionOrder_ + 1).first;
+#ifdef NALU_HAS_MATRIXFREE
+    std::vector<double> gllNodes =
+      matrix_free::gauss_lobatto_legendre_abscissae(promotionOrder_);
     promotion::create_tensor_product_hex_elements(
       gllNodes, *bulkData_, coords, basePartVector_);
+#else
+    std::vector<double> xloc(promotionOrder_ + 1);
+    for (size_t j = 0; j < promotionOrder_ + 1; ++j) {
+      xloc[j] = -1 + 2. / promotionOrder_ * j;
+    }
+    promotion::create_tensor_product_hex_elements(
+      xloc, *bulkData_, coords, basePartVector_);
+#endif
   } else {
     promotion::create_promoted_boundary_elements(
       promotionOrder_, *bulkData_, basePartVector_);
@@ -4658,7 +4790,8 @@ Realm::create_promoted_output_mesh()
 }
 
 //--------------------------------------------------------------------------
-//-------- part_name(std::string) ----------------------------------------------
+//-------- part_name(std::string)
+//----------------------------------------------
 //--------------------------------------------------------------------------
 std::string
 Realm::physics_part_name(std::string name) const
@@ -4757,7 +4890,8 @@ Realm::get_gamma3()
 }
 
 //--------------------------------------------------------------------------
-//-------- get_time_step_count() ----------------------------------------------
+//-------- get_time_step_count()
+//----------------------------------------------
 //--------------------------------------------------------------------------
 int
 Realm::get_time_step_count() const
@@ -5021,6 +5155,11 @@ Realm::polynomial_order() const
 bool
 Realm::matrix_free() const
 {
+  if (matrixFree_) {
+#ifndef NALU_HAS_MATRIXFREE
+    throw std::runtime_error("Nalu not compiled with matrix-free support");
+#endif
+  }
   return matrixFree_;
 }
 

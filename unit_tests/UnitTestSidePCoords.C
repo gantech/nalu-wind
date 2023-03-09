@@ -45,7 +45,7 @@ check_elem_to_side_coords(stk::topology topo)
   auto elem = unit_test_utils::create_one_reference_element(*bulk, topo);
   const stk::mesh::Entity* elem_node_rels = bulk->begin_nodes(elem);
   auto* meSCS =
-    sierra::nalu::MasterElementRepo::get_surface_master_element(topo);
+    sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(topo);
 
   using VectorFieldType = stk::mesh::Field<double, stk::mesh::Cartesian>;
   const VectorFieldType& coordField =
@@ -67,7 +67,8 @@ check_elem_to_side_coords(stk::topology topo)
     const auto& b = *ib;
 
     auto* meSide =
-      sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
+      sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
+        b.topology());
 
     for (size_t k = 0; k < b.size(); ++k) {
       auto face = b[k];
@@ -125,10 +126,8 @@ check_elem_to_side_coords(stk::topology topo)
 #define TEST_ALL_TOPOS_NO_PYR(x, y)                                            \
   TEST(x, tri3##_##y) { y(stk::topology::TRI_3_2D); }                          \
   TEST(x, quad4##_##y) { y(stk::topology::QUAD_4_2D); }                        \
-  TEST(x, quad9##_##y) { y(stk::topology::QUAD_9_2D); }                        \
   TEST(x, tet4##_##y) { y(stk::topology::TET_4); }                             \
   TEST(x, wedge6##_##y) { y(stk::topology::WEDGE_6); }                         \
-  TEST(x, hex8##_##y) { y(stk::topology::HEX_8); }                             \
-  TEST(x, hex27##_##y) { y(stk::topology::HEX_27); }
+  TEST(x, hex8##_##y) { y(stk::topology::HEX_8); }
 
 TEST_ALL_TOPOS_NO_PYR(SidePCoords, check_elem_to_side_coords)

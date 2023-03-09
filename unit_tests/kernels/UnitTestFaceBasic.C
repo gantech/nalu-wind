@@ -9,14 +9,6 @@
 
 #include <gtest/gtest.h>
 
-namespace {
-void
-verify_faces_exist(const stk::mesh::BulkData& bulk)
-{
-  EXPECT_TRUE(bulk.buckets(stk::topology::FACE_RANK).size() > 0);
-}
-} // namespace
-
 class TestFaceKernel : public sierra::nalu::Kernel
 {
 public:
@@ -48,6 +40,16 @@ private:
   ScalarFieldType* scalarQ_;
 };
 
+#ifndef KOKKOS_ENABLE_GPU
+
+namespace {
+void
+verify_faces_exist(const stk::mesh::BulkData& bulk)
+{
+  EXPECT_TRUE(bulk.buckets(stk::topology::FACE_RANK).size() > 0);
+}
+} // namespace
+
 TEST_F(Hex8Mesh, faceBasic)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) > 1) {
@@ -58,7 +60,8 @@ TEST_F(Hex8Mesh, faceBasic)
 
   stk::topology faceTopo = stk::topology::QUAD_4;
   sierra::nalu::MasterElement* meFC =
-    sierra::nalu::MasterElementRepo::get_surface_master_element(faceTopo);
+    sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
+      faceTopo);
 
   stk::mesh::Part* surface1 = meta->get_part("surface_1");
   int numDof = 1;
@@ -75,3 +78,5 @@ TEST_F(Hex8Mesh, faceBasic)
   unsigned expectedNumFaces = 6;
   EXPECT_EQ(expectedNumFaces, faceKernel.numTimesExecuted_);
 }
+
+#endif // KOKKOS_ENABLE_GPU

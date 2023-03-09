@@ -47,7 +47,6 @@
 #include <stk_mesh/base/NgpMesh.hpp>
 
 // For Tpetra support
-#include <Kokkos_Serial.hpp>
 #include <Teuchos_ArrayRCP.hpp>
 #include <Teuchos_DefaultMpiComm.hpp>
 #include <Teuchos_OrdinalTraits.hpp>
@@ -476,7 +475,8 @@ TpetraSegregatedLinearSystem::buildReducedElemToNodeGraph(
 
     // extract master element
     MasterElement* meSCS =
-      sierra::nalu::MasterElementRepo::get_surface_master_element(b.topology());
+      sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
+        b.topology());
     // extract master element specifics
     const int numScsIp = meSCS->num_integration_points();
     const int* lrscv = meSCS->adjacentNodes();
@@ -1309,7 +1309,7 @@ TpetraSegregatedLinearSystem::get_coeff_applier()
   auto newDeviceCoeffApplier =
     kokkos_malloc_on_device<TpetraLinSysCoeffApplier>("deviceCoeffApplier");
   Kokkos::parallel_for(
-    1, KOKKOS_LAMBDA(const int&) {
+    DeviceRangePolicy(0, 1), KOKKOS_LAMBDA(const int&) {
       new (newDeviceCoeffApplier) TpetraLinSysCoeffApplier(
         ownedLocalMatrix, sharedNotOwnedLocalMatrix, ownedLocalRhs,
         sharedNotOwnedLocalRhs, entityToLID, entityToColLID, maxOwnedRowId,
@@ -1459,7 +1459,6 @@ TpetraSegregatedLinearSystem::applyDirichletBCs(
     realm_.get_buckets(stk::topology::NODE_RANK, selector);
 
   const bool internalMatrixIsSorted = true;
-  int nbc = 0;
   for (const stk::mesh::Bucket* bptr : buckets) {
     const stk::mesh::Bucket& b = *bptr;
 
@@ -1526,7 +1525,6 @@ TpetraSegregatedLinearSystem::applyDirichletBCs(
           useOwned ? (bcValues[k * fieldSize + d] - solution[k * fieldSize + d])
                    : 0.0;
         rhs->replaceLocalValue(actualLocalId, d, bc_residual);
-        ++nbc;
       }
     }
   }

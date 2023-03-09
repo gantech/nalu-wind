@@ -127,7 +127,7 @@ local_coarse_search(
 MasterElement&
 master_element(const stk::mesh::BulkData& bulk, stk::mesh::Entity elem)
 {
-  return *MasterElementRepo::get_surface_master_element(
+  return *MasterElementRepo::get_surface_master_element_on_host(
     bulk.bucket(elem).topology());
 }
 
@@ -205,9 +205,6 @@ compute_local_coordinates(
   case stk::topology::HEX_8:
     return compute_local_coordinates_t<AlgTraitsHex8>(
       bulk, coord_field, elem, point);
-  case stk::topology::HEX_27:
-    return compute_local_coordinates_t<AlgTraitsHex27>(
-      bulk, coord_field, elem, point);
   default: {
     ThrowRequire(topo == stk::topology::PYRAMID_5);
     return compute_local_coordinates_t<AlgTraitsPyr5>(
@@ -272,9 +269,6 @@ interpolate_field(
       bulk, elem, field_prev, field, x, dtratio);
   case stk::topology::HEX_8:
     return interpolate_field_t<AlgTraitsHex8>(
-      bulk, elem, field_prev, field, x, dtratio);
-  case stk::topology::HEX_27:
-    return interpolate_field_t<AlgTraitsHex27>(
       bulk, elem, field_prev, field, x, dtratio);
   default: {
     ThrowRequire(topo == stk::topology::PYRAMID_5);

@@ -17,11 +17,7 @@
 
 #include "gtest/gtest.h"
 
-#include "Kokkos_Array.hpp"
-#include "Kokkos_DualView.hpp"
-#include "Kokkos_Macros.hpp"
-#include "Kokkos_Parallel.hpp"
-#include "Kokkos_View.hpp"
+#include "KokkosInterface.h"
 #include "Teuchos_ParameterList.hpp"
 
 #include "Tpetra_Export.hpp"
@@ -132,6 +128,7 @@ copy_tpetra_solution_vector_to_stk_field(
         field(mi, d) = delta_view(tpetra_lid, d);
       }
     });
+  field.modify_on_device();
 }
 
 } // namespace

@@ -42,7 +42,8 @@ NodalGradBndryElemAlg<AlgTraits, PhiType, GradPhiType>::NodalGradBndryElemAlg(
       "exposed_area_vector",
       realm_.meta_data().side_rank())),
     useShifted_(useShifted),
-    meFC_(MasterElementRepo::get_surface_master_element<AlgTraits>())
+    meFC_(
+      MasterElementRepo::get_surface_master_element_on_dev(AlgTraits::topo_))
 {
   dataNeeded_.add_cvfem_face_me(meFC_);
 
@@ -132,9 +133,7 @@ NodalGradBndryElemAlg<AlgTraits, PhiType, GradPhiType>::execute()
 
 INSTANTIATE_ALG(AlgTraitsTri3);
 INSTANTIATE_ALG(AlgTraitsQuad4);
-INSTANTIATE_ALG(AlgTraitsQuad9);
 INSTANTIATE_ALG(AlgTraitsEdge_2D);
-INSTANTIATE_ALG(AlgTraitsEdge3_2D);
 
 } // namespace nalu
 } // namespace sierra

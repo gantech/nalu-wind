@@ -32,7 +32,7 @@ get_shape_fcn(T& vf_shape_function, MasterElement* meFC_dev)
 {
   auto dev_shape_function = Kokkos::create_mirror_view(vf_shape_function);
   Kokkos::parallel_for(
-    "get_shape_fcn_data", 1, KOKKOS_LAMBDA(int) {
+    "get_shape_fcn_data", DeviceRangePolicy(0, 1), KOKKOS_LAMBDA(int) {
       SharedMemView<DoubleType**, DeviceShmem> ShmemView(
         dev_shape_function.data(), BcAlgTraits::numFaceIp_,
         BcAlgTraits::nodesPerFace_);
@@ -57,7 +57,7 @@ ScalarFluxPenaltyElemKernel<BcAlgTraits>::ScalarFluxPenaltyElemKernel(
     diffFluxCoeff_(diffFluxCoeff->mesh_meta_data_ordinal()),
     penaltyFac_(2.0),
     shiftedGradOp_(solnOpts.get_shifted_grad_op("pressure")),
-    meSCS_(sierra::nalu::MasterElementRepo::get_surface_master_element(
+    meSCS_(sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
       BcAlgTraits::elemTopo_))
 {
   coordinates_ = get_field_ordinal(metaData, solnOpts.get_coordinates_name());
@@ -66,7 +66,7 @@ ScalarFluxPenaltyElemKernel<BcAlgTraits>::ScalarFluxPenaltyElemKernel(
 
   // extract master elements
   MasterElement* meFC =
-    sierra::nalu::MasterElementRepo::get_surface_master_element(
+    sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
       BcAlgTraits::faceTopo_);
   MasterElement* meFC_dev =
     sierra::nalu::MasterElementRepo::get_surface_master_element_on_dev(

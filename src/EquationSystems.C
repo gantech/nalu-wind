@@ -22,13 +22,17 @@
 // all concrete EquationSystem's
 #include <EnthalpyEquationSystem.h>
 #include <LowMachEquationSystem.h>
+
+#ifdef NALU_HAS_MATRIXFREE
 #include <MatrixFreeHeatCondEquationSystem.h>
 #include <MatrixFreeLowMachEquationSystem.h>
+#endif
 #include <ShearStressTransportEquationSystem.h>
 #include <ChienKEpsilonEquationSystem.h>
 #include <WilcoxKOmegaEquationSystem.h>
 #include <TurbKineticEnergyEquationSystem.h>
 #include <WallDistEquationSystem.h>
+#include <VolumeOfFluidEquationSystem.h>
 
 #include <overset/UpdateOversetFringeAlgorithmDriver.h>
 
@@ -108,6 +112,7 @@ EquationSystems::load(const YAML::Node& y_node)
         const YAML::Node y_system = y_systems[isystem];
         EquationSystem* eqSys = 0;
         YAML::Node y_eqsys;
+
         if (expect_map(y_system, "LowMachEOM", true)) {
           y_eqsys = expect_map(y_system, "LowMachEOM", true);
           if (root()->debug())
@@ -118,10 +123,20 @@ EquationSystems::load(const YAML::Node& y_node)
             y_eqsys, "element_continuity_eqs", elemCont);
 
           if (realm_.matrix_free()) {
+#ifdef NALU_HAS_MATRIXFREE
             eqSys = new MatrixFreeLowMachEquationSystem(*this);
+#endif
           } else {
             eqSys = new LowMachEquationSystem(*this, elemCont);
           }
+        } else if (expect_map(y_system, "VolumeOfFluid", true)) {
+
+          y_eqsys = expect_map(y_system, "VolumeOfFluid", true);
+          if (root()->debug())
+            NaluEnv::self().naluOutputP0()
+              << "eqSys = VolumeOfFluid" << std::endl;
+          eqSys = new VolumeOfFluidEquationSystem(*this);
+
         } else if (expect_map(y_system, "ShearStressTransport", true)) {
           y_eqsys = expect_map(y_system, "ShearStressTransport", true);
           if (root()->debug())
@@ -159,12 +174,14 @@ EquationSystems::load(const YAML::Node& y_node)
           if (root()->debug())
             NaluEnv::self().naluOutputP0()
               << "eqSys = HeatConduction " << std::endl;
+#ifdef NALU_HAS_MATRIXFREE
           if (realm_.matrix_free()) {
             eqSys = new MatrixFreeHeatCondEquationSystem(*this);
           } else {
             throw std::runtime_error(
               "HeatConduction only supported for matrix-free");
           }
+#endif
         } else if (expect_map(y_system, "WallDistance", true)) {
           y_eqsys = expect_map(y_system, "WallDistance", true);
           eqSys = new WallDistEquationSystem(*this);
@@ -185,7 +202,7 @@ EquationSystems::load(const YAML::Node& y_node)
         eqSys->decoupledOverset_ = decoupledOversetGlobalFlag_;
         eqSys->numOversetIters_ = numOversetItersDefault_;
 
-        // load; particular equation system push back to vector is controled by
+        // load; particular equation system push back to vector is controlled by
         // the constructor
         eqSys->load(y_eqsys);
       }

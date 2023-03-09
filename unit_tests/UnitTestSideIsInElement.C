@@ -90,7 +90,7 @@ check_side_is_in_element(stk::topology topo)
       const auto& b = *ib;
 
       auto* meSide =
-        sierra::nalu::MasterElementRepo::get_surface_master_element(
+        sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
           b.topology());
 
       for (size_t k = 0; k < b.size(); ++k) {
@@ -126,14 +126,11 @@ check_side_is_in_element(stk::topology topo)
 
 } // namespace
 
-// Pyramids won't work.  Edge32D SCS has no isInElement implementation yet
-
 #define TEST_ALL_VALID_TOPOS(x, y)                                             \
   TEST(x, tri3##_##y) { y(stk::topology::TRI_3_2D); }                          \
   TEST(x, quad4##_##y) { y(stk::topology::QUAD_4_2D); }                        \
   TEST(x, tet4##_##y) { y(stk::topology::TET_4); }                             \
   TEST(x, wedge6##_##y) { y(stk::topology::WEDGE_6); }                         \
-  TEST(x, hex8##_##y) { y(stk::topology::HEX_8); }                             \
-  TEST(x, hex27##_##y) { y(stk::topology::HEX_27); }
+  TEST(x, hex8##_##y) { y(stk::topology::HEX_8); }
 
 TEST_ALL_VALID_TOPOS(SideIsInElement, check_side_is_in_element)

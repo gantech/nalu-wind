@@ -42,6 +42,8 @@ protected:
   }
 };
 
+#ifndef KOKKOS_ENABLE_GPU
+
 TEST_F(ActuatorBulkFastTests, NGP_initializeActuatorBulk)
 {
   std::vector<std::string> modInputs(fastParseParams_);
@@ -58,7 +60,9 @@ TEST_F(ActuatorBulkFastTests, NGP_initializeActuatorBulk)
   ASSERT_EQ(fi.nTurbinesGlob, 1);
   ASSERT_EQ(fi.tStart, 0.0);
   ASSERT_EQ(fi.simStart, fast::init);
-  ASSERT_EQ(fi.nEveryCheckPoint, 1);
+#ifdef NALU_USES_OPENFAST_FSI
+  ASSERT_EQ(fi.restartFreq, 1);
+#endif
   ASSERT_EQ(fi.dtFAST, 0.005);
   ASSERT_EQ(fi.tMax, 0.29);
 
@@ -118,6 +122,8 @@ TEST_F(ActuatorBulkFastTests, NGP_epsilonTowerAndAnisotropicEpsilon)
     FAIL() << err.what();
   }
 }
+
+#endif
 
 } // namespace
 

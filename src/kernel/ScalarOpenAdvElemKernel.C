@@ -34,7 +34,7 @@ get_shape_fcn(
 {
   auto dev_shape_function = Kokkos::create_mirror_view(vf_adv_shape_function);
   Kokkos::parallel_for(
-    "get_shape_fcn_data", 1, KOKKOS_LAMBDA(int) {
+    "get_shape_fcn_data", DeviceRangePolicy(0, 1), KOKKOS_LAMBDA(int) {
       SharedMemView<DoubleType**, DeviceShmem> ShmemView(
         dev_shape_function.data(), BcAlgTraits::numFaceIp_,
         BcAlgTraits::nodesPerFace_);
@@ -65,10 +65,11 @@ ScalarOpenAdvElemKernel<BcAlgTraits>::ScalarOpenAdvElemKernel(
     alphaUpw_(solnOpts.get_alpha_upw_factor(scalarQ->name())),
     om_alphaUpw_(1.0 - alphaUpw_),
     hoUpwind_(solnOpts.get_upw_factor(scalarQ->name())),
-    faceIpNodeMap_(sierra::nalu::MasterElementRepo::get_surface_master_element(
-                     BcAlgTraits::faceTopo_)
-                     ->ipNodeMap()),
-    meSCS_(sierra::nalu::MasterElementRepo::get_surface_master_element(
+    faceIpNodeMap_(
+      sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
+        BcAlgTraits::faceTopo_)
+        ->ipNodeMap()),
+    meSCS_(sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
       BcAlgTraits::elemTopo_)),
     pecletFunction_(
       eqSystem->create_peclet_function<DoubleType>(scalarQ->name()))
@@ -84,7 +85,7 @@ ScalarOpenAdvElemKernel<BcAlgTraits>::ScalarOpenAdvElemKernel(
 
   // extract master elements
   MasterElement* meFC =
-    sierra::nalu::MasterElementRepo::get_surface_master_element(
+    sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
       BcAlgTraits::faceTopo_);
   MasterElement* meFC_dev =
     sierra::nalu::MasterElementRepo::get_surface_master_element_on_dev(

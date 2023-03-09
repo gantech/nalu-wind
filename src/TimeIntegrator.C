@@ -160,6 +160,7 @@ TimeIntegrator::breadboard()
   for (size_t irealm = 0; irealm < realmNamesVec_.size(); ++irealm) {
     Realm* realm = sim_->realms_->find_realm(realmNamesVec_[irealm]);
     realm->timeIntegrator_ = this;
+    realm->setup_field_manager();
     realmVec_.push_back(realm);
   }
 
@@ -259,7 +260,7 @@ TimeIntegrator::prepare_for_time_integration()
 
   // provide for initial transfer
   for (ii = realmVec_.begin(); ii != realmVec_.end(); ++ii) {
-    (*ii)->process_multi_physics_transfer();
+    (*ii)->process_multi_physics_transfer(true);
   }
 
   if (!overset_->multi_solver_mode()) {
