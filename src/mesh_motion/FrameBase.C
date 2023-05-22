@@ -30,6 +30,11 @@ FrameBase::FrameBase(stk::mesh::BulkData& bulk, const YAML::Node& node)
       isDeforming_ = true;
 }
 
+FrameBase::FrameBase(stk::mesh::BulkData& bulk)
+    : bulk_(bulk), meta_(bulk.mesh_meta_data())
+{
+}
+    
 FrameBase::~FrameBase()
 {
   // Release the device pointers if any

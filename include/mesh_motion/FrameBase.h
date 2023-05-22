@@ -21,6 +21,8 @@ class FrameBase
 public:
   FrameBase(stk::mesh::BulkData&, const YAML::Node&);
 
+  FrameBase(stk::mesh::BulkData&);
+    
   virtual ~FrameBase();
 
   virtual void setup();
@@ -39,6 +41,8 @@ public:
 
   bool is_deforming() { return isDeforming_; }
 
+  void populate_part_vec(const YAML::Node&);
+    
 protected:
   //! Reference to the STK Mesh BulkData object
   stk::mesh::BulkData& bulk_;
@@ -73,9 +77,7 @@ private:
   FrameBase() = delete;
   FrameBase(const FrameBase&) = delete;
 
-  void load(const YAML::Node&);
-
-  void populate_part_vec(const YAML::Node&);
+  virtual void load(const YAML::Node&);
 };
 
 } // namespace nalu

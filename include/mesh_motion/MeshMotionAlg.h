@@ -2,6 +2,7 @@
 #define MESHMOTIONALG_H
 
 #include "FrameMoving.h"
+#include "FrameSMD.h"
 
 namespace sierra {
 namespace nalu {
@@ -41,6 +42,13 @@ private:
    */
   std::vector<std::shared_ptr<FrameMoving>> movingFrameVec_;
 
+  /** Spring-Mass-Damper frame vector
+   *
+   *  Vector of frames connected to a spring-mass-damper
+   *  Size is the number of groups under mesh_motion in input file
+   */
+  std::vector<std::shared_ptr<FrameSMD>> smdFrameVec_;
+    
   //! flag to guard against multiple invocations of initialize()
   bool isInit_ = false;
 

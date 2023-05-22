@@ -22,14 +22,30 @@ MeshMotionAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
 {
   // get motion information for entire mesh
   const int num_groups = node.size();
-  movingFrameVec_.resize(num_groups);
 
+  int num_groups_smd = 0;
+  int num_groups_mesh_motion = 0;
   for (int i = 0; i < num_groups; i++) {
-
     // extract current motion group info
     const auto& ginfo = node[i];
+    if (node["smd_type"])
+      num_groups_smd += 1;
+    else
+      num_groups_mesh_motion += 1;
+  }
+  
+  movingFrameVec_.resize(num_groups_mesh_motion);
+  smdFrameVec_.resize(num_groups_smd);
 
-    movingFrameVec_[i].reset(new FrameMoving(bulk, ginfo));
+  int i_mm = 0;
+  int i_smd = 0;
+  for (int i = 0; i < num_groups; i++) {
+    // extract current motion group info
+    const auto& ginfo = node[i];
+    if (node["smd_type"])
+      smdFrameVec_[i_smd].reset(new FrameSMD(bulk, ginfo));
+    else
+      movingFrameVec_[i_mm].reset(new FrameMoving(bulk, ginfo));
   }
 }
 
@@ -39,6 +55,10 @@ MeshMotionAlg::set_deformation_flag()
   for (size_t i = 0; i < movingFrameVec_.size(); i++)
     if (movingFrameVec_[i]->is_deforming())
       isDeforming_ = true;
+
+  for (size_t i = 0; i < smdFrameVec_.size(); i++)
+      if (smdFrameVec_[i]->is_deforming())
+          isDeforming_ = true;
 }
 
 void
@@ -50,9 +70,11 @@ MeshMotionAlg::initialize(const double time)
 
   for (size_t i = 0; i < movingFrameVec_.size(); i++) {
     movingFrameVec_[i]->setup();
+    smdFrameVec_[i]->setup();
 
     // update coordinates and velocity
     movingFrameVec_[i]->update_coordinates_velocity(time);
+    smdFrameVec_[i]->update_coordinates_velocity(time);    
   }
 
   isInit_ = true;
@@ -74,9 +96,11 @@ MeshMotionAlg::restart_reinit(const double time)
 void
 MeshMotionAlg::execute(const double time)
 {
-  for (size_t i = 0; i < movingFrameVec_.size(); i++) {
+  for (size_t i = 0; i < movingFrameVec_.size(); i++)
     movingFrameVec_[i]->update_coordinates_velocity(time);
-  }
+  for (size_t i = 0; i < smdFrameVec_.size(); i++)
+    smdFrameVec_[i]->update_coordinates_velocity(time);
+  
 }
 
 void
@@ -84,6 +108,8 @@ MeshMotionAlg::post_compute_geometry()
 {
   for (size_t i = 0; i < movingFrameVec_.size(); i++)
     movingFrameVec_[i]->post_compute_geometry();
+  for (size_t i = 0; i < smdFrameVec_.size(); i++)
+    smdFrameVec_[i]->post_compute_geometry();
 }
 
 stk::mesh::PartVector

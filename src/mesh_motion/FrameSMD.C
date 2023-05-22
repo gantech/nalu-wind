@@ -1,19 +1,90 @@
-
-#include "mesh_motion/FrameMoving.h"
+#include "mesh_motion/FrameSMD.h"
 
 #include "FieldTypeDef.h"
+#include "mesh_motion/MotionAirfoilSMDKernel.h"
+#include "NaluParsing.h"
 #include "ngp_utils/NgpLoopUtils.h"
+#include "ngp_utils/NgpReducers.h"
 #include "ngp_utils/NgpTypes.h"
 #include "utils/ComputeVectorDivergence.h"
-#include "stk_mesh/base/GetNgpMesh.hpp"
 
-#include <cassert>
+// stk_mesh/base/fem
+#include <stk_mesh/base/FieldBLAS.hpp>
+#include "stk_mesh/base/GetNgpMesh.hpp"
 
 namespace sierra {
 namespace nalu {
 
+FrameSMD::FrameSMD(stk::mesh::BulkData& bulk, const YAML::Node& node)
+  : FrameBase(bulk)
+{
+  load(node);
+
+  // set deformation flag based on motions in the frame
+  for (auto& mm : motionKernels_)
+    if (mm->is_deforming())
+      isDeforming_ = true;
+}
+
+FrameSMD::~FrameSMD()
+{
+  // Release the device pointers if any
+  for (auto& kern : motionKernels_) {
+    kern->free_on_device();
+  }
+}
+
 void
-FrameMoving::update_coordinates_velocity(const double time)
+FrameSMD::load(const YAML::Node& node)
+{
+  // get any part names associated with current motion group
+  populate_part_vec(node);
+
+  // check if centroid needs to be computed
+  get_if_present(node, "compute_centroid", computeCentroid_, computeCentroid_);
+
+  if (node["motion"]) {
+    // extract the motions in the current group
+    const auto& motions = node["motion"];
+
+    const int num_motions = motions.size();
+    motionKernels_.resize(num_motions);
+
+    // create the classes associated with every motion in current group
+    for (int i = 0; i < num_motions; i++) {
+
+      // get the motion definition for i-th transformation
+      const auto& motion_def = motions[i];
+
+      // motion type should always be defined by the user
+      std::string type;
+      get_required(motion_def, "smd_type", type);
+
+      // determine type of mesh motion based on user definition in input file
+      if (type == "airfoil_smd")
+        motionKernels_[i].reset(
+          new MotionAirfoilSMDKernel(motion_def));
+      else
+        throw std::runtime_error(
+          "FrameSMD: Invalid mesh motion type: " + type);
+
+    } // end for loop - i index
+  }
+}
+
+void
+FrameSMD::setup()
+{
+  // compute and set centroid if requested
+  if (computeCentroid_) {
+    mm::ThreeDVecType computedCentroid;
+    compute_centroid_on_parts(computedCentroid);
+    set_computed_centroid(computedCentroid);
+  }
+}
+
+void
+FrameSMD::update_coordinates_velocity(const double time)
 {
   assert(partVec_.size() > 0);
 
@@ -53,7 +124,7 @@ FrameMoving::update_coordinates_velocity(const double time)
 
   // always reset velocity field
   nalu_ngp::run_entity_algorithm(
-    "FrameMoving_reset_velocity", ngpMesh, entityRank, sel,
+    "FrameSMD_reset_velocity", ngpMesh, entityRank, sel,
     KOKKOS_LAMBDA(
       const nalu_ngp::NGPMeshTraits<stk::mesh::NgpMesh>::MeshIndex& mi) {
       for (int d = 0; d < nDim; ++d)
@@ -62,7 +133,7 @@ FrameMoving::update_coordinates_velocity(const double time)
 
   // NGP for loop to update coordinates and velocity
   nalu_ngp::run_entity_algorithm(
-    "FrameMoving_update_coordinates_velocity", ngpMesh, entityRank, sel,
+    "FrameSMD_update_coordinates_velocity", ngpMesh, entityRank, sel,
     KOKKOS_LAMBDA(
       const nalu_ngp::NGPMeshTraits<stk::mesh::NgpMesh>::MeshIndex& mi) {
       // temporary current and model coords for a generic 2D and 3D
@@ -125,7 +196,7 @@ FrameMoving::update_coordinates_velocity(const double time)
 }
 
 void
-FrameMoving::post_compute_geometry()
+FrameSMD::post_compute_geometry()
 {
   for (auto& mm : motionKernels_) {
     if (!mm->is_deforming())
