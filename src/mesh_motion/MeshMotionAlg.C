@@ -28,12 +28,17 @@ MeshMotionAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
   for (int i = 0; i < num_groups; i++) {
     // extract current motion group info
     const auto& ginfo = node[i];
-    if (node["smd_type"])
+    bool enable_smd=false;
+    get_if_present(ginfo, "enable_smd", enable_smd, enable_smd);
+    std::cerr << "Enable SMD = " << enable_smd << std::endl;
+    if ( enable_smd )
       num_groups_smd += 1;
     else
       num_groups_mesh_motion += 1;
   }
-  
+
+  std::cerr << "Num groups SMD" << num_groups_smd << std::endl;
+  std::cerr << "Num groups Mesh Motion " << num_groups_mesh_motion << std::endl;
   movingFrameVec_.resize(num_groups_mesh_motion);
   smdFrameVec_.resize(num_groups_smd);
 
@@ -42,7 +47,9 @@ MeshMotionAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
   for (int i = 0; i < num_groups; i++) {
     // extract current motion group info
     const auto& ginfo = node[i];
-    if (node["smd_type"])
+    bool enable_smd=false;
+    get_if_present(ginfo, "enable_smd", enable_smd, enable_smd);
+    if (enable_smd)
       smdFrameVec_[i_smd].reset(new FrameSMD(bulk, ginfo));
     else
       movingFrameVec_[i_mm].reset(new FrameMoving(bulk, ginfo));
