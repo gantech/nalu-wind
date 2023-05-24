@@ -20,18 +20,17 @@ public:
 
     AirfoilSMD();
 
-    virtual ~AirfoilSMD();
+    virtual ~AirfoilSMD() {};
 
     void predict_states();
 
     void predict_time_step(vs::Vector F_np1);
 
-    namespace sierra {
-        namespace nalu {
 private:
 
     AirfoilSMD(const AirfoilSMD&) = delete;
 
+    double alpha;
 
     vs::Tensor M;
     vs::Tensor C;
@@ -39,6 +38,14 @@ private:
     vs::Vector x_np1;
     vs::Vector x_n;
     vs::Vector x_nm1;
+
+    vs::Vector v_np1;
+    vs::Vector v_n;
+    vs::Vector v_nm1;
+
+    vs::Vector a_np1;
+    vs::Vector a_n;
+    vs::Vector a_nm1;
 
     vs::Vector f_nm1;
     vs::Vector f_n;
