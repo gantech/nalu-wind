@@ -37,8 +37,6 @@ MeshMotionAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
       num_groups_mesh_motion += 1;
   }
 
-  std::cerr << "Num groups SMD" << num_groups_smd << std::endl;
-  std::cerr << "Num groups Mesh Motion " << num_groups_mesh_motion << std::endl;
   movingFrameVec_.resize(num_groups_mesh_motion);
   smdFrameVec_.resize(num_groups_smd);
 
@@ -49,10 +47,14 @@ MeshMotionAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
     const auto& ginfo = node[i];
     bool enable_smd=false;
     get_if_present(ginfo, "enable_smd", enable_smd, enable_smd);
-    if (enable_smd)
+    if (enable_smd) {
       smdFrameVec_[i_smd].reset(new FrameSMD(bulk, ginfo));
-    else
+      i_smd++;
+    }
+    else {
       movingFrameVec_[i_mm].reset(new FrameMoving(bulk, ginfo));
+      i_mm++;
+    }
   }
 }
 
@@ -81,7 +83,7 @@ MeshMotionAlg::initialize(const double time)
 
     // update coordinates and velocity
     movingFrameVec_[i]->update_coordinates_velocity(time);
-    smdFrameVec_[i]->update_coordinates_velocity(time);    
+    smdFrameVec_[i]->update_coordinates_velocity(time);
   }
 
   isInit_ = true;
@@ -107,7 +109,7 @@ MeshMotionAlg::execute(const double time)
     movingFrameVec_[i]->update_coordinates_velocity(time);
   for (size_t i = 0; i < smdFrameVec_.size(); i++)
     smdFrameVec_[i]->update_coordinates_velocity(time);
-  
+
 }
 
 void

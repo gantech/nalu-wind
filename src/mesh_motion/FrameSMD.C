@@ -59,7 +59,7 @@ FrameSMD::load(const YAML::Node& node)
       // motion type should always be defined by the user
       std::string type;
       get_required(motion_def, "type", type);
-      
+
       // determine type of mesh motion based on user definition in input file
       if (type == "airfoil_smd")
         motionKernels_[i].reset(
@@ -118,7 +118,7 @@ FrameSMD::update_coordinates_velocity(const double time)
   stk::mesh::NgpField<double> ndtw =
       stk::mesh::get_updated_ngp_field<double>(
           *meta_.get_field<VectorFieldType>(entityRank, "minimum_distance_to_wall"));
-  
+
   // sync fields to device
   modelCoords.sync_to_device();
   currCoords.sync_to_device();
@@ -171,10 +171,9 @@ FrameSMD::update_coordinates_velocity(const double time)
                                 compTransMat[d * mm::matSize + 2] * mX[2] +
                                 compTransMat[d * mm::matSize + 3];
 
-        
-
         displacement.get(mi, d) =
-            (currCoords.get(mi, d) - modelCoords.get(mi, d))*exp(-ndtw.get(mi, 0)*ndtw.get(mi, 0)/10.0);
+            (currCoords.get(mi, d) - modelCoords.get(mi, d))
+                                 * exp(-ndtw.get(mi, 0) * ndtw.get(mi, 0)/10.0);
       } // end for loop - d index
 
       // copy over current coordinates
