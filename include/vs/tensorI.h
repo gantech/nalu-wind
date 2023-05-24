@@ -261,6 +261,68 @@ quaternion(const Vector& axis, const double angle)
   return t;
 }
 
+
+template <typename T1, typename T2>
+KOKKOS_FORCEINLINE_FUNCTION TensorT<T1>
+operator*(const TensorT<T1>& inp, const T2 fac)
+{
+  return TensorT<T1>{
+    inp.vv[0]*fac, inp.vv[1]*fac, inp.vv[2]*fac,
+    inp.vv[3]*fac, inp.vv[4]*fac, inp.vv[5]*fac,
+    inp.vv[6]*fac, inp.vv[7]*fac, inp.vv[8]*fac};
+}
+
+template <typename T1, typename T2>
+KOKKOS_FORCEINLINE_FUNCTION TensorT<T1>
+operator*(const T2 fac, const TensorT<T1>& inp)
+{
+  return TensorT<T1>{
+    inp.vv[0]*fac, inp.vv[1]*fac, inp.vv[2]*fac,
+    inp.vv[3]*fac, inp.vv[4]*fac, inp.vv[5]*fac,
+    inp.vv[6]*fac, inp.vv[7]*fac, inp.vv[8]*fac};
+}
+
+/*
+//This version compiles fine, but not how I wanted to call the function. 
+template <typename T>
+KOKKOS_FORCEINLINE_FUNCTION VectorT<T>
+inv(const vs::TensorT<T>& inp)
+{
+  double det;
+  TensorT<T> adj; //May actually want to delete this
+
+
+  det = inp.vv[0] * (inp.vv[4]*inp.vv[8] - inp.vv[5]*inp.vv[7]) 
+        - inp.vv[1] * (inp.vv[3]*inp.vv[8] - inp.vv[5]*inp.vv[6]) 
+        + inp.vv[2] * (inp.vv[3]*inp.vv[7] - inp.vv[4]*inp.vv[6]);
+
+  // Adjoint Matrix
+  adj = TensorT<T>(inp.y()^inp.z(), inp.z()^inp.x(), inp.x()^inp.y(), 1);
+
+  return (1/det)*adj;
+}
+*/
+
+
+template <typename T>
+KOKKOS_FORCEINLINE_FUNCTION TensorT<T>
+TensorT<T>::inv()
+{
+  double det;
+  TensorT<T> adj; 
+
+  det = vv[0] * (vv[4]*vv[8] - vv[5]*vv[7]) 
+        - vv[1] * (vv[3]*vv[8] - vv[5]*vv[6]) 
+        + vv[2] * (vv[3]*vv[7] - vv[4]*vv[6]);
+
+  adj = TensorT<T>(this->y()^this->z(), 
+                   this->z()^this->x(), 
+                   this->x()^this->y(),
+                   1);
+
+  return (1/det)*adj;
+}
+
 } // namespace vs
 
 #endif /* VS_TENSORI_H */

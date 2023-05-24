@@ -127,6 +127,8 @@ struct TensorT
   KOKKOS_FORCEINLINE_FUNCTION T* data() noexcept { return vv; }
   KOKKOS_FORCEINLINE_FUNCTION const T* data() const noexcept { return vv; }
 
+  KOKKOS_FORCEINLINE_FUNCTION TensorT<T> inv();
+
   iterator begin() noexcept { return vv; }
   iterator end() noexcept { return vv + ncomp; }
   const_iterator cbegin() const noexcept { return vv; }
