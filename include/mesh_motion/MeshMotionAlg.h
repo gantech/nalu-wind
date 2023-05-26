@@ -23,9 +23,11 @@ public:
 
   void post_compute_geometry();
 
-  void predict_smd();
+  void predict_states_smd();
 
-  void timestep_smd();
+  void update_timestep_smd();
+
+  void advance_timestep_smd();
 
   stk::mesh::PartVector get_partvec();
 

@@ -1858,8 +1858,11 @@ Realm::update_geometry_due_to_mesh_motion()
       }
     }
 
-    if (meshMotionAlg_)
+    if (meshMotionAlg_) {
+      if (meshMotionAlg_->is_smd())
+          meshMotionAlg_->predict_states_smd();
       meshMotionAlg_->execute(get_current_time());
+    }
 
     compute_geometry();
 
@@ -4514,10 +4517,12 @@ Realm::process_multi_physics_transfer(bool initCall)
         << "Aero models - Predict model time step" << std::endl;
       aeroModels_->predict_model_time_step(get_current_time());
     }
-  }
 
-  /* if (openfast_ != NULL) */
-  /*   openfast_->predict_struct_timestep(get_current_time()); */
+    if (meshMotionAlg_) {
+      if (meshMotionAlg_->is_smd())
+        meshMotionAlg_->update_timestep_smd();
+    }
+  }
 
   if (hasMultiPhysicsTransfer_) {
     std::vector<Transfer*>::iterator ii;
@@ -4622,6 +4627,11 @@ Realm::post_converged_work()
     NaluEnv::self().naluOutputP0()
       << "Aero models - advance model timestep" << std::endl;
     aeroModels_->advance_model_time_step(get_current_time());
+  }
+
+  if (meshMotionAlg_) {
+      if (meshMotionAlg_->is_smd())
+          meshMotionAlg_->advance_timestep_smd();
   }
 
   // FIXME: Consider a unified collection of post processing work

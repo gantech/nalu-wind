@@ -1,6 +1,9 @@
 #ifndef AirfoilSMD_H
 #define AirfoilSMD_H
 
+#include "yaml-cpp/yaml.h"
+
+#include "mesh_motion/SMD.h"
 #include "vs/vector.h"
 #include "vs/tensor.h"
 
@@ -14,42 +17,49 @@ namespace nalu {
 
 
 */
-class AirfoilSMD
+class AirfoilSMD: public SMD
 {
 public:
 
-    AirfoilSMD();
+    AirfoilSMD(const YAML::Node& node);
 
-    virtual ~AirfoilSMD() {};
+    virtual ~AirfoilSMD() {}
 
     void predict_states();
 
-    void predict_time_step(vs::Vector F_np1);
+    void update_timestep(vs::Vector F_np1, vs::Vector M_np1);
+
+    void advance_timestep();
 
 private:
 
     AirfoilSMD(const AirfoilSMD&) = delete;
 
-    double alpha;
+    double alpha_;
 
-    vs::Tensor M;
-    vs::Tensor C;
-    vs::Tensor K;
-    vs::Vector x_np1;
-    vs::Vector x_n;
-    vs::Vector x_nm1;
+    vs::Tensor M_;
+    vs::Tensor C_;
+    vs::Tensor K_;
+    
+    vs::Vector x_np1_;
+    vs::Vector x_n_;
+    vs::Vector x_nm1_;
 
-    vs::Vector v_np1;
-    vs::Vector v_n;
-    vs::Vector v_nm1;
+    vs::Vector xdot_np1_;    
+    vs::Vector xdot_n_;    
+    vs::Vector xdot_nm1_;
+    
+    vs::Vector v_np1_;
+    vs::Vector v_n_;
+    vs::Vector v_nm1_;
 
-    vs::Vector a_np1;
-    vs::Vector a_n;
-    vs::Vector a_nm1;
+    vs::Vector a_np1_;
+    vs::Vector a_n_;
+    vs::Vector a_nm1_;
 
-    vs::Vector f_nm1;
-    vs::Vector f_n;
-    vs::Vector f_np1;
+    vs::Vector f_np1_;
+    vs::Vector f_n_;
+    vs::Vector f_nm1_;
 
 };
 

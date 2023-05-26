@@ -7,6 +7,8 @@
 #include "ngp_utils/NgpReducers.h"
 #include "ngp_utils/NgpTypes.h"
 #include "utils/ComputeVectorDivergence.h"
+#include "mesh_motion/SMD.h"
+#include "mesh_motion/AirfoilSMD.h"
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/FieldBLAS.hpp>
@@ -49,6 +51,7 @@ FrameSMD::load(const YAML::Node& node)
 
     const int num_motions = motions.size();
     motionKernels_.resize(num_motions);
+    smd_.resize(num_motions);
 
     // create the classes associated with every motion in current group
     for (int i = 0; i < num_motions; i++) {
@@ -61,10 +64,12 @@ FrameSMD::load(const YAML::Node& node)
       get_required(motion_def, "type", type);
 
       // determine type of mesh motion based on user definition in input file
-      if (type == "airfoil_smd")
+      if (type == "airfoil_smd") {
         motionKernels_[i].reset(
           new MotionAirfoilSMDKernel(motion_def));
-      else
+        smd_[i].reset(
+          new AirfoilSMD(motion_def));
+      } else
         throw std::runtime_error(
           "FrameSMD: Invalid mesh motion type: " + type);
 
@@ -228,6 +233,31 @@ FrameSMD::post_compute_geometry()
     break;
   }
 }
+
+void
+FrameSMD::predict_states()
+{
+  for (auto& i_smd : smd_)
+    i_smd->predict_states();
+}
+
+void
+FrameSMD::update_timestep()
+{
+  for (auto& i_smd : smd_) {
+    // Calc 6DOF forces here and pass to
+    vs::Vector fnp1;
+    vs::Vector mnp1;
+    i_smd->update_timestep(fnp1, mnp1);
+  }
+}
+
+void
+FrameSMD::advance_timestep()
+{
+  for (auto& i_smd : smd_)
+    i_smd->advance_timestep();
+}    
 
 } // namespace nalu
 } // namespace sierra

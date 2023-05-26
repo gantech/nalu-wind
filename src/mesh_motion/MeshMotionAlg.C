@@ -133,5 +133,26 @@ MeshMotionAlg::get_partvec()
   return fpartVec;
 }
 
+void
+MeshMotionAlg::predict_states_smd()
+{
+  for (size_t i = 0; i < smdFrameVec_.size(); i++)
+    smdFrameVec_[i]->predict_states();
+}
+
+void
+MeshMotionAlg::update_timestep_smd()
+{
+  for (size_t i = 0; i < smdFrameVec_.size(); i++)
+    smdFrameVec_[i]->update_timestep();
+}
+
+void
+MeshMotionAlg::advance_timestep_smd()
+{
+  for (size_t i = 0; i < smdFrameVec_.size(); i++)
+    smdFrameVec_[i]->advance_timestep();
+}
+    
 } // namespace nalu
 } // namespace sierra
