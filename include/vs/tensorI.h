@@ -282,27 +282,6 @@ operator*(const T2 fac, const TensorT<T1>& inp)
     inp.vv[6]*fac, inp.vv[7]*fac, inp.vv[8]*fac};
 }
 
-/*
-//This version compiles fine, but not how I wanted to call the function. 
-template <typename T>
-KOKKOS_FORCEINLINE_FUNCTION VectorT<T>
-inv(const vs::TensorT<T>& inp)
-{
-  double det;
-  TensorT<T> adj; //May actually want to delete this
-
-
-  det = inp.vv[0] * (inp.vv[4]*inp.vv[8] - inp.vv[5]*inp.vv[7]) 
-        - inp.vv[1] * (inp.vv[3]*inp.vv[8] - inp.vv[5]*inp.vv[6]) 
-        + inp.vv[2] * (inp.vv[3]*inp.vv[7] - inp.vv[4]*inp.vv[6]);
-
-  // Adjoint Matrix
-  adj = TensorT<T>(inp.y()^inp.z(), inp.z()^inp.x(), inp.x()^inp.y(), 1);
-
-  return (1/det)*adj;
-}
-*/
-
 
 template <typename T>
 KOKKOS_FORCEINLINE_FUNCTION TensorT<T>

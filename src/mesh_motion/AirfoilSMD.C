@@ -58,10 +58,8 @@ AirfoilSMD::predict_states() {
 
   double dt = 0.01;
 
-  // Prediction based solely on time n
-  x_np1_ = x_n_ + dt * v_n_ + (0.5*dt*dt)*a_n_;
-
-  // TODO: Consider second order schemes for prediction
+  // Second order predictor
+  x_np1_ = x_n_ + dt*(1.5*v_n_ - 0.5*v_nm1_);
 
 }
 
@@ -89,17 +87,22 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   double beta = (1.0 - alpha_)*(1.0 - alpha_)/4.0;
   double gamma = (1.0 - 2.0*alpha_)/2.0;
 
+
   // Formulate update as left * a_np1 = right
   vs::Tensor Left;
   vs::Vector right;
 
   Left = M_ + ((1 + alpha_)*dt*gamma)*C_ + ((1+alpha_)*dt*dt*beta)*K_;
 
+  // Create force vector from appropriate force and moment entries
+  f_np1_.x() = F_np1.x();
+  f_np1_.y() = F_np1.y();
+  f_np1_.z() = M_np1.z();
+
   right = C_ & (-1.0*(v_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_))
           + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*v_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
-          + (1 + alpha_) * F_np1 - alpha_ * f_n_;
+          + (1 + alpha_) * f_np1_ - alpha_ * f_n_;
    
-   f_np1_ = F_np1;
 
   // Solve the matrix problem to get a_np1
   a_np1_ = Left.inv() & right;
