@@ -8,7 +8,7 @@
 //
 
 // nalu
-#include <aero/fsi/CalcLoads.h>
+#include <aero/aero_utils/CalcLoads.h>
 #include <Algorithm.h>
 #include <FieldTypeDef.h>
 #include <master_element/MasterElement.h>

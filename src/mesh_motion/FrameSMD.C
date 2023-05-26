@@ -91,6 +91,10 @@ FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
     compute_centroid_on_parts(computedCentroid);
     set_computed_centroid(computedCentroid);
   }
+
+  calc_loads_ = std::make_unique<CalcLoads>(partVecBc_);
+  calc_loads_->setup(bulk);
+  
 }
 
 void

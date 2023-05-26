@@ -3,6 +3,8 @@
 
 #include "NgpMotion.h"
 #include "FrameBase.h"
+#include "mesh_motion/SMD.h"
+#include "aero/aero_utils/CalcLoads.h"
 
 // stk base header files
 #include "stk_mesh/base/CoordinateSystems.hpp"
@@ -10,7 +12,6 @@
 #include "stk_mesh/base/Field.hpp"
 #include "stk_mesh/base/MetaData.hpp"
 
-#include "mesh_motion/SMD.h"
 
 namespace YAML {
 class Node;
@@ -54,6 +55,9 @@ private:
    */
   std::vector<std::unique_ptr<SMD>> smd_;
 
+  // Pointer to Algorithm that calculates loads on the surfaces of the SMD
+  std::unique_ptr<CalcLoads> calc_loads_;
+    
 };
 
 } // namespace nalu
