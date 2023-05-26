@@ -144,7 +144,7 @@ TEST(meshMotion, NGP_compute_centroid)
 
   // create mesh transformation algorithm class
   sierra::nalu::MeshTransformationAlg meshTransformationAlg(
-    realm.bulk_data(), mesh_transformation);
+    realm.bulkData_, mesh_transformation);
   const double time = 0.0;
   meshTransformationAlg.initialize(time);
 

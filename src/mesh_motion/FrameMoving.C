@@ -23,7 +23,7 @@ FrameMoving::update_coordinates_velocity(const double time)
 
   // define mesh entities
   const int nDim = meta_.spatial_dimension();
-  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(bulk_);
+  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(*bulk_);
   const stk::mesh::EntityRank entityRank = stk::topology::NODE_RANK;
 
   // get the parts in the current motion frame
@@ -141,10 +141,10 @@ FrameMoving::post_compute_geometry()
       faceVelMag = meta_.get_field<GenericFieldType>(
         stk::topology::EDGE_RANK, "edge_face_velocity_mag");
       compute_edge_scalar_divergence(
-        bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
+        *bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
     } else {
       compute_scalar_divergence(
-        bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
+        *bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
     }
 
     // Mesh velocity divergence is not motion-specific and

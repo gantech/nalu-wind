@@ -11,6 +11,7 @@
 #include "stk_mesh/base/MetaData.hpp"
 
 #include "mesh_motion/SMD.h"
+
 namespace YAML {
 class Node;
 }
@@ -21,11 +22,11 @@ namespace nalu {
 class FrameSMD : public FrameBase
 {
 public:
-  FrameSMD(stk::mesh::BulkData&, const YAML::Node&);
+  FrameSMD(std::shared_ptr<stk::mesh::BulkData>, const YAML::Node&);
 
   virtual ~FrameSMD();
 
-  virtual void setup();
+  virtual void setup(std::shared_ptr<stk::mesh::BulkData> bulk);
 
   stk::mesh::PartVector get_partvec() { return partVec_; };
 
@@ -52,7 +53,6 @@ private:
    *  A vector of size number of motion groups
    */
   std::vector<std::unique_ptr<SMD>> smd_;
-
 
 };
 

@@ -9,7 +9,7 @@ namespace nalu {
 class MeshTransformationAlg
 {
 public:
-  MeshTransformationAlg(stk::mesh::BulkData& bulk, const YAML::Node&);
+  MeshTransformationAlg(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node&);
 
   ~MeshTransformationAlg() {}
 
@@ -23,7 +23,7 @@ private:
   MeshTransformationAlg() = delete;
   MeshTransformationAlg(const MeshTransformationAlg&) = delete;
 
-  void load(stk::mesh::BulkData&, const YAML::Node&);
+  void load(std::shared_ptr<stk::mesh::BulkData>, const YAML::Node&);
 
   /** Reference frame vector
    *

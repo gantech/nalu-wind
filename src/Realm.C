@@ -534,7 +534,7 @@ Realm::initialize_prolog()
     periodicManager_->build_constraints();
 
   if (solutionOptions_->meshMotion_)
-    meshMotionAlg_->initialize(get_current_time());
+    meshMotionAlg_->initialize(get_current_time(), bulkData_);
 
   if (aeroModels_->is_active()) {
     NaluEnv::self().naluOutputP0() << "Initializing aero models" << std::endl;
@@ -866,7 +866,7 @@ Realm::load(const YAML::Node& node)
 
     // instantiate mesh transformation class once the mesh has been created
     meshTransformationAlg_.reset(
-      new MeshTransformationAlg(*bulkData_, meshTransformationNode));
+      new MeshTransformationAlg(bulkData_, meshTransformationNode));
   }
 
   // second set of options: mesh motion... this means that the Realm will expect
@@ -884,7 +884,7 @@ Realm::load(const YAML::Node& node)
       solutionOptions_->meshMotion_ = true;
 
       // instantiate mesh motion class once the mesh has been created
-      meshMotionAlg_.reset(new MeshMotionAlg(*bulkData_, meshMotionNode));
+      meshMotionAlg_.reset(new MeshMotionAlg(bulkData_, meshMotionNode));
     }
   }
 
@@ -3463,7 +3463,7 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
 
       // reset the current time for the meshMotionAlgs
       if (has_mesh_motion())
-        meshMotionAlg_->restart_reinit(foundRestartTime);
+        meshMotionAlg_->restart_reinit(foundRestartTime, bulkData_);
 
       if (aeroModels_->has_fsi()) {
         // TODO(psakiev) we should move this inside the function and compute

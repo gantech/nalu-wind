@@ -10,13 +10,13 @@ namespace sierra {
 namespace nalu {
 
 MeshTransformationAlg::MeshTransformationAlg(
-  stk::mesh::BulkData& bulk, const YAML::Node& node)
+  std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
 {
   load(bulk, node);
 }
 
 void
-MeshTransformationAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
+MeshTransformationAlg::load(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
 {
   // get motion information for entire mesh
   const int num_groups = node.size();

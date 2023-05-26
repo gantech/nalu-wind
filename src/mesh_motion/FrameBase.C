@@ -19,8 +19,8 @@
 namespace sierra {
 namespace nalu {
 
-FrameBase::FrameBase(stk::mesh::BulkData& bulk, const YAML::Node& node)
-  : bulk_(bulk), meta_(bulk.mesh_meta_data())
+FrameBase::FrameBase(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
+  : bulk_(bulk), meta_(bulk->mesh_meta_data())
 {
   load(node);
 
@@ -30,8 +30,8 @@ FrameBase::FrameBase(stk::mesh::BulkData& bulk, const YAML::Node& node)
       isDeforming_ = true;
 }
 
-FrameBase::FrameBase(stk::mesh::BulkData& bulk)
-    : bulk_(bulk), meta_(bulk.mesh_meta_data())
+FrameBase::FrameBase(std::shared_ptr<stk::mesh::BulkData> bulk)
+    : bulk_(bulk), meta_(bulk->mesh_meta_data())
 {
 }
     
@@ -177,7 +177,7 @@ void
 FrameBase::compute_centroid_on_parts(mm::ThreeDVecType& centroid)
 {
   // get NGP mesh
-  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(bulk_);
+  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(*bulk_);
   const stk::mesh::EntityRank entityRank = stk::topology::NODE_RANK;
 
   // get the field from the NGP mesh
@@ -243,13 +243,13 @@ FrameBase::compute_centroid_on_parts(mm::ThreeDVecType& centroid)
 
   double gXC[2], gYC[2], gZC[2] = {0.0, 0.0};
 
-  stk::all_reduce_min(bulk_.parallel(), &lXC[0], &gXC[0], 1);
-  stk::all_reduce_min(bulk_.parallel(), &lYC[0], &gYC[0], 1);
-  stk::all_reduce_min(bulk_.parallel(), &lZC[0], &gZC[0], 1);
+  stk::all_reduce_min(bulk_->parallel(), &lXC[0], &gXC[0], 1);
+  stk::all_reduce_min(bulk_->parallel(), &lYC[0], &gYC[0], 1);
+  stk::all_reduce_min(bulk_->parallel(), &lZC[0], &gZC[0], 1);
 
-  stk::all_reduce_max(bulk_.parallel(), &lXC[1], &gXC[1], 1);
-  stk::all_reduce_max(bulk_.parallel(), &lYC[1], &gYC[1], 1);
-  stk::all_reduce_max(bulk_.parallel(), &lZC[1], &gZC[1], 1);
+  stk::all_reduce_max(bulk_->parallel(), &lXC[1], &gXC[1], 1);
+  stk::all_reduce_max(bulk_->parallel(), &lYC[1], &gYC[1], 1);
+  stk::all_reduce_max(bulk_->parallel(), &lZC[1], &gZC[1], 1);
 
   // ensure the centroid is size number of dimensions
   centroid[0] = 0.5 * (gXC[0] + gXC[1]);

@@ -196,17 +196,17 @@ TEST(meshMotion, NGP_initialize)
   // create mesh transformation algorithm class
   std::unique_ptr<sierra::nalu::MeshTransformationAlg> meshTransformationAlg;
   meshTransformationAlg.reset(new sierra::nalu::MeshTransformationAlg(
-    realm.bulk_data(), mesh_transformation));
+    realm.bulkData_, mesh_transformation));
 
   // create mesh motion algorithm class
   std::unique_ptr<sierra::nalu::MeshMotionAlg> meshMotionAlg;
   meshMotionAlg.reset(
-    new sierra::nalu::MeshMotionAlg(realm.bulk_data(), mesh_motion));
+    new sierra::nalu::MeshMotionAlg(realm.bulkData_, mesh_motion));
 
   // initialize and execute mesh motion algorithm
   const double currTime = 0.0;
   meshTransformationAlg->initialize(currTime);
-  meshMotionAlg->initialize(currTime);
+  meshMotionAlg->initialize(currTime, realm.bulkData_);
 
   // get fields to be tested
   auto* currCoords =
@@ -303,17 +303,17 @@ TEST(meshMotion, NGP_execute)
   // create mesh transformation algorithm class
   std::unique_ptr<sierra::nalu::MeshTransformationAlg> meshTransformationAlg;
   meshTransformationAlg.reset(new sierra::nalu::MeshTransformationAlg(
-    realm.bulk_data(), mesh_transformation));
+    realm.bulkData_, mesh_transformation));
 
   // create mesh motion algorithm class
   std::unique_ptr<sierra::nalu::MeshMotionAlg> meshMotionAlg;
   meshMotionAlg.reset(
-    new sierra::nalu::MeshMotionAlg(realm.bulk_data(), mesh_motion));
+    new sierra::nalu::MeshMotionAlg(realm.bulkData_, mesh_motion));
 
   // initialize and execute mesh motion algorithm
   double currTime = 0.0;
   meshTransformationAlg->initialize(currTime);
-  meshMotionAlg->initialize(currTime);
+  meshMotionAlg->initialize(currTime, realm.bulkData_);
 
   // execute mesh motion algorithm
   currTime = 30.0;

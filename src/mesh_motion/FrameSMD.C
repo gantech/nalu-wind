@@ -17,7 +17,7 @@
 namespace sierra {
 namespace nalu {
 
-FrameSMD::FrameSMD(stk::mesh::BulkData& bulk, const YAML::Node& node)
+FrameSMD::FrameSMD(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
   : FrameBase(bulk)
 {
   load(node);
@@ -50,6 +50,11 @@ FrameSMD::load(const YAML::Node& node)
     const auto& motions = node["motion"];
 
     const int num_motions = motions.size();
+
+    if (num_motions > 1) {
+        throw std::runtime_error("FrameSMD: num_motions is more than 1. Only one motion is supported");
+    }
+
     motionKernels_.resize(num_motions);
     smd_.resize(num_motions);
 
@@ -78,7 +83,7 @@ FrameSMD::load(const YAML::Node& node)
 }
 
 void
-FrameSMD::setup()
+FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   // compute and set centroid if requested
   if (computeCentroid_) {
@@ -99,7 +104,7 @@ FrameSMD::update_coordinates_velocity(const double time)
 
   // define mesh entities
   const int nDim = meta_.spatial_dimension();
-  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(bulk_);
+  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(*bulk_);
   const stk::mesh::EntityRank entityRank = stk::topology::NODE_RANK;
 
   // get the parts in the current motion frame
@@ -222,10 +227,10 @@ FrameSMD::post_compute_geometry()
       faceVelMag = meta_.get_field<GenericFieldType>(
         stk::topology::EDGE_RANK, "edge_face_velocity_mag");
       compute_edge_scalar_divergence(
-        bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
+        *bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
     } else {
       compute_scalar_divergence(
-        bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
+        *bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
     }
 
     // Mesh velocity divergence is not motion-specific and

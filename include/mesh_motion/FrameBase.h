@@ -19,9 +19,9 @@ namespace nalu {
 class FrameBase
 {
 public:
-  FrameBase(stk::mesh::BulkData&, const YAML::Node&);
+  FrameBase(std::shared_ptr<stk::mesh::BulkData>, const YAML::Node&);
 
-  FrameBase(stk::mesh::BulkData&);
+  FrameBase(std::shared_ptr<stk::mesh::BulkData>);
     
   virtual ~FrameBase();
 
@@ -44,8 +44,8 @@ public:
   void populate_part_vec(const YAML::Node&);
     
 protected:
-  //! Reference to the STK Mesh BulkData object
-  stk::mesh::BulkData& bulk_;
+  //! Pointer to the STK Mesh BulkData object
+  std::shared_ptr<stk::mesh::BulkData> bulk_;
 
   //! Reference to the STK Mesh MetaData object
   stk::mesh::MetaData& meta_;
