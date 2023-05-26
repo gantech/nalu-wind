@@ -133,7 +133,7 @@ public:
     realm_.solutionOptions_->meshMotion_ = true;
     const YAML::Node motionNode = YAML::Load(motion_options);
     realm_.meshMotionAlg_.reset(
-      new sierra::nalu::MeshMotionAlg(bulk_, motionNode["mesh_motion"]));
+      new sierra::nalu::MeshMotionAlg(realm_.bulkData_, motionNode["mesh_motion"]));
 
     geomAlgDriver_.register_elem_algorithm<sierra::nalu::GeometryInteriorAlg>(
       sierra::nalu::INTERIOR, partVec_[0], "geometry");
@@ -268,7 +268,7 @@ public:
   {
     const double deltaT = realm_.get_time_step();
     auto& motionAlg = *realm_.meshMotionAlg_;
-    motionAlg.initialize(0.0);
+    motionAlg.initialize(0.0, realm_.bulkData_);
     for (int it = 0; it < numStates_; ++it) {
       realm_.swap_states();
       motionAlg.execute(it * deltaT);

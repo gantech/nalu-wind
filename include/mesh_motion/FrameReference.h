@@ -14,7 +14,7 @@ namespace nalu {
 class FrameReference : public FrameBase
 {
 public:
-  FrameReference(stk::mesh::BulkData& bulk, const YAML::Node& node)
+  FrameReference(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
     : FrameBase(bulk, node)
   {
   }

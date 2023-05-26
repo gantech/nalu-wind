@@ -11,13 +11,13 @@ class MeshMotionAlg
 {
 public:
   // TODO fsi data needs to be supplied to mesh motion/or triggered
-  MeshMotionAlg(stk::mesh::BulkData& bulk, const YAML::Node&);
+  MeshMotionAlg(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node&);
 
   ~MeshMotionAlg() {}
 
-  void initialize(const double);
+  void initialize(const double, std::shared_ptr<stk::mesh::BulkData> bulk);
 
-  void restart_reinit(const double);
+  void restart_reinit(const double, std::shared_ptr<stk::mesh::BulkData> bulk);
 
   void execute(const double);
 
@@ -39,7 +39,7 @@ private:
   MeshMotionAlg() = delete;
   MeshMotionAlg(const MeshMotionAlg&) = delete;
 
-  void load(stk::mesh::BulkData&, const YAML::Node&);
+  void load(std::shared_ptr<stk::mesh::BulkData>, const YAML::Node&);
 
   void set_deformation_flag();
 

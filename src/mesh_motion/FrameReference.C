@@ -22,7 +22,7 @@ FrameReference::update_coordinates(const double time)
 
   // define mesh entities
   const int nDim = meta_.spatial_dimension();
-  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(bulk_);
+  const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(*bulk_);
   const stk::mesh::EntityRank entityRank = stk::topology::NODE_RANK;
 
   // get the field from the NGP mesh

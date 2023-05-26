@@ -10,7 +10,7 @@
 namespace sierra {
 namespace nalu {
 
-MeshMotionAlg::MeshMotionAlg(stk::mesh::BulkData& bulk, const YAML::Node& node)
+MeshMotionAlg::MeshMotionAlg(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
 {
   load(bulk, node);
 
@@ -18,7 +18,7 @@ MeshMotionAlg::MeshMotionAlg(stk::mesh::BulkData& bulk, const YAML::Node& node)
 }
 
 void
-MeshMotionAlg::load(stk::mesh::BulkData& bulk, const YAML::Node& node)
+MeshMotionAlg::load(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node& node)
 {
   // get motion information for entire mesh
   const int num_groups = node.size();
@@ -71,7 +71,7 @@ MeshMotionAlg::set_deformation_flag()
 }
 
 void
-MeshMotionAlg::initialize(const double time)
+MeshMotionAlg::initialize(const double time, std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   if (isInit_)
     throw std::runtime_error("MeshMotionAlg::initialize(): Re-initialization "
@@ -79,7 +79,7 @@ MeshMotionAlg::initialize(const double time)
 
   for (size_t i = 0; i < movingFrameVec_.size(); i++) {
     movingFrameVec_[i]->setup();
-    smdFrameVec_[i]->setup();
+    smdFrameVec_[i]->setup(bulk);
 
     // update coordinates and velocity
     movingFrameVec_[i]->update_coordinates_velocity(time);
@@ -90,11 +90,11 @@ MeshMotionAlg::initialize(const double time)
 }
 
 void
-MeshMotionAlg::restart_reinit(const double time)
+MeshMotionAlg::restart_reinit(const double time, std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   if (isInit_) {
     isInit_ = false;
-    initialize(time);
+    initialize(time, bulk);
   } else {
     throw std::runtime_error(
       "MeshMotionAlg::restart_reinit(): Re-initialization of MeshMotionAlg for "
