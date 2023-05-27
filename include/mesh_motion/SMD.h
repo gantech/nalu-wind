@@ -26,6 +26,8 @@ public:
 
     virtual void advance_timestep() = 0;
 
+    virtual vs::Vector get_origin() = 0;
+
 private:
 
     SMD(const SMD&) = delete;

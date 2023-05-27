@@ -15,6 +15,8 @@
 // stk
 #include <stk_mesh/base/Part.hpp>
 
+#include "vs/vector.h"
+
 namespace sierra {
 namespace nalu {
 
@@ -31,6 +33,8 @@ public:
   void initialize();
 
   void execute();
+
+  void calc_force_moment(vs::Vector centroid, vs::Vector force, vs::Vector moment);
 
   //! Part vector over all wall boundary parts applying loads
   stk::mesh::PartVector partVec_;

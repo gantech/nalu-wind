@@ -253,10 +253,12 @@ FrameSMD::predict_states()
 void
 FrameSMD::update_timestep()
 {
+  calc_loads_->execute();
   for (auto& i_smd : smd_) {
     // Calc 6DOF forces here and pass to
     vs::Vector fnp1;
     vs::Vector mnp1;
+    calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
     i_smd->update_timestep(fnp1, mnp1);
   }
 }

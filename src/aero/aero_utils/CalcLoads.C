@@ -139,11 +139,6 @@ CalcLoads::execute()
     ThrowAssert(parentTopo.size() == 1);
     stk::topology theElemTopo = parentTopo[0];
 
-    // extract master element for this element topo
-    MasterElement* meSCS =
-      sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
-        theElemTopo);
-
     // algorithm related; element
     ws_pressure.resize(nodesPerFace);
     ws_density.resize(nodesPerFace);
@@ -193,19 +188,11 @@ CalcLoads::execute()
       const stk::mesh::Entity* face_elem_rels = bulk_->begin_elements(face);
       ThrowAssert(bulk_->num_elements(face) == 1);
 
-      // get element; its face ordinal number
-      stk::mesh::Entity element = face_elem_rels[0];
-      const int face_ordinal = bulk_->begin_element_ordinals(face)[0];
-
-      // get the relations off of element
-      stk::mesh::Entity const* elem_node_rels = bulk_->begin_nodes(element);
-
       for (int ip = 0; ip < numScsBip; ++ip) {
 
         // offsets
         const int offSetAveraVec = ip * nDim;
         const int localFaceNode = faceIpNodeMap[ip];
-        const int opposingNode = meSCS->opposingNodes(face_ordinal, ip);
 
         // interpolate to bip
         double pBip = 0.0;
@@ -220,7 +207,6 @@ CalcLoads::execute()
 
         // extract nodal fields
         stk::mesh::Entity node = face_node_rels[localFaceNode];
-        const double* coord = stk::mesh::field_data(*coordinates_, node);
         const double* duidxj = stk::mesh::field_data(*dudx_, node);
 
         // divU and aMag
@@ -246,5 +232,107 @@ CalcLoads::execute()
   }
 }
 
+//--------------------------------------------------------------------------
+//-------- calc_force_moment------------------------------------------------
+//--------------------------------------------------------------------------
+void
+CalcLoads::calc_force_moment(vs::Vector centroid, vs::Vector force, vs::Vector moment)
+{
+
+  // common
+  auto& meta = bulk_->mesh_meta_data();
+  const int nDim = meta.spatial_dimension();
+
+  // nodal fields to gather
+  std::vector<double> ws_coords;
+
+  // master element
+  std::vector<double> ws_face_shape_function;
+  vs::Vector coord_bip;
+
+  // define vector of parent topos; should always be UNITY in size
+  std::vector<stk::topology> parentTopo;
+
+  const auto& bkts = bulk_->get_buckets(
+    meta.side_rank(),
+    meta.locally_owned_part() & stk::mesh::selectUnion(partVec_));
+  for (auto b : bkts) {
+
+    // face master element
+    MasterElement* meFC =
+      sierra::nalu::MasterElementRepo::get_surface_master_element_on_host(
+        b->topology());
+    const int nodesPerFace = meFC->nodesPerElement_;
+    const int numScsBip = meFC->num_integration_points();
+
+    // extract connected element topology
+    b->parent_topology(stk::topology::ELEMENT_RANK, parentTopo);
+    ThrowAssert(parentTopo.size() == 1);
+
+     // algorithm related; element
+    ws_coords.resize(nodesPerFace*nDim);
+    ws_face_shape_function.resize(numScsBip * nodesPerFace);
+
+    // pointers
+    double* p_coords = &ws_coords[0];
+    SharedMemView<double**, HostShmem> p_face_shape_function(
+      ws_face_shape_function.data(), numScsBip, nodesPerFace);
+
+    // shape functions
+    if (useShifted_)
+      meFC->shifted_shape_fcn<>(p_face_shape_function);
+    else
+      meFC->shape_fcn<>(p_face_shape_function);
+
+    const stk::mesh::Bucket::size_type length = b->size();
+
+    for (stk::mesh::Bucket::size_type k = 0; k < length; ++k) {
+
+      // get face
+      stk::mesh::Entity face = (*b)[k];
+
+      // face node relations
+      stk::mesh::Entity const* face_node_rels = bulk_->begin_nodes(face);
+
+      //======================================
+      // gather nodal data off of face
+      //======================================
+      for (int ni = 0; ni < nodesPerFace; ++ni) {
+        stk::mesh::Entity node = face_node_rels[ni];
+        // gather scalars
+        const double* coord = stk::mesh::field_data(*coordinates_, node);
+        for (int i=0; i<nDim; i++)
+            p_coords[ni*nDim+i] = coord[i];
+      }
+
+      // pointer to face data
+      const double* tforce_scs = stk::mesh::field_data(*tforceSCS_, face);
+
+      for (int ip = 0; ip < numScsBip; ++ip) {
+
+        // interpolate to bip
+        for (int i = 0; i < nDim; i++)
+          coord_bip[i] = 0.0;
+        for (int ic = 0; ic < nodesPerFace; ++ic) {
+          const double r = p_face_shape_function(ip, ic);
+          for (int i = 0; i < nDim; i++)
+          coord_bip[i] += r * p_coords[ic*nDim+i];
+        }
+
+        for (int i = 0; i < nDim; i++)
+            force[i] += tforce_scs[ip*nDim + i];
+        moment[0] += (coord_bip[1] - centroid[1]) * tforce_scs[ip*nDim + 2]
+            - (coord_bip[2] - centroid[2]) * tforce_scs[ip*nDim + 1];
+        moment[1] += (coord_bip[2] - centroid[2]) * tforce_scs[ip*nDim + 0]
+            - (coord_bip[0] - centroid[0]) * tforce_scs[ip*nDim + 2];
+        moment[2] += (coord_bip[0] - centroid[0]) * tforce_scs[ip*nDim + 1]
+            - (coord_bip[1] - centroid[1]) * tforce_scs[ip*nDim + 0];
+
+      }
+      
+    }
+  }
+}
+    
 } // namespace nalu
 } // namespace sierra

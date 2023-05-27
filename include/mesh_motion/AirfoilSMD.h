@@ -31,6 +31,17 @@ public:
 
     void advance_timestep();
 
+    vs::Vector get_origin() { return origin_; }
+
+    //! Prepare netcdf file to write deflections and loads
+    void
+    prepare_nc_file() {}
+    
+    //! Write deflections and loads to netcdf file
+    void write_nc_def_loads(const size_t t_step, const double cur_time) {}
+
+    
+
 private:
 
     AirfoilSMD(const AirfoilSMD&) = delete;
@@ -60,6 +71,8 @@ private:
     vs::Vector f_np1_;
     vs::Vector f_n_;
     vs::Vector f_nm1_;
+
+    vs::Vector origin_;
 
 };
 

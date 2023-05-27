@@ -48,6 +48,10 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
   std::vector<double> f_nm1;
   get_if_present(node, "f_nm1", f_nm1);
   f_nm1_.x() = f_nm1[0]; f_nm1_.y() = f_nm1[1]; f_nm1_.z() = f_nm1[2]; 
+
+  std::vector<double> origin;
+  get_required(node, "centroid", origin);
+  origin_.x() = origin[0]; origin_.y() = origin[1]; origin_.z() = origin[2]; 
   
 }
 
@@ -107,7 +111,6 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   x_np1_ = x_n_ + dt*v_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
   v_np1_ = v_n_ + dt*((1 - gamma)*a_n_ + gamma*a_np1_);
 }
-
 
 }
 }
