@@ -61,6 +61,9 @@ private:
 
   // Pointer to Algorithm that calculates loads on the surfaces of the SMD
   std::unique_ptr<CalcLoads> calc_loads_;
+
+  // Scale loads by this factor when transfering to SMD
+  double load_scale_{1.0};
     
 };
 

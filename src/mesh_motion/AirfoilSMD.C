@@ -62,7 +62,13 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
 
   std::vector<double> origin;
   get_required(node, "centroid", origin);
-  origin_.x() = origin[0]; origin_.y() = origin[1]; origin_.z() = origin[2]; 
+  origin_.x() = origin[0]; origin_.y() = origin[1]; origin_.z() = origin[2];
+
+  get_if_present(node, "alpha", alpha_);
+  if ( (alpha_ > 0.0) || (alpha < -0.33333) )
+      throw std::runtime_error("AirfoilSMD:: alpha should be '-0.333 =< alpha =< 0.0'. Instead alpha is  " << alpha_ );
+
+  
   
 }
 

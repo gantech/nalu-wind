@@ -64,6 +64,8 @@ FrameSMD::load(const YAML::Node& node)
       // get the motion definition for i-th transformation
       const auto& motion_def = motions[i];
 
+      get_if_present(motion_def, "loads_scale", loads_scale_);
+      
       // motion type should always be defined by the user
       std::string type;
       get_required(motion_def, "type", type);
@@ -267,7 +269,7 @@ FrameSMD::update_timestep()
     vs::Vector fnp1;
     vs::Vector mnp1;
     calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
-    i_smd->update_timestep(fnp1, mnp1);
+    i_smd->update_timestep(loads_scale*fnp1, loads_scale*mnp1);
   }
 }
 
