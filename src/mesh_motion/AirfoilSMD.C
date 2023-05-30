@@ -67,6 +67,10 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
 }
 
 void
+AirfoilSMD::setup(const double dt) {
+  dt_ = dt;
+}
+void
 AirfoilSMD::predict_states() {
 
   // Create a simple extrapolator from x_nm1 and x_n to x_np1 here
@@ -117,7 +121,9 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
           + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*v_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
           + (1 + alpha_) * F_np1 - alpha_ * f_n_;
    
-   f_np1_ = F_np1;
+   f_np1_[0] = F_np1[0];
+   f_np1_[1] = F_np1[1];
+   f_np1_[2] = M_np1[2];
 
   // Solve the matrix problem to get a_np1
   a_np1_ = Left.inv() & right;

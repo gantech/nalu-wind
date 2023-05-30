@@ -27,7 +27,11 @@ public:
 
   virtual ~FrameSMD();
 
-  virtual void setup(std::shared_ptr<stk::mesh::BulkData> bulk);
+  virtual void setup(std::shared_ptr<stk::mesh::BulkData> bulk) {}
+
+  void setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk);
+    
+  virtual void initialize();
 
   stk::mesh::PartVector get_partvec() { return partVec_; };
 

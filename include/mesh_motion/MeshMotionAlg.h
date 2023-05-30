@@ -14,6 +14,8 @@ public:
 
   ~MeshMotionAlg() {}
 
+  void setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk);
+      
   void initialize(const double, std::shared_ptr<stk::mesh::BulkData> bulk);
 
   void restart_reinit(const double, std::shared_ptr<stk::mesh::BulkData> bulk);

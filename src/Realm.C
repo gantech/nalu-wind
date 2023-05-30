@@ -433,6 +433,11 @@ Realm::initialize_prolog()
   if (aeroModels_->is_active())
     aeroModels_->setup(get_time_step_from_file(), bulkData_);
 
+  if (meshMotionAlg_) {
+    if (meshMotionAlg_->is_smd())
+      meshMotionAlg_->setup(get_time_step_from_file(), bulkData_);
+  }
+
   // interior algorithm creation
   setup_interior_algorithms();
 

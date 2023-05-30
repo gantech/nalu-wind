@@ -23,6 +23,9 @@
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/Part.hpp>
 
+// stk_util
+#include <stk_util/parallel/ParallelReduce.hpp>
+
 // basic c++
 #include <fstream>
 #include <iomanip>
@@ -244,13 +247,17 @@ CalcLoads::execute()
 //-------- calc_force_moment------------------------------------------------
 //--------------------------------------------------------------------------
 void
-CalcLoads::calc_force_moment(vs::Vector centroid, vs::Vector force, vs::Vector moment)
+CalcLoads::calc_force_moment(vs::Vector centroid, vs::Vector& force, vs::Vector& moment)
 {
 
   // common
   auto& meta = bulk_->mesh_meta_data();
   const int nDim = meta.spatial_dimension();
 
+  double l_force_moment[6] = {};
+  for (int i=0; i < 6; i++)
+      l_force_moment[i] = 0.0;
+  
   // nodal fields to gather
   std::vector<double> ws_coords;
 
@@ -328,18 +335,28 @@ CalcLoads::calc_force_moment(vs::Vector centroid, vs::Vector force, vs::Vector m
         }
 
         for (int i = 0; i < nDim; i++)
-            force[i] += tforce_scs[ip*nDim + i];
-        moment[0] += (coord_bip[1] - centroid[1]) * tforce_scs[ip*nDim + 2]
+            l_force_moment[i] += tforce_scs[ip*nDim + i];
+        l_force_moment[3] += (coord_bip[1] - centroid[1]) * tforce_scs[ip*nDim + 2]
             - (coord_bip[2] - centroid[2]) * tforce_scs[ip*nDim + 1];
-        moment[1] += (coord_bip[2] - centroid[2]) * tforce_scs[ip*nDim + 0]
+        l_force_moment[4] += (coord_bip[2] - centroid[2]) * tforce_scs[ip*nDim + 0]
             - (coord_bip[0] - centroid[0]) * tforce_scs[ip*nDim + 2];
-        moment[2] += (coord_bip[0] - centroid[0]) * tforce_scs[ip*nDim + 1]
+        l_force_moment[5] += (coord_bip[0] - centroid[0]) * tforce_scs[ip*nDim + 1]
             - (coord_bip[1] - centroid[1]) * tforce_scs[ip*nDim + 0];
 
       }
       
     }
   }
+
+  double g_force_moment[6] = {};
+  stk::ParallelMachine comm = NaluEnv::self().parallel_comm();
+  stk::all_reduce_sum(comm, &l_force_moment[0], &g_force_moment[0], 6);
+
+  for (int i=0; i < 3; i++) {
+    force[i] = g_force_moment[i];
+    moment[i] = g_force_moment[i+3];
+  }
+  
 }
     
 } // namespace nalu

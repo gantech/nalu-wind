@@ -25,6 +25,8 @@ public:
 
     virtual ~AirfoilSMD() {}
 
+    void setup(double dt);
+
     void predict_states();
 
     void update_timestep(vs::Vector F_np1, vs::Vector M_np1);
@@ -74,6 +76,8 @@ private:
 
     vs::Vector origin_;
 
+    double dt_{-1.0};
+    
     size_t tstep_ {0};
 
     //! Map of `{variableName : netCDF_ID}` obtained from the NetCDF C interface

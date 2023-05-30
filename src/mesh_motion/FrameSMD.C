@@ -86,7 +86,7 @@ FrameSMD::load(const YAML::Node& node)
 }
 
 void
-FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
+FrameSMD::setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   // compute and set centroid if requested
   if (computeCentroid_) {
@@ -97,10 +97,14 @@ FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
 
   calc_loads_ = std::make_unique<CalcLoads>(partVecBc_);
   calc_loads_->setup(bulk_);
-  calc_loads_->initialize();
-  
+ 
 }
 
+void FrameSMD::initialize()
+{
+  calc_loads_->initialize();
+}
+    
 void
 FrameSMD::update_coordinates_velocity(const double time)
 {
@@ -262,7 +266,7 @@ FrameSMD::update_timestep()
     // Calc 6DOF forces here and pass to
     vs::Vector fnp1;
     vs::Vector mnp1;
-    //calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
+    calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
     i_smd->update_timestep(fnp1, mnp1);
   }
 }
