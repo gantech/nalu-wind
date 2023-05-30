@@ -4630,8 +4630,8 @@ Realm::post_converged_work()
   }
 
   if (meshMotionAlg_) {
-      if (meshMotionAlg_->is_smd())
-          meshMotionAlg_->advance_timestep_smd();
+    if (meshMotionAlg_->is_smd())
+      meshMotionAlg_->advance_timestep_smd(get_current_time());
   }
 
   // FIXME: Consider a unified collection of post processing work

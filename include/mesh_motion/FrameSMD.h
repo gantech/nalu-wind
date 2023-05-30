@@ -41,7 +41,7 @@ public:
 
   void update_timestep();
 
-  void advance_timestep();
+  void advance_timestep(const double cur_time);
 
 private:
   FrameSMD() = delete;

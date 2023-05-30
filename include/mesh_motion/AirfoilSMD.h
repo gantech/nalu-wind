@@ -34,11 +34,11 @@ public:
     vs::Vector get_origin() { return origin_; }
 
     //! Prepare netcdf file to write deflections and loads
-    void
-    prepare_nc_file() {}
+    void prepare_nc_file();
     
     //! Write deflections and loads to netcdf file
-    void write_nc_def_loads(const size_t t_step, const double cur_time) {}
+    void
+    write_nc_def_loads(const double cur_time);
 
     
 
@@ -73,6 +73,11 @@ private:
     vs::Vector f_nm1_;
 
     vs::Vector origin_;
+
+    size_t tstep_ {0};
+
+    //! Map of `{variableName : netCDF_ID}` obtained from the NetCDF C interface
+    std::unordered_map<std::string, int> nc_var_ids_;
 
 };
 

@@ -59,6 +59,14 @@ void
 CalcLoads::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   bulk_ = bulk;
+  auto& meta = bulk_->mesh_meta_data();
+  tforceSCS_ = meta.get_field<GenericFieldType>(meta.side_rank(), "tforce_scs");
+  if (tforceSCS_ == NULL)
+      tforceSCS_ =
+          &(meta.declare_field<GenericFieldType>(meta.side_rank(), "tforce_scs"));
+
+  for (auto part : partVec_) 
+    stk::mesh::put_field_on_mesh(*tforceSCS_, *part, 4 * 3, nullptr);
 }
 
 void

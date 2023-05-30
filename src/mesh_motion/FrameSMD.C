@@ -78,6 +78,9 @@ FrameSMD::load(const YAML::Node& node)
         throw std::runtime_error(
           "FrameSMD: Invalid mesh motion type: " + type);
 
+      if ( !bulk_->parallel_rank())
+        smd_[i]->prepare_nc_file();
+
     } // end for loop - i index
   }
 }
@@ -93,7 +96,8 @@ FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
   }
 
   calc_loads_ = std::make_unique<CalcLoads>(partVecBc_);
-  calc_loads_->setup(bulk);
+  calc_loads_->setup(bulk_);
+  calc_loads_->initialize();
   
 }
 
@@ -258,16 +262,21 @@ FrameSMD::update_timestep()
     // Calc 6DOF forces here and pass to
     vs::Vector fnp1;
     vs::Vector mnp1;
-    calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
+    //calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
     i_smd->update_timestep(fnp1, mnp1);
   }
 }
 
 void
-FrameSMD::advance_timestep()
+FrameSMD::advance_timestep(const double cur_time)
 {
-  for (auto& i_smd : smd_)
+  for (auto& i_smd : smd_) {
     i_smd->advance_timestep();
+    
+    if ( !bulk_->parallel_rank())
+      i_smd->write_nc_def_loads(cur_time);
+  }
+  
 }    
 
 } // namespace nalu

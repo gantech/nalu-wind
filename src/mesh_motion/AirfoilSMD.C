@@ -1,11 +1,22 @@
 #include "mesh_motion/AirfoilSMD.h"
 #include "NaluParsing.h"
 
+#include "netcdf.h"
+
+#include <sstream>
+
 namespace sierra {
 namespace nalu {
 
+inline void
+check_nc_error(int code, std::string msg)
+{
+  if (code != 0)
+    throw std::runtime_error("AirfoilSMD:: NetCDF error: " + msg);
+}
+    
 AirfoilSMD::AirfoilSMD(const YAML::Node& node)
-  : SMD()
+  : SMD(node)
 {
   std::vector<double> mass;
   get_required(node, "mass_matrix", mass);
@@ -29,23 +40,23 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
   get_required(node, "x_init", x_init);
   x_n_.x() = x_init[0]; x_n_.y() = x_init[1]; x_n_.z() = x_init[2]; 
 
-  std::vector<double> xdot_init;
+  std::vector<double> xdot_init(3,0.0);
   get_if_present(node, "xdot_init", xdot_init);
   xdot_n_.x() = xdot_init[0]; xdot_n_.y() = xdot_init[1]; xdot_n_.z() = xdot_init[2]; 
 
-  std::vector<double> x_nm1;
+  std::vector<double> x_nm1(3,0.0);
   get_if_present(node, "x_nm1", x_nm1);
   x_nm1_.x() = x_nm1[0]; x_nm1_.y() = x_nm1[1]; x_nm1_.z() = x_nm1[2]; 
 
-  std::vector<double> xdot_nm1;
+  std::vector<double> xdot_nm1(3,0.0);
   get_if_present(node, "xdot_nm1", xdot_nm1);
   xdot_nm1_.x() = xdot_nm1[0]; xdot_nm1_.y() = xdot_nm1[1]; xdot_nm1_.z() = xdot_nm1[2];
 
-  std::vector<double> f_init;
+  std::vector<double> f_init(3,0.0);
   get_if_present(node, "f_init", f_init);
   f_n_.x() = f_init[0]; f_n_.y() = f_init[1]; f_n_.z() = f_init[2]; 
 
-  std::vector<double> f_nm1;
+  std::vector<double> f_nm1(3,0.0);
   get_if_present(node, "f_nm1", f_nm1);
   f_nm1_.x() = f_nm1[0]; f_nm1_.y() = f_nm1[1]; f_nm1_.z() = f_nm1[2]; 
 
@@ -71,12 +82,15 @@ AirfoilSMD::predict_states() {
 
 void
 AirfoilSMD::advance_timestep() {
+
   x_nm1_ = x_n_;
   x_n_ = x_np1_;
   f_nm1_ = f_n_;
   f_n_ = f_np1_;
   xdot_nm1_ = xdot_n_;
   xdot_n_ = xdot_np1_;
+
+  tstep_ += 1;
 }
 
 
@@ -110,6 +124,157 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   x_np1_ = x_n_ + dt*v_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
   v_np1_ = v_n_ + dt*((1 - gamma)*a_n_ + gamma*a_np1_);
+}
+
+void
+AirfoilSMD::prepare_nc_file() {
+  
+  int ncid, n_dim, n_tsteps, varid, ierr;
+  
+  // Create the file
+  std::string filename = "af_smd_deflloads.nc";
+  ierr = nc_create(filename.c_str(), NC_CLOBBER, &ncid);
+  check_nc_error(ierr, "nc_create");
+  
+  // Define dimensions
+  ierr = nc_def_dim(ncid, "n_dim", 3, &n_dim);
+  ierr = nc_def_dim(ncid, "n_tsteps", NC_UNLIMITED, &n_tsteps);
+
+  const std::vector<int> matrix_dims{n_dim, n_dim};
+  const std::vector<int> state_dims{n_tsteps, n_dim};
+  const std::vector<int> vector_dims{n_dim};
+    
+  ierr = nc_def_var(ncid, "time", NC_DOUBLE, 1, &n_tsteps, &varid);
+  nc_var_ids_["time"] = varid;
+
+  ierr = nc_def_var(ncid, "mass_matrix", NC_DOUBLE, 2, matrix_dims.data(), &varid);
+  nc_var_ids_["mass_matrix"] = varid;
+
+  ierr = nc_def_var(ncid, "stiffness_matrix", NC_DOUBLE, 2, matrix_dims.data(), &varid);
+  nc_var_ids_["stiffness_matrix"] = varid;
+
+  ierr = nc_def_var(ncid, "damping_matrix", NC_DOUBLE, 2, matrix_dims.data(), &varid);
+  nc_var_ids_["damping_matrix"] = varid;
+
+  ierr = nc_def_var(ncid, "origin", NC_DOUBLE, 1, vector_dims.data(), &varid);
+  nc_var_ids_["origin"] = varid;
+  
+  ierr = nc_def_var(ncid, "x", NC_DOUBLE, 2, state_dims.data(), &varid);
+  nc_var_ids_["x"] = varid;
+
+  ierr = nc_def_var(ncid, "xdot", NC_DOUBLE, 2, state_dims.data(), &varid);
+  nc_var_ids_["xdot"] = varid;
+
+  ierr = nc_def_var(ncid, "f", NC_DOUBLE, 2, state_dims.data(), &varid);
+  nc_var_ids_["f"] = varid;
+
+  //! Indicate that we are done defining variables, ready to write data
+  ierr = nc_enddef(ncid);
+  check_nc_error(ierr, "nc_enddef");
+
+  
+  {
+    std::vector<size_t> count_dim{3};
+    std::vector<size_t> start_dim{0};
+    ierr = nc_put_vara_double(
+        ncid, nc_var_ids_["origin"], start_dim.data(), count_dim.data(),
+        origin_.data());
+  }
+
+  {
+    std::vector<size_t> count_dim{1,3};
+    {
+    std::vector<size_t> start_dim{0,0};
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["mass_matrix"], start_dim.data(), count_dim.data(),
+      M_.x().data());
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["stiffness_matrix"], start_dim.data(), count_dim.data(),
+      K_.x().data());
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["damping_matrix"], start_dim.data(), count_dim.data(),
+      C_.x().data());
+    }
+    {
+    std::vector<size_t> start_dim{1,0};
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["mass_matrix"], start_dim.data(), count_dim.data(),
+      M_.y().data());
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["stiffness_matrix"], start_dim.data(), count_dim.data(),
+      K_.y().data());
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["damping_matrix"], start_dim.data(), count_dim.data(),
+      C_.y().data());
+    }
+    {
+    std::vector<size_t> start_dim{2,0};
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["mass_matrix"], start_dim.data(), count_dim.data(),
+      M_.z().data());
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["stiffness_matrix"], start_dim.data(), count_dim.data(),
+      K_.z().data());
+    ierr = nc_put_vara_double(
+      ncid, nc_var_ids_["damping_matrix"], start_dim.data(), count_dim.data(),
+      C_.z().data());
+    }
+  }
+  {
+    size_t count0 = 1;
+    double cur_time = 0.0;
+    ierr = nc_put_vara_double(ncid, nc_var_ids_["time"], &tstep_, &count0, &cur_time);
+    std::vector<size_t> count_dim{1,3};
+    {
+      std::vector<size_t> start_dim{0,0};
+      ierr = nc_put_vara_double(
+          ncid, nc_var_ids_["x"], start_dim.data(), count_dim.data(),
+          x_n_.data());
+      ierr = nc_put_vara_double(
+          ncid, nc_var_ids_["xdot"], start_dim.data(), count_dim.data(),
+          xdot_n_.data());
+      ierr = nc_put_vara_double(
+          ncid, nc_var_ids_["f"], start_dim.data(), count_dim.data(),
+          f_n_.data());
+    }
+  }
+  
+  ierr = nc_close(ncid);
+  check_nc_error(ierr, "nc_close");
+}
+
+void
+AirfoilSMD::write_nc_def_loads(const double cur_time)
+{
+
+  int ncid, ierr;
+  std::string filename = "af_smd_deflloads.nc";
+  ierr = nc_open(filename.c_str(), NC_WRITE, &ncid);
+  check_nc_error(ierr, "nc_open");
+  ierr = nc_enddef(ncid);
+
+  std::cerr << "tstep = " << tstep_ << std::endl;
+  {
+    size_t count0 = 1;
+    ierr = nc_put_vara_double(ncid, nc_var_ids_["time"], &tstep_, &count0, &cur_time);
+    std::vector<size_t> count_dim{1,3};
+    {
+      std::vector<size_t> start_dim{tstep_,0};
+      ierr = nc_put_vara_double(
+          ncid, nc_var_ids_["x"], start_dim.data(), count_dim.data(),
+          x_n_.data());
+      ierr = nc_put_vara_double(
+          ncid, nc_var_ids_["xdot"], start_dim.data(), count_dim.data(),
+          xdot_n_.data());
+      ierr = nc_put_vara_double(
+          ncid, nc_var_ids_["f"], start_dim.data(), count_dim.data(),
+          f_n_.data());
+    }
+  }
+
+  ierr = nc_close(ncid);
+  check_nc_error(ierr, "nc_close");
+    
 }
 
 }
