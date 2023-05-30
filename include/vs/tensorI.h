@@ -282,7 +282,6 @@ operator*(const T2 fac, const TensorT<T1>& inp)
     inp.vv[6]*fac, inp.vv[7]*fac, inp.vv[8]*fac};
 }
 
-
 template <typename T>
 KOKKOS_FORCEINLINE_FUNCTION TensorT<T>
 TensorT<T>::inv()

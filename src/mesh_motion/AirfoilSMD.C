@@ -79,6 +79,7 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   //TODO: Verify that the matrix inverse is correct for a few cases.
 
+
   // Implement generalized alpha, or RK time integrator scheme here
   // Go from x_nm1, x_n to x_np1
   double dt = 0.01;
