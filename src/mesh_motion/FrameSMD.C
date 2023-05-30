@@ -99,7 +99,9 @@ FrameSMD::setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk)
 
   calc_loads_ = std::make_unique<CalcLoads>(partVecBc_);
   calc_loads_->setup(bulk_);
- 
+
+  for (auto& i_smd : smd_) 
+    i_smd->setup(dt);
 }
 
 void FrameSMD::initialize()
@@ -269,7 +271,7 @@ FrameSMD::update_timestep()
     vs::Vector fnp1;
     vs::Vector mnp1;
     calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
-    i_smd->update_timestep(loads_scale*fnp1, loads_scale*mnp1);
+    i_smd->update_timestep(loads_scale_ * fnp1, loads_scale_ * mnp1);
   }
 }
 

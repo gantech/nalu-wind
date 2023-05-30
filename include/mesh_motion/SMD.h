@@ -22,6 +22,8 @@ public:
 
     virtual ~SMD() {};
 
+    virtual void setup(double dt) = 0;
+
     virtual void predict_states() = 0;
 
     virtual void update_timestep(vs::Vector F_np1, vs::Vector M_np1) = 0;

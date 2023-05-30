@@ -63,7 +63,7 @@ private:
   std::unique_ptr<CalcLoads> calc_loads_;
 
   // Scale loads by this factor when transfering to SMD
-  double load_scale_{1.0};
+  double loads_scale_{1.0};
     
 };
 
