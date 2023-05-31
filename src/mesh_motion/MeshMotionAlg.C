@@ -30,7 +30,6 @@ MeshMotionAlg::load(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node&
     const auto& ginfo = node[i];
     bool enable_smd=false;
     get_if_present(ginfo, "enable_smd", enable_smd, enable_smd);
-    std::cerr << "Enable SMD = " << enable_smd << std::endl;
     if ( enable_smd )
       num_groups_smd += 1;
     else
@@ -48,6 +47,7 @@ MeshMotionAlg::load(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node&
     bool enable_smd=false;
     get_if_present(ginfo, "enable_smd", enable_smd, enable_smd);
     if (enable_smd) {
+      is_smd_ = true;
       smdFrameVec_[i_smd].reset(new FrameSMD(bulk, ginfo));
       i_smd++;
     }
@@ -71,19 +71,27 @@ MeshMotionAlg::set_deformation_flag()
 }
 
 void
+MeshMotionAlg::setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk)
+{
+  for (auto i_frame: smdFrameVec_)
+    i_frame->setup(dt, bulk);
+}
+    
+void
 MeshMotionAlg::initialize(const double time, std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   if (isInit_)
     throw std::runtime_error("MeshMotionAlg::initialize(): Re-initialization "
                              "of MeshMotionAlg not valid");
 
-  for (size_t i = 0; i < movingFrameVec_.size(); i++) {
-    movingFrameVec_[i]->setup();
-    smdFrameVec_[i]->setup(bulk);
-
+  for (auto i_frame: movingFrameVec_) {
+    i_frame->setup();
     // update coordinates and velocity
-    movingFrameVec_[i]->update_coordinates_velocity(time);
-    smdFrameVec_[i]->update_coordinates_velocity(time);
+    i_frame->update_coordinates_velocity(time);
+  }
+  for (auto i_frame: smdFrameVec_) {
+    i_frame->initialize();
+    i_frame->update_coordinates_velocity(time);
   }
 
   isInit_ = true;
@@ -136,22 +144,22 @@ MeshMotionAlg::get_partvec()
 void
 MeshMotionAlg::predict_states_smd()
 {
-  for (size_t i = 0; i < smdFrameVec_.size(); i++)
-    smdFrameVec_[i]->predict_states();
+  for (auto i_smd: smdFrameVec_)
+    i_smd->predict_states();
 }
 
 void
 MeshMotionAlg::update_timestep_smd()
 {
-  for (size_t i = 0; i < smdFrameVec_.size(); i++)
-    smdFrameVec_[i]->update_timestep();
+  for (auto i_smd: smdFrameVec_)
+    i_smd->update_timestep();
 }
 
 void
-MeshMotionAlg::advance_timestep_smd()
+MeshMotionAlg::advance_timestep_smd(double cur_time)
 {
-  for (size_t i = 0; i < smdFrameVec_.size(); i++)
-    smdFrameVec_[i]->advance_timestep();
+  for (auto i_smd: smdFrameVec_)
+    i_smd->advance_timestep(cur_time);
 }
     
 } // namespace nalu

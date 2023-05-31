@@ -1,8 +1,6 @@
 #ifndef MOTIONAIRFOILSMDKERNEL_H
 #define MOTIONAIRFOILSMDKERNEL_H
 
-#include <aero/fsi/CalcLoads.h>
-
 #include "NgpMotion.h"
 
 namespace sierra{
@@ -57,10 +55,6 @@ protected:
   double ang_vel_{0.0};
   double phase_{0.0};
   double angle_{0.0};
-
-// private:
-//   // Pointer to Algorithm that calculates loads on the surfaces of the Turbine
-//   std::unique_ptr<CalcLoads> calc_loads_;
     
 };
 

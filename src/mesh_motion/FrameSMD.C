@@ -64,6 +64,8 @@ FrameSMD::load(const YAML::Node& node)
       // get the motion definition for i-th transformation
       const auto& motion_def = motions[i];
 
+      get_if_present(motion_def, "loads_scale", loads_scale_);
+      
       // motion type should always be defined by the user
       std::string type;
       get_required(motion_def, "type", type);
@@ -78,12 +80,15 @@ FrameSMD::load(const YAML::Node& node)
         throw std::runtime_error(
           "FrameSMD: Invalid mesh motion type: " + type);
 
+      if ( !bulk_->parallel_rank())
+        smd_[i]->prepare_nc_file();
+
     } // end for loop - i index
   }
 }
 
 void
-FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
+FrameSMD::setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk)
 {
   // compute and set centroid if requested
   if (computeCentroid_) {
@@ -91,8 +96,19 @@ FrameSMD::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
     compute_centroid_on_parts(computedCentroid);
     set_computed_centroid(computedCentroid);
   }
+
+  calc_loads_ = std::make_unique<CalcLoads>(partVecBc_);
+  calc_loads_->setup(bulk_);
+
+  for (auto& i_smd : smd_) 
+    i_smd->setup(dt);
 }
 
+void FrameSMD::initialize()
+{
+  calc_loads_->initialize();
+}
+    
 void
 FrameSMD::update_coordinates_velocity(const double time)
 {
@@ -249,19 +265,26 @@ FrameSMD::predict_states()
 void
 FrameSMD::update_timestep()
 {
+  calc_loads_->execute();
   for (auto& i_smd : smd_) {
     // Calc 6DOF forces here and pass to
     vs::Vector fnp1;
     vs::Vector mnp1;
-    i_smd->update_timestep(fnp1, mnp1);
+    calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
+    i_smd->update_timestep(loads_scale_ * fnp1, loads_scale_ * mnp1);
   }
 }
 
 void
-FrameSMD::advance_timestep()
+FrameSMD::advance_timestep(const double cur_time)
 {
-  for (auto& i_smd : smd_)
+  for (auto& i_smd : smd_) {
     i_smd->advance_timestep();
+    
+    if ( !bulk_->parallel_rank())
+      i_smd->write_nc_def_loads(cur_time);
+  }
+  
 }    
 
 } // namespace nalu

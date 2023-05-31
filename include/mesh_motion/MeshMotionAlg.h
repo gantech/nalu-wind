@@ -10,11 +10,12 @@ namespace nalu {
 class MeshMotionAlg
 {
 public:
-  // TODO fsi data needs to be supplied to mesh motion/or triggered
   MeshMotionAlg(std::shared_ptr<stk::mesh::BulkData> bulk, const YAML::Node&);
 
   ~MeshMotionAlg() {}
 
+  void setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk);
+      
   void initialize(const double, std::shared_ptr<stk::mesh::BulkData> bulk);
 
   void restart_reinit(const double, std::shared_ptr<stk::mesh::BulkData> bulk);
@@ -27,13 +28,13 @@ public:
 
   void update_timestep_smd();
 
-  void advance_timestep_smd();
+  void advance_timestep_smd(double cur_time);
 
   stk::mesh::PartVector get_partvec();
 
   bool is_deforming() { return isDeforming_; }
 
-  bool is_smd() { return isSMD_; }
+  bool is_smd() { return is_smd_; }
 
 private:
   MeshMotionAlg() = delete;
@@ -64,7 +65,7 @@ private:
   bool isDeforming_ = false;
 
   //! flag to denote if any SMD frames are active
-  bool isSMD_ = false;
+  bool is_smd_ = false;
 };
 
 } // namespace nalu

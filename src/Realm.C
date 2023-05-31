@@ -433,6 +433,11 @@ Realm::initialize_prolog()
   if (aeroModels_->is_active())
     aeroModels_->setup(get_time_step_from_file(), bulkData_);
 
+  if (meshMotionAlg_) {
+    if (meshMotionAlg_->is_smd())
+      meshMotionAlg_->setup(get_time_step_from_file(), bulkData_);
+  }
+
   // interior algorithm creation
   setup_interior_algorithms();
 
@@ -4630,8 +4635,8 @@ Realm::post_converged_work()
   }
 
   if (meshMotionAlg_) {
-      if (meshMotionAlg_->is_smd())
-          meshMotionAlg_->advance_timestep_smd();
+    if (meshMotionAlg_->is_smd())
+      meshMotionAlg_->advance_timestep_smd(get_current_time());
   }
 
   // FIXME: Consider a unified collection of post processing work

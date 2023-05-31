@@ -3,6 +3,8 @@
 
 #include "NgpMotion.h"
 #include "FrameBase.h"
+#include "mesh_motion/SMD.h"
+#include "aero/aero_utils/CalcLoads.h"
 
 // stk base header files
 #include "stk_mesh/base/CoordinateSystems.hpp"
@@ -10,7 +12,6 @@
 #include "stk_mesh/base/Field.hpp"
 #include "stk_mesh/base/MetaData.hpp"
 
-#include "mesh_motion/SMD.h"
 
 namespace YAML {
 class Node;
@@ -26,7 +27,11 @@ public:
 
   virtual ~FrameSMD();
 
-  virtual void setup(std::shared_ptr<stk::mesh::BulkData> bulk);
+  virtual void setup(std::shared_ptr<stk::mesh::BulkData> bulk) {}
+
+  void setup(const double dt, std::shared_ptr<stk::mesh::BulkData> bulk);
+    
+  virtual void initialize();
 
   stk::mesh::PartVector get_partvec() { return partVec_; };
 
@@ -40,7 +45,7 @@ public:
 
   void update_timestep();
 
-  void advance_timestep();
+  void advance_timestep(const double cur_time);
 
 private:
   FrameSMD() = delete;
@@ -54,6 +59,12 @@ private:
    */
   std::vector<std::unique_ptr<SMD>> smd_;
 
+  // Pointer to Algorithm that calculates loads on the surfaces of the SMD
+  std::unique_ptr<CalcLoads> calc_loads_;
+
+  // Scale loads by this factor when transfering to SMD
+  double loads_scale_{1.0};
+    
 };
 
 } // namespace nalu

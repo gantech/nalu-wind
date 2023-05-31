@@ -140,8 +140,6 @@ FrameBase::populate_part_vec(const YAML::Node& node)
   if (!node["mesh_parts_bc"])
     return;
 
-  std::cerr << " Registering bc parts for mesh motion" << std::endl;
-
   const auto& fpartsBc = node["mesh_parts_bc"];
   if (fpartsBc.Type() == YAML::NodeType::Scalar)
     partNamesVecBc.push_back(fpartsBc.as<std::string>());

@@ -25,11 +25,24 @@ public:
 
     virtual ~AirfoilSMD() {}
 
+    void setup(double dt);
+
     void predict_states();
 
     void update_timestep(vs::Vector F_np1, vs::Vector M_np1);
 
     void advance_timestep();
+
+    vs::Vector get_origin() { return origin_; }
+
+    //! Prepare netcdf file to write deflections and loads
+    void prepare_nc_file();
+    
+    //! Write deflections and loads to netcdf file
+    void
+    write_nc_def_loads(const double cur_time);
+
+    
 
 private:
 
@@ -60,6 +73,15 @@ private:
     vs::Vector f_np1_;
     vs::Vector f_n_;
     vs::Vector f_nm1_;
+
+    vs::Vector origin_;
+
+    double dt_{-1.0};
+    
+    size_t tstep_ {0};
+
+    //! Map of `{variableName : netCDF_ID}` obtained from the NetCDF C interface
+    std::unordered_map<std::string, int> nc_var_ids_;
 
 };
 
