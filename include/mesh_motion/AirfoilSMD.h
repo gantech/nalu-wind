@@ -53,6 +53,7 @@ private:
     vs::Tensor M_;
     vs::Tensor C_;
     vs::Tensor K_;
+    vs::Tensor T_; // Matrix transform from scaled CFD forces to DOFs
     
     vs::Vector x_np1_;
     vs::Vector x_n_;
