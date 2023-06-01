@@ -140,6 +140,9 @@ AirfoilSMD::predict_states() {
 
   // TODO: Consider second order schemes for prediction
 
+  v_np1_ = v_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
+
+
 }
 
 void
