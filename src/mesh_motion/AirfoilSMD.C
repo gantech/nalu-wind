@@ -32,9 +32,16 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
 
   std::vector<double> damp;
   get_required(node, "damping_matrix", damp);
-  C_.xx() = stiff[0]; C_.xy() = stiff[1]; C_.xz() = stiff[2];
-  C_.yx() = stiff[3]; C_.yy() = stiff[4]; C_.yz() = stiff[5];
-  C_.zx() = stiff[6]; C_.zy() = stiff[7]; C_.zz() = stiff[8];
+  C_.xx() = damp[0]; C_.xy() = damp[1]; C_.xz() = damp[2];
+  C_.yx() = damp[3]; C_.yy() = damp[4]; C_.yz() = damp[5];
+  C_.zx() = damp[6]; C_.zy() = damp[7]; C_.zz() = damp[8];
+
+  std::vector<double> transform(9,0.0);
+  transform[0] = 1.0; transform[4] = 1.0; transform[8] = 1.0;
+  get_if_present(node, "force_transform_matrix", transform);
+  T_.xx() = transform[0]; T_.xy() = transform[1]; T_.xz() = transform[2];
+  T_.yx() = transform[3]; T_.yy() = transform[4]; T_.yz() = transform[5];
+  T_.zx() = transform[6]; T_.zy() = transform[7]; T_.zz() = transform[8];
 
   std::vector<double> x_init;
   get_required(node, "x_init", x_init);
@@ -162,11 +169,21 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   double beta = (1.0 - alpha_)*(1.0 - alpha_)/4.0;
   double gamma = (1.0 - 2.0*alpha_)/2.0;
 
+  // temporary vector of forces before transform
+  vs::Vector temp_fnp1;
+  
   // Formulate update as left * a_np1 = right
   vs::Tensor Left;
   vs::Vector right;
 
   Left = M_ + ((1 + alpha_)*dt*gamma)*C_ + ((1+alpha_)*dt*dt*beta)*K_;
+
+  // Create force vector from appropriate force and moment entries
+  temp_fnp1[0] = F_np1[0];
+  temp_fnp1[1] = F_np1[1];
+  temp_fnp1[2] = M_np1[2];
+
+  f_np1_ = T_ & temp_fnp1;
 
   right = C_ & (-1.0*(v_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_))
           + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*v_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
