@@ -94,6 +94,9 @@ AirfoilSMD::predict_states() {
   // Second order predictor
   x_np1_ = x_n_ + dt*(1.5*v_n_ - 0.5*v_nm1_);
 
+  v_np1_ = v_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
+
+
 }
 
 void
