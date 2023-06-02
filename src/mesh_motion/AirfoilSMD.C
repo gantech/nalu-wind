@@ -51,6 +51,10 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
   get_if_present(node, "xdot_init", xdot_init);
   xdot_n_.x() = xdot_init[0]; xdot_n_.y() = xdot_init[1]; xdot_n_.z() = xdot_init[2]; 
 
+  std::vector<double> a_init(3,0.0); //acceleration
+  get_if_present(node, "a_init", a_init);
+  a_n_.x() = a_init[0]; a_n_.y() = a_init[1]; a_n_.z() = a_init[2]; 
+
   std::vector<double> x_nm1(3,0.0);
   get_if_present(node, "x_nm1", x_nm1);
   x_nm1_.x() = x_nm1[0]; x_nm1_.y() = x_nm1[1]; x_nm1_.z() = x_nm1[2]; 
@@ -58,6 +62,10 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
   std::vector<double> xdot_nm1(3,0.0);
   get_if_present(node, "xdot_nm1", xdot_nm1);
   xdot_nm1_.x() = xdot_nm1[0]; xdot_nm1_.y() = xdot_nm1[1]; xdot_nm1_.z() = xdot_nm1[2];
+
+  std::vector<double> a_nm1(3,0.0); //acceleration
+  get_if_present(node, "a_nm1", a_nm1);
+  a_nm1_.x() = a_nm1[0]; a_nm1_.y() = a_nm1[1]; a_nm1_.z() = a_nm1[2]; 
 
   std::vector<double> f_init(3,0.0);
   get_if_present(node, "f_init", f_init);
@@ -136,12 +144,9 @@ AirfoilSMD::predict_states() {
   double dt = 0.01;
 
   // Second order predictor
-  x_np1_ = x_n_ + dt*(1.5*v_n_ - 0.5*v_nm1_);
+  x_np1_ = x_n_ + dt*(1.5*xdot_n_ - 0.5*xdot_nm1_);
 
-  v_np1_ = v_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
-
-
-  v_np1_ = v_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
+  xdot_np1_ = xdot_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
 
 
 }
@@ -190,16 +195,23 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   f_np1_ = T_ & temp_fnp1;
 
-  right = C_ & (-1.0*(v_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_))
-          + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*v_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
+  right = C_ & (-1.0*(xdot_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_))
+          + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*xdot_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
           + (1 + alpha_) * f_np1_ - alpha_ * f_n_;
    
 
   // Solve the matrix problem to get a_np1
   a_np1_ = Left.inv() & right;
 
-  x_np1_ = x_n_ + dt*v_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
-  v_np1_ = v_n_ + dt*((1 - gamma)*a_n_ + gamma*a_np1_);
+  std::cout << "Left Mat \n" 
+       << Left
+       << "\nLeft Mat inv\n"
+       << Left.inv()
+       << "\nRight Vec\n"
+       << right;
+
+  x_np1_ = x_n_ + dt*xdot_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
+  xdot_np1_ = xdot_n_ + dt*((1 - gamma)*a_n_ + gamma*a_np1_);
 }
 
 void

@@ -71,10 +71,6 @@ private:
     vs::Vector xdot_n_;    
     vs::Vector xdot_nm1_;
     
-    vs::Vector v_np1_;
-    vs::Vector v_n_;
-    vs::Vector v_nm1_;
-
     vs::Vector a_np1_;
     vs::Vector a_n_;
     vs::Vector a_nm1_;
