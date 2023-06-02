@@ -182,8 +182,12 @@ FrameSMD::update_coordinates_velocity(const double time)
       for (size_t i = 0; i < numKernels; ++i) {
         NgpMotion* kernel = ngpKernels(i);
 
+        vs::Vector trans_disp = smd_[i]->get_trans_disp();
+        const double rot_angle = smd_[i]->get_rot_disp();
+        vs::Vector axis = smd_[i]->get_rot_axis();
+        vs::Vector origin = smd_[i]->get_origin();
         // build and get transformation matrix
-        mm::TransMatType currTransMat = kernel->build_transformation(time, mX);
+        mm::TransMatType currTransMat = kernel->build_transformation(time, trans_disp, origin, axis, rot_angle);
 
         // composite addition of motions in current group
         compTransMat = kernel->add_motion(currTransMat, compTransMat);
@@ -202,21 +206,21 @@ FrameSMD::update_coordinates_velocity(const double time)
                                  * exp(-ndtw.get(mi, 0) * ndtw.get(mi, 0)/10.0);
       } // end for loop - d index
 
-      // copy over current coordinates
-      for (int d = 0; d < nDim; ++d)
-        cX[d] = currCoords.get(mi, d);
-
       // compute velocity vector on current node resulting from all
       // motions in current motion frame
       for (size_t i = 0; i < numKernels; ++i) {
         NgpMotion* kernel = ngpKernels(i);
 
+
+        vs::Vector trans_vel = smd_[i]->get_trans_vel();
+        vs::Vector rot_vel = smd_[i]->get_rot_vel();
+        vs::Vector origin = smd_[i]->get_origin();
         // evaluate velocity associated with motion
         mm::ThreeDVecType mm_vel =
-          kernel->compute_velocity(time, compTransMat, mX, cX);
+            kernel->compute_velocity(time, mX, origin, trans_vel, rot_vel);
 
         for (int d = 0; d < nDim; ++d)
-          meshVelocity.get(mi, d) += mm_vel[d];
+          meshVelocity.get(mi, d) += mm_vel[d] * exp(-ndtw.get(mi, 0) * ndtw.get(mi, 0)/10.0);
       } // end for loop - mm
     }); // end NGP for loop
 

@@ -42,7 +42,15 @@ public:
     void
     write_nc_def_loads(const double cur_time);
 
+    vs::Vector get_trans_disp();
+
+    double get_rot_disp();
     
+    vs::Vector get_trans_vel();
+
+    vs::Vector get_rot_vel();
+
+    vs::Vector get_rot_axis();
 
 private:
 
