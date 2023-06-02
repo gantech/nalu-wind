@@ -73,12 +73,56 @@ AirfoilSMD::AirfoilSMD(const YAML::Node& node)
 
   get_if_present(node, "alpha", alpha_);
   if ( (alpha_ > 0.0) || (alpha_ < -0.33333) )
-      throw std::runtime_error("AirfoilSMD:: alpha should be '-0.333 =< alpha =< 0.0'. Instead alpha is  " + std::to_string(alpha_) );
-
-  
+    throw std::runtime_error("AirfoilSMD:: alpha should be '-0.333 =< alpha =< 0.0'. Instead alpha is  " + std::to_string(alpha_) );
   
 }
 
+vs::Vector
+AirfoilSMD::get_trans_disp()
+{
+  vs::Vector disp;
+  disp[0] = x_np1_[0];
+  disp[1] = x_np1_[1];
+  disp[2] = 0.0;
+  return disp;
+}
+
+double
+AirfoilSMD::get_rot_disp()
+{
+  return x_np1_[2];
+}
+
+vs::Vector
+AirfoilSMD::get_trans_vel()
+{
+  vs::Vector vel;
+  vel[0] = xdot_np1_[0];
+  vel[1] = xdot_np1_[1];
+  vel[2] = 0.0;
+  return vel;
+}
+    
+vs::Vector
+AirfoilSMD::get_rot_vel()
+{
+  vs::Vector vel;
+  vel[0] = 0.0;
+  vel[1] = 0.0;
+  vel[2] = xdot_np1_[2];
+  return vel;
+}
+
+vs::Vector
+AirfoilSMD::get_rot_axis()
+{
+  vs::Vector axis;
+  axis[0] = 0.0;
+  axis[1] = 0.0;
+  axis[2] = 1.0;
+  return axis;
+}
+    
 void
 AirfoilSMD::setup(const double dt) {
   dt_ = dt;
@@ -93,6 +137,9 @@ AirfoilSMD::predict_states() {
 
   // Second order predictor
   x_np1_ = x_n_ + dt*(1.5*v_n_ - 0.5*v_nm1_);
+
+  v_np1_ = v_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
+
 
   v_np1_ = v_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
 

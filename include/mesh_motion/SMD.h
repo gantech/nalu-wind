@@ -36,6 +36,16 @@ public:
 
     virtual vs::Vector get_origin() = 0;
 
+    virtual vs::Vector get_trans_disp() = 0;
+
+    virtual double get_rot_disp() = 0;
+
+    virtual vs::Vector get_trans_vel() = 0;
+
+    virtual vs::Vector get_rot_vel() = 0;
+
+    virtual vs::Vector get_rot_axis() = 0;
+
 private:
 
     SMD(const SMD&) = delete;

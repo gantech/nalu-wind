@@ -7,6 +7,7 @@
 
 #include "NGPInstance.h"
 #include "ngp_utils/NgpTypes.h"
+#include "vs/vector.h"
 
 namespace YAML {
 class Node;
@@ -119,6 +120,76 @@ public:
   virtual mm::TransMatType
   build_transformation(const double& time, const mm::ThreeDVecType& xyz) = 0;
 
+
+  /** Function to compute motion-specific transformation matrix
+   *
+   * @param[in] time Current time
+   * @param[in] trans_disp Translation displacements
+   * @param[in] origin Origin of rotation
+   * @param[in] axis Axis of rotation
+   * @param[in] angle Angle of rotation in radians
+   * @return Transformation matrix
+   */
+  KOKKOS_FUNCTION
+  mm::TransMatType
+  build_transformation(
+    const double& time,
+    const vs::Vector trans_disp,
+    const vs::Vector origin,
+    const vs::Vector axis,
+    const double rot_angle)
+  {
+    mm::TransMatType transMat;
+    
+    // Build matrix for translating object to cartesian origin
+    transMat[0 * mm::matSize + 3] = -origin[0];
+    transMat[1 * mm::matSize + 3] = -origin[1];
+    transMat[2 * mm::matSize + 3] = -origin[2];
+  
+    // Build matrix for rotating object
+    // compute magnitude of axis around which to rotate
+    double mag = 0.0;
+    for (int d = 0; d < nalu_ngp::NDimMax; d++)
+      mag += axis[d] * axis[d];
+    mag = stk::math::sqrt(mag);
+  
+    // build quaternion based on angle and axis of rotation
+    const double cosang = stk::math::cos(0.5 * rot_angle);
+    const double sinang = stk::math::sin(0.5 * rot_angle);
+    const double q0 = cosang;
+    const double q1 = sinang * axis[0] / mag;
+    const double q2 = sinang * axis[1] / mag;
+    const double q3 = sinang * axis[2] / mag;
+  
+    // rotation matrix based on quaternion
+    mm::TransMatType tempMat;
+    // 1st row
+    tempMat[0 * mm::matSize + 0] = q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3;
+    tempMat[0 * mm::matSize + 1] = 2.0 * (q1 * q2 - q0 * q3);
+    tempMat[0 * mm::matSize + 2] = 2.0 * (q0 * q2 + q1 * q3);
+    // 2nd row
+    tempMat[1 * mm::matSize + 0] = 2.0 * (q1 * q2 + q0 * q3);
+    tempMat[1 * mm::matSize + 1] = q0 * q0 - q1 * q1 + q2 * q2 - q3 * q3;
+    tempMat[1 * mm::matSize + 2] = 2.0 * (q2 * q3 - q0 * q1);
+    // 3rd row
+    tempMat[2 * mm::matSize + 0] = 2.0 * (q1 * q3 - q0 * q2);
+    tempMat[2 * mm::matSize + 1] = 2.0 * (q0 * q1 + q2 * q3);
+    tempMat[2 * mm::matSize + 2] = q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3;
+  
+    // composite addition of motions in current group
+    transMat = add_motion(tempMat, transMat);
+  
+    // Build matrix for translating object back to its origin
+    tempMat = mm::TransMatType::I();
+    tempMat[0 * mm::matSize + 3] = origin[0];
+    tempMat[1 * mm::matSize + 3] = origin[1];
+    tempMat[2 * mm::matSize + 3] = origin[2];
+  
+    // composite addition of motions
+    return add_motion(tempMat, transMat);
+  }
+    
+
   /** Function to compute motion-specific velocity
    *
    * @param[in]  time      Current time
@@ -135,6 +206,40 @@ public:
     const mm::ThreeDVecType& mxyz,
     const mm::ThreeDVecType& cxyz) = 0;
 
+  /** Function to compute motion-specific velocity
+   *
+   * @param[in]  time      Current time
+   * @param[in]  compTrans Transformation matrix
+   *                       including all motions
+   * @param[in]  mxyz      Model coordinates
+   * @param[in]  cxyz      Transformed coordinates
+   * @return Velocity vector associated with coordinates
+   */
+  KOKKOS_FUNCTION
+  mm::ThreeDVecType
+  compute_velocity(
+    const double& time,
+    const mm::ThreeDVecType& mxyz,
+    const vs::Vector origin,
+    const vs::Vector trans_vel,
+    const vs::Vector rot_vel)
+  {
+    mm::ThreeDVecType vel;
+
+    // compute relative coords and vector omega (dimension 3) for general cross
+    // product
+    mm::ThreeDVecType rel_coord;
+    for (int d = 0; d < nalu_ngp::NDimMax; d++)
+      rel_coord[d] = mxyz[d] - origin[d];
+
+    // v = vtrans + \omega \cross \x
+    vel[0] = trans_vel[0] + rot_vel[1] * rel_coord[2] - rot_vel[2] * rel_coord[1];
+    vel[1] = trans_vel[0] + rot_vel[2] * rel_coord[0] - rot_vel[0] * rel_coord[2];
+    vel[2] = trans_vel[0] + rot_vel[0] * rel_coord[1] - rot_vel[1] * rel_coord[0];
+    return vel;
+  }
+      
+    
   /** Composite addition of motions
    *
    * @param[in] motionL Left matrix in composite transformation of matrices
