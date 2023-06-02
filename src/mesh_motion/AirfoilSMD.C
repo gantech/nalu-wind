@@ -186,7 +186,7 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   vs::Tensor Left;
   vs::Vector right;
 
-  Left = M_ + ((1 + alpha_)*dt*gamma)*C_ + ((1+alpha_)*dt*dt*beta)*K_;
+  Left = M_ + (((1 + alpha_)*dt*gamma)*C_) + (((1+alpha_)*dt*dt*beta)*K_);
 
   // Create force vector from appropriate force and moment entries
   temp_fnp1[0] = F_np1[0];
@@ -195,20 +195,13 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   f_np1_ = T_ & temp_fnp1;
 
-  right = C_ & (-1.0*(xdot_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_))
+  right = (C_ & (-1.0*(xdot_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_)))
           + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*xdot_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
-          + (1 + alpha_) * f_np1_ - alpha_ * f_n_;
+          + ((1 + alpha_) * f_np1_) -( alpha_ * f_n_) ;
    
 
   // Solve the matrix problem to get a_np1
   a_np1_ = Left.inv() & right;
-
-  std::cout << "Left Mat \n" 
-       << Left
-       << "\nLeft Mat inv\n"
-       << Left.inv()
-       << "\nRight Vec\n"
-       << right;
 
   x_np1_ = x_n_ + dt*xdot_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
   xdot_np1_ = xdot_n_ + dt*((1 - gamma)*a_n_ + gamma*a_np1_);
