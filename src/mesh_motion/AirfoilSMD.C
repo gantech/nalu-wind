@@ -156,10 +156,15 @@ AirfoilSMD::advance_timestep() {
 
   x_nm1_ = x_n_;
   x_n_ = x_np1_;
+
   f_nm1_ = f_n_;
   f_n_ = f_np1_;
+
   xdot_nm1_ = xdot_n_;
   xdot_n_ = xdot_np1_;
+
+  a_nm1_ = a_n_;
+  a_n_ = a_np1_;
 
   tstep_ += 1;
 }
@@ -167,9 +172,6 @@ AirfoilSMD::advance_timestep() {
 
 void
 AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
-
-  //TODO: Verify that the matrix inverse is correct for a few cases.
-
 
   // Implement generalized alpha, or RK time integrator scheme here
   // Go from x_nm1, x_n to x_np1
@@ -182,7 +184,7 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   // temporary vector of forces before transform
   vs::Vector temp_fnp1;
 
-  // Formulate update as left * a_np1 = right
+  // Formulate update as left * a_np1_ = right
   vs::Tensor Left;
   vs::Vector right;
 
@@ -193,14 +195,14 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   temp_fnp1[1] = F_np1[1];
   temp_fnp1[2] = M_np1[2];
 
-  f_np1_ = T_ & temp_fnp1;
+  f_np1_ = temp_fnp1;
 
   right = (C_ & (-1.0*(xdot_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_)))
           + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*xdot_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
-          + ((1 + alpha_) * f_np1_) -( alpha_ * f_n_) ;
+          + (T_ & ( ((1 + alpha_) * f_np1_) -( alpha_ * f_n_) ));
    
 
-  // Solve the matrix problem to get a_np1
+  // Solve the matrix problem to get a_np1_
   a_np1_ = Left.inv() & right;
 
   x_np1_ = x_n_ + dt*xdot_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
