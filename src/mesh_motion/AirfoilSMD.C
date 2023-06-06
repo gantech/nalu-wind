@@ -141,12 +141,10 @@ AirfoilSMD::predict_states() {
 
   // Create a simple extrapolator from x_nm1 and x_n to x_np1 here
 
-  double dt = 0.01;
-
   // Second order predictor
-  x_np1_ = x_n_ + dt*(1.5*xdot_n_ - 0.5*xdot_nm1_);
+  x_np1_ = x_n_ + dt_*(1.5*xdot_n_ - 0.5*xdot_nm1_);
 
-  xdot_np1_ = xdot_n_ + dt*(1.5*a_n_ - 0.5*a_nm1_);
+  xdot_np1_ = xdot_n_ + dt_*(1.5*a_n_ - 0.5*a_nm1_);
 
 
 }
@@ -175,7 +173,6 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   // Implement generalized alpha, or RK time integrator scheme here
   // Go from x_nm1, x_n to x_np1
-  double dt = 0.01;
 
   // Generalized Alpha Method parameters
   double beta = (1.0 - alpha_)*(1.0 - alpha_)/4.0;
@@ -188,7 +185,7 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
   vs::Tensor Left;
   vs::Vector right;
 
-  Left = M_ + (((1 + alpha_)*dt*gamma)*C_) + (((1+alpha_)*dt*dt*beta)*K_);
+  Left = M_ + (((1 + alpha_)*dt_*gamma)*C_) + (((1+alpha_)*dt_*dt_*beta)*K_);
 
   // Create force vector from appropriate force and moment entries
   temp_fnp1[0] = F_np1[0];
@@ -197,16 +194,16 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   f_np1_ = temp_fnp1;
 
-  right = (C_ & (-1.0*(xdot_n_ + (1 + alpha_)*dt*(1-gamma)*a_n_)))
-          + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt*xdot_n_ + (1 + alpha_)*0.5*dt*dt*(1 - 2*beta)*a_n_)))
+  right = (C_ & (-1.0*(xdot_n_ + (1 + alpha_)*dt_*(1-gamma)*a_n_)))
+          + (K_ & (-1.0*(x_n_ + (1 + alpha_)*dt_*xdot_n_ + (1 + alpha_)*0.5*dt_*dt_*(1 - 2*beta)*a_n_)))
           + (T_ & ( ((1 + alpha_) * f_np1_) -( alpha_ * f_n_) ));
    
 
   // Solve the matrix problem to get a_np1_
   a_np1_ = Left.inv() & right;
 
-  x_np1_ = x_n_ + dt*xdot_n_ + 0.5*dt*dt*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
-  xdot_np1_ = xdot_n_ + dt*((1 - gamma)*a_n_ + gamma*a_np1_);
+  x_np1_ = x_n_ + dt_*xdot_n_ + 0.5*dt_*dt_*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
+  xdot_np1_ = xdot_n_ + dt_*((1 - gamma)*a_n_ + gamma*a_np1_);
 }
 
 void

@@ -89,7 +89,7 @@ TEST(meshMotion, airfoil_smd_update2)
 
   // initialize the mesh rotation class
   sierra::nalu::AirfoilSMD smd_class(smd_node);
-  smd_class.setup(0.01); // Set timestep here
+  smd_class.setup(0.05); // Set timestep here
   
   // Make appropriate forces and moments to test here
   vs::Vector f_np1;
@@ -107,13 +107,13 @@ TEST(meshMotion, airfoil_smd_update2)
   vs::Vector rot_vel = smd_class.get_rot_vel();
 
   // appropriate expected values of the states at t=n+1
-  const double gold_x0 = 0.10208538238772817;
-  const double gold_x1 = 0.20307565383807263;
-  const double gold_x2 = 0.009577049930923145;
+  const double gold_x0 = 0.11213183589375815;
+  const double gold_x1 = 0.2168937267548646;
+  const double gold_x2 = 0.009408989365664536;
 
-  const double gold_xdot0 = 0.2170445580954166;
-  const double gold_xdot1 = 0.31510099263127095;
-  const double gold_xdot2 = -0.03462495709470137;
+  const double gold_xdot0 = 0.28511408555588;
+  const double gold_xdot1 = 0.375599979332464;
+  const double gold_xdot2 = 0.026186423663709393;
   
   EXPECT_NEAR(trans_disp[0], gold_x0, testTol);
   EXPECT_NEAR(trans_disp[1], gold_x1, testTol);
