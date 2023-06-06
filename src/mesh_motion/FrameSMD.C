@@ -193,6 +193,16 @@ FrameSMD::update_coordinates_velocity(const double time)
         compTransMat = kernel->add_motion(currTransMat, compTransMat);
       }
 
+      double ramp_func = 1.0;
+      double wdist = ndtw.get(mi,0);
+      if (wdist < 30.0) {
+          ramp_func = 1.0;
+      } else if (wdist < 100.0) {
+          ramp_func = 1.0 - 3.0 * stk::math::pow((wdist-30.0)/70.0, 2) + 2 * stk::math::pow((wdist-30.0)/70.0, 3);
+      } else {
+          ramp_func = 0.0;
+      }
+
       // perform matrix multiplication between transformation matrix
       // and old coordinates to obtain current coordinates
       for (int d = 0; d < nDim; ++d) {
@@ -202,8 +212,10 @@ FrameSMD::update_coordinates_velocity(const double time)
                                 compTransMat[d * mm::matSize + 3];
 
         displacement.get(mi, d) =
-            (currCoords.get(mi, d) - modelCoords.get(mi, d))
-                                 * exp(-ndtw.get(mi, 0) * ndtw.get(mi, 0)/10.0);
+            (currCoords.get(mi, d) - modelCoords.get(mi, d)) * ramp_func;
+            //* stk::math::tanh( -0.5 * (1.0 - ndtw.get(mi,0)-20.0)/40.0 );
+              //* exp(- (ndtw.get(mi, 0)-10.0) * (ndtw.get(mi, 0)-10.0)/100.0);
+            
       } // end for loop - d index
 
       // compute velocity vector on current node resulting from all
@@ -220,7 +232,9 @@ FrameSMD::update_coordinates_velocity(const double time)
             kernel->compute_velocity(time, mX, origin, trans_vel, rot_vel);
 
         for (int d = 0; d < nDim; ++d)
-          meshVelocity.get(mi, d) += mm_vel[d] * exp(-ndtw.get(mi, 0) * ndtw.get(mi, 0)/10.0);
+            meshVelocity.get(mi, d) += mm_vel[d] * ramp_func;
+        //* stk::math::tanh( -0.5 * (1.0 - ndtw.get(mi,0)-20.0)/40.0 );
+        //* exp(- (ndtw.get(mi, 0)-10.0) * (ndtw.get(mi, 0)-10.0)/100.0);
       } // end for loop - mm
     }); // end NGP for loop
 

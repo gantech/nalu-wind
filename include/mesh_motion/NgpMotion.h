@@ -181,9 +181,9 @@ public:
   
     // Build matrix for translating object back to its origin
     tempMat = mm::TransMatType::I();
-    tempMat[0 * mm::matSize + 3] = origin[0];
-    tempMat[1 * mm::matSize + 3] = origin[1];
-    tempMat[2 * mm::matSize + 3] = origin[2];
+    tempMat[0 * mm::matSize + 3] = origin[0] + trans_disp[0];
+    tempMat[1 * mm::matSize + 3] = origin[1] + trans_disp[1];
+    tempMat[2 * mm::matSize + 3] = origin[2] + trans_disp[2];
   
     // composite addition of motions
     return add_motion(tempMat, transMat);

@@ -140,7 +140,10 @@ void
 AirfoilSMD::predict_states() {
 
   // Create a simple extrapolator from x_nm1 and x_n to x_np1 here
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
   // Second order predictor
   x_np1_ = x_n_ + dt_*(1.5*xdot_n_ - 0.5*xdot_nm1_);
 
