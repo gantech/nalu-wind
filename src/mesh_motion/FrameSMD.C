@@ -65,6 +65,14 @@ FrameSMD::load(const YAML::Node& node)
       const auto& motion_def = motions[i];
 
       get_if_present(motion_def, "loads_scale", loads_scale_);
+
+      get_if_present(motion_def, "mesh_transition_start", ramp_lower_);
+      get_if_present(motion_def, "mesh_transition_end", ramp_upper_);
+
+      if (ramp_lower_ >= ramp_upper_) {
+          throw std::runtime_error("FrameSMD: Mesh transition should start at a lower value that it ends. "
+                                   "Requires mesh_transition_start < mesh_transition_end.");
+      }
       
       // motion type should always be defined by the user
       std::string type;
@@ -195,10 +203,11 @@ FrameSMD::update_coordinates_velocity(const double time)
 
       double ramp_func = 1.0;
       double wdist = ndtw.get(mi,0);
-      if (wdist < 30.0) {
+      if (wdist < ramp_lower_) {
           ramp_func = 1.0;
-      } else if (wdist < 100.0) {
-          ramp_func = 1.0 - 3.0 * stk::math::pow((wdist-30.0)/70.0, 2) + 2 * stk::math::pow((wdist-30.0)/70.0, 3);
+      } else if (wdist < ramp_upper_) {
+          ramp_func = 1.0 - 3.0 * stk::math::pow((wdist-ramp_lower_)/(ramp_upper_-ramp_lower_), 2) 
+                          + 2.0 * stk::math::pow((wdist-ramp_lower_)/(ramp_upper_-ramp_lower_), 3);
       } else {
           ramp_func = 0.0;
       }
@@ -213,8 +222,6 @@ FrameSMD::update_coordinates_velocity(const double time)
 
         displacement.get(mi, d) =
             (currCoords.get(mi, d) - modelCoords.get(mi, d)) * ramp_func;
-            //* stk::math::tanh( -0.5 * (1.0 - ndtw.get(mi,0)-20.0)/40.0 );
-              //* exp(- (ndtw.get(mi, 0)-10.0) * (ndtw.get(mi, 0)-10.0)/100.0);
             
       } // end for loop - d index
 

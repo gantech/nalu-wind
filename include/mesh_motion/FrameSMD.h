@@ -64,6 +64,12 @@ private:
 
   // Scale loads by this factor when transfering to SMD
   double loads_scale_{1.0};
+
+  // Have a transition function to go from rigid body motion to no motion of the mesh
+  // Transition starts at ramp_lower_ and ends at ramp_upper_
+  // Default values set based on initial SMD Airfoil simulations with chord=1.0
+  double ramp_lower_{30.0};
+  double ramp_upper_{100.0};
     
 };
 
