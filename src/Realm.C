@@ -4525,7 +4525,7 @@ Realm::process_multi_physics_transfer(bool initCall)
 
     if (meshMotionAlg_) {
       if (meshMotionAlg_->is_smd())
-        meshMotionAlg_->update_timestep_smd();
+        meshMotionAlg_->update_timestep_smd(get_current_time());
     }
   }
 

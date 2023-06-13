@@ -66,14 +66,22 @@ FrameSMD::load(const YAML::Node& node)
 
       get_if_present(motion_def, "loads_scale", loads_scale_);
 
-      get_if_present(motion_def, "mesh_transition_start", ramp_lower_);
-      get_if_present(motion_def, "mesh_transition_end", ramp_upper_);
+      get_if_present(motion_def, "mesh_transition_start", mesh_ramp_lower_);
+      get_if_present(motion_def, "mesh_transition_end", mesh_ramp_upper_);
 
-      if (ramp_lower_ >= ramp_upper_) {
+      if (mesh_ramp_lower_ >= mesh_ramp_upper_) {
           throw std::runtime_error("FrameSMD: Mesh transition should start at a lower value that it ends. "
                                    "Requires mesh_transition_start < mesh_transition_end.");
       }
       
+      get_if_present(motion_def, "load_transition_start", load_ramp_lower_);
+      get_if_present(motion_def, "load_transition_end", load_ramp_upper_);
+
+      if (load_ramp_lower_ >= load_ramp_upper_) {
+          throw std::runtime_error("FrameSMD: Load fade in required to start at earlier time than it ends. "
+                                   "Requires load_transition_start < load_transition_end.");
+      }
+
       // motion type should always be defined by the user
       std::string type;
       get_required(motion_def, "type", type);
@@ -201,16 +209,8 @@ FrameSMD::update_coordinates_velocity(const double time)
         compTransMat = kernel->add_motion(currTransMat, compTransMat);
       }
 
-      double ramp_func = 1.0;
       double wdist = ndtw.get(mi,0);
-      if (wdist < ramp_lower_) {
-          ramp_func = 1.0;
-      } else if (wdist < ramp_upper_) {
-          ramp_func = 1.0 - 3.0 * stk::math::pow((wdist-ramp_lower_)/(ramp_upper_-ramp_lower_), 2) 
-                          + 2.0 * stk::math::pow((wdist-ramp_lower_)/(ramp_upper_-ramp_lower_), 3);
-      } else {
-          ramp_func = 0.0;
-      }
+      double mesh_ramp_func = ramp_function(wdist, mesh_ramp_lower_, mesh_ramp_upper_);
 
       // perform matrix multiplication between transformation matrix
       // and old coordinates to obtain current coordinates
@@ -221,7 +221,7 @@ FrameSMD::update_coordinates_velocity(const double time)
                                 compTransMat[d * mm::matSize + 3];
 
         displacement.get(mi, d) =
-            (currCoords.get(mi, d) - modelCoords.get(mi, d)) * ramp_func;
+            (currCoords.get(mi, d) - modelCoords.get(mi, d)) * mesh_ramp_func;
             
       } // end for loop - d index
 
@@ -239,7 +239,7 @@ FrameSMD::update_coordinates_velocity(const double time)
             kernel->compute_velocity(time, mX, origin, trans_vel, rot_vel);
 
         for (int d = 0; d < nDim; ++d)
-            meshVelocity.get(mi, d) += mm_vel[d] * ramp_func;
+            meshVelocity.get(mi, d) += mm_vel[d] * mesh_ramp_func;
         //* stk::math::tanh( -0.5 * (1.0 - ndtw.get(mi,0)-20.0)/40.0 );
         //* exp(- (ndtw.get(mi, 0)-10.0) * (ndtw.get(mi, 0)-10.0)/100.0);
       } // end for loop - mm
@@ -288,7 +288,7 @@ FrameSMD::predict_states()
 }
 
 void
-FrameSMD::update_timestep()
+FrameSMD::update_timestep(double cur_time)
 {
   calc_loads_->execute();
   for (auto& i_smd : smd_) {
@@ -296,7 +296,11 @@ FrameSMD::update_timestep()
     vs::Vector fnp1;
     vs::Vector mnp1;
     calc_loads_->calc_force_moment(i_smd->get_origin(), fnp1, mnp1);
-    i_smd->update_timestep(loads_scale_ * fnp1, loads_scale_ * mnp1);
+
+    double load_ramp_func = ramp_function(cur_time, load_ramp_lower_, load_ramp_upper_);
+
+    i_smd->update_timestep(loads_scale_ * (1 - load_ramp_func) * fnp1, 
+                           loads_scale_ * (1 - load_ramp_func) * mnp1);
   }
 }
 
@@ -311,6 +315,23 @@ FrameSMD::advance_timestep(const double cur_time)
   }
   
 }    
+
+double 
+FrameSMD::ramp_function(double position, const double start, const double end)
+{
+  double ramp_func = 1.0;
+
+  if (position < start) {
+      ramp_func = 1.0;
+  } else if (position < end) {
+      ramp_func = 1.0 - 3.0 * stk::math::pow((position-start)/(end-start), 2) 
+                      + 2.0 * stk::math::pow((position-start)/(end-start), 3);
+  } else {
+      ramp_func = 0.0;
+  }
+
+  return ramp_func;
+}
 
 } // namespace nalu
 } // namespace sierra

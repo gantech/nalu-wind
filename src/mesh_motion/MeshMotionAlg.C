@@ -149,10 +149,10 @@ MeshMotionAlg::predict_states_smd()
 }
 
 void
-MeshMotionAlg::update_timestep_smd()
+MeshMotionAlg::update_timestep_smd(double cur_time)
 {
   for (auto i_smd: smdFrameVec_)
-    i_smd->update_timestep();
+    i_smd->update_timestep(cur_time);
 }
 
 void

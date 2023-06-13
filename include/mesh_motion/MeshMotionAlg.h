@@ -26,7 +26,7 @@ public:
 
   void predict_states_smd();
 
-  void update_timestep_smd();
+  void update_timestep_smd(double cur_time);
 
   void advance_timestep_smd(double cur_time);
 

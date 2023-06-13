@@ -43,7 +43,7 @@ public:
 
   void predict_states();
 
-  void update_timestep();
+  void update_timestep(double cur_time);
 
   void advance_timestep(const double cur_time);
 
@@ -52,6 +52,8 @@ private:
   FrameSMD(const FrameSMD&) = delete;
 
   void load(const YAML::Node&);
+
+  double ramp_function(double position, const double start, const double end);
 
   /** Spring-Mass-Damper vector
    *
@@ -68,8 +70,12 @@ private:
   // Have a transition function to go from rigid body motion to no motion of the mesh
   // Transition starts at ramp_lower_ and ends at ramp_upper_
   // Default values set based on initial SMD Airfoil simulations with chord=1.0
-  double ramp_lower_{30.0};
-  double ramp_upper_{100.0};
+  double mesh_ramp_lower_{30.0};
+  double mesh_ramp_upper_{100.0};
+
+  // Default is that there is no ramp in for the load.
+  double load_ramp_lower_{-1.0};
+  double load_ramp_upper_{0.0};
     
 };
 
