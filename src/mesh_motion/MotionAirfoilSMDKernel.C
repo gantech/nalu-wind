@@ -10,6 +10,7 @@ MotionAirfoilSMDKernel::MotionAirfoilSMDKernel(const YAML::Node& node)
   : NgpMotionKernel<MotionAirfoilSMDKernel>()
 {
   load(node);
+  isDeforming_ = true;
 }
 
 void MotionAirfoilSMDKernel::load(const YAML::Node& node)
