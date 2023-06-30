@@ -2,6 +2,7 @@
 
 #include "FieldTypeDef.h"
 #include "mesh_motion/MotionAirfoilSMDKernel.h"
+#include <NaluEnv.h>
 #include "NaluParsing.h"
 #include "ngp_utils/NgpLoopUtils.h"
 #include "ngp_utils/NgpReducers.h"
@@ -9,6 +10,8 @@
 #include "utils/ComputeVectorDivergence.h"
 #include "mesh_motion/SMD.h"
 #include "mesh_motion/AirfoilSMD.h"
+#include <ngp_utils/NgpFieldManager.h>
+#include "ngp_utils/NgpMeshInfo.h"
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/FieldBLAS.hpp>
@@ -159,7 +162,7 @@ FrameSMD::update_coordinates_velocity(const double time)
       *meta_.get_field<VectorFieldType>(entityRank, "mesh_velocity"));
   stk::mesh::NgpField<double> ndtw =
       stk::mesh::get_updated_ngp_field<double>(
-          *meta_.get_field<VectorFieldType>(entityRank, "minimum_distance_to_wall"));
+          *meta_.get_field<ScalarFieldType>(entityRank, "minimum_distance_to_wall"));
 
   // sync fields to device
   modelCoords.sync_to_device();
@@ -200,6 +203,7 @@ FrameSMD::update_coordinates_velocity(const double time)
 
         vs::Vector trans_disp = smd_[i]->get_trans_disp();
         const double rot_angle = smd_[i]->get_rot_disp();
+
         vs::Vector axis = smd_[i]->get_rot_axis();
         vs::Vector origin = smd_[i]->get_origin();
         // build and get transformation matrix
@@ -210,19 +214,24 @@ FrameSMD::update_coordinates_velocity(const double time)
       }
 
       double wdist = ndtw.get(mi,0);
+      double odist = stk::math::sqrt(modelCoords.get(mi,0) * modelCoords.get(mi,0) +
+                                     modelCoords.get(mi,1) * modelCoords.get(mi,1) +
+                                     modelCoords.get(mi,2) * modelCoords.get(mi,2));
       double mesh_ramp_func = ramp_function(wdist, mesh_ramp_lower_, mesh_ramp_upper_);
-
+      
       // perform matrix multiplication between transformation matrix
       // and old coordinates to obtain current coordinates
       for (int d = 0; d < nDim; ++d) {
-        currCoords.get(mi, d) = compTransMat[d * mm::matSize + 0] * mX[0] +
-                                compTransMat[d * mm::matSize + 1] * mX[1] +
-                                compTransMat[d * mm::matSize + 2] * mX[2] +
-                                compTransMat[d * mm::matSize + 3];
+        double cur_coord = compTransMat[d * mm::matSize + 0] * mX[0] +
+                           compTransMat[d * mm::matSize + 1] * mX[1] +
+                           compTransMat[d * mm::matSize + 2] * mX[2] +
+                           compTransMat[d * mm::matSize + 3];
 
         displacement.get(mi, d) =
-            (currCoords.get(mi, d) - modelCoords.get(mi, d)) * mesh_ramp_func;
-            
+            (cur_coord - modelCoords.get(mi, d)) * mesh_ramp_func;
+        
+        currCoords.get(mi, d) = modelCoords.get(mi, d) + displacement.get(mi, d);
+
       } // end for loop - d index
 
       // compute velocity vector on current node resulting from all
@@ -274,6 +283,43 @@ FrameSMD::post_compute_geometry()
         *bulk_, partVec_, partVecBc_, faceVelMag, meshDivVelocity);
     }
 
+    const auto& ngpMesh = stk::mesh::get_updated_ngp_mesh(*bulk_);
+    const stk::mesh::EntityRank entityRank = stk::topology::NODE_RANK;
+
+    stk::mesh::NgpField<double> divmeshvel =  
+        stk::mesh::get_updated_ngp_field<double>(
+            *meta_.get_field<ScalarFieldType>(entityRank, "div_mesh_velocity"));
+    ScalarFieldType* dnv = meta_.get_field<ScalarFieldType>(entityRank, "dual_nodal_volume");
+    stk::mesh::NgpField<double> dnvNp1 =  
+        stk::mesh::get_updated_ngp_field<double>(dnv->field_of_state(stk::mesh::StateNP1));
+    stk::mesh::NgpField<double> dnvN =  
+        stk::mesh::get_updated_ngp_field<double>(dnv->field_of_state(stk::mesh::StateN));
+    stk::mesh::NgpField<double> dnvNm1 =  
+        stk::mesh::get_updated_ngp_field<double>(dnv->field_of_state(stk::mesh::StateNM1));
+    dnvNp1.sync_to_device();
+    dnvN.sync_to_device();
+    dnvNm1.sync_to_device();    
+    divmeshvel.sync_to_device();
+    double gamma1 = 3.0/2.0;
+    double gamma2 = -2.0;
+    double gamma3 = 1.0/2.0;
+    double dt = 0.001;
+    
+    // get the parts in the current motion frame
+    stk::mesh::Selector sel = meta_.locally_owned_part() | meta_.globally_shared_part();
+    // NGP for loop to update coordinates and velocity
+    nalu_ngp::run_entity_algorithm(
+        "FrameSMD_compute_div_mesh_vel", ngpMesh, entityRank, sel,
+        KOKKOS_LAMBDA(
+            const nalu_ngp::NGPMeshTraits<stk::mesh::NgpMesh>::MeshIndex& mi) {
+
+            double volume_contrib = (gamma1 * dnvNp1.get(mi,0) +
+                                     gamma2 * dnvN.get(mi,0) +
+                                     gamma3 * dnvNm1.get(mi,0) ) / dt;
+            divmeshvel.get(mi,0) -= volume_contrib;
+    }); // end NGP for loop
+    //divmeshvel.modify_on_device();
+        
     // Mesh velocity divergence is not motion-specific and
     // is computed for the aggregated mesh velocity
     break;

@@ -138,6 +138,11 @@ MeshMotionAlg::get_partvec()
     for (auto p : fPartVec)
       fpartVec.push_back(p);
   }
+  for (size_t i = 0; i < smdFrameVec_.size(); i++) {
+      stk::mesh::PartVector fPartVec = smdFrameVec_[i]->get_partvec();
+      for (auto p : fPartVec)
+          fpartVec.push_back(p);
+  }
   return fpartVec;
 }
 

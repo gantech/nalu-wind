@@ -1,5 +1,6 @@
 #include "mesh_motion/AirfoilSMD.h"
 #include "NaluParsing.h"
+#include <NaluEnv.h>
 
 #include "netcdf.h"
 
@@ -204,6 +205,19 @@ AirfoilSMD::update_timestep(vs::Vector F_np1, vs::Vector M_np1) {
 
   x_np1_ = x_n_ + dt_*xdot_n_ + 0.5*dt_*dt_*((1 - 2*beta)*a_n_ + 2*beta*a_np1_);
   xdot_np1_ = xdot_n_ + dt_*((1 - gamma)*a_n_ + gamma*a_np1_);
+
+  NaluEnv::self().naluOutputP0() << "AirfoilSMD: Update timestep: tstep_ = " << tstep_ << std::endl;
+  
+  x_np1_[0] = 2.0 * stk::math::sin(2.0 * M_PI * 2.0 * (tstep_ + 1) * dt_);
+  x_np1_[1] = 2.0 * stk::math::sin(2.0 * M_PI * 2.0 * (tstep_ + 1) * dt_);
+  x_np1_[2] = 0.8 * stk::math::sin(2.0 * M_PI * 4.0 * (tstep_ + 1) * dt_);
+
+  xdot_np1_[0] = 2.0 * M_PI * 2.0 * 2.0 * stk::math::sin(2.0 * M_PI * 1.0 * (tstep_ + 1) * dt_);
+  xdot_np1_[1] = 2.0 * M_PI * 2.0 * 2.0 * stk::math::sin(2.0 * M_PI * 1.0 * (tstep_ + 1) * dt_);
+  xdot_np1_[2] = 2.0 * M_PI * 4.0 * 0.2 * stk::math::sin(2.0 * M_PI * 1.0 * (tstep_ + 1) * dt_);
+
+  NaluEnv::self().naluOutputP0() << "AirfoilSMD: Computing sin omega t displacements at tstep_ =  " << tstep_ << std::endl;
+  
 }
 
 void
@@ -333,7 +347,6 @@ AirfoilSMD::write_nc_def_loads(const double cur_time)
   check_nc_error(ierr, "nc_open");
   ierr = nc_enddef(ncid);
 
-  std::cerr << "tstep = " << tstep_ << std::endl;
   {
     size_t count0 = 1;
     ierr = nc_put_vara_double(ncid, nc_var_ids_["time"], &tstep_, &count0, &cur_time);
