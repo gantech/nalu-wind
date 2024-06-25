@@ -19,6 +19,7 @@
 
 namespace sierra::nalu {
 class OpenfastFSI;
+class ModeShapeAnalysis;
 
 /**
  * A container class for holding all the aerodynamic models (actuators,
@@ -51,8 +52,9 @@ public:
   // class
   void clean_up();
 
-  bool is_active() { return has_actuators() || has_fsi(); }
+  bool is_active() { return (has_actuators() || has_fsi() ) || has_mode_shape(); }
   bool has_fsi() { return fsiContainer_ != nullptr; }
+  bool has_mode_shape() { return modalContainer_ != nullptr; }
 
   const stk::mesh::PartVector fsi_parts();
   const stk::mesh::PartVector fsi_bndry_parts();
@@ -65,6 +67,7 @@ private:
   ActuatorModel actuatorModel_;
   // TODO make this a unique_ptr
   OpenfastFSI* fsiContainer_;
+  ModeShapeAnalysis* modalContainer_;
   std::shared_ptr<stk::mesh::BulkData> bulk_;
 };
 

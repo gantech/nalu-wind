@@ -39,7 +39,7 @@ inline void
 check_nc_error(int code, std::string msg)
 {
   if (code != 0)
-    throw std::runtime_error("BdyLayerStatistics:: NetCDF error: " + msg);
+    throw std::runtime_error("FSIturbine:: NetCDF error: " + msg);
 }
 
 fsiTurbine::fsiTurbine(int iTurb, const YAML::Node& node)

@@ -1,8 +1,7 @@
-#ifndef OPENFASTFSI_H
-#define OPENFASTFSI_H
+#ifndef MODALSHAPEANALYSIS_H
+#define MODALSHAPEANALYSIS_H
 
 #include "aero/fsi/FSIturbine.h"
-#include "OpenFAST.H"
 #include "yaml-cpp/yaml.h"
 
 #include <array>
@@ -12,11 +11,12 @@ namespace sierra {
 
 namespace nalu {
 
-class OpenfastFSI
+
+class ModeShapeAnalysis
 {
 public:
-  OpenfastFSI(const YAML::Node&);
-  virtual ~OpenfastFSI() = default;
+  ModeShapeAnalysis(const YAML::Node&);
+  virtual ~ModeShapeAnalysis() = default;
 
   void setup(double dtNalu, std::shared_ptr<stk::mesh::BulkData> bulk);
 
@@ -32,9 +32,9 @@ public:
 
   void compute_div_mesh_velocity();
 
-  fsiTurbine* get_fsiTurbineData(int iTurb)
+  fsiTurbine* get_fsiTurbineData()
   {
-    return fsiTurbineData_[iTurb].get();
+    return fsiTurbineData_.get();
   }
 
   bool get_meshmotion() { return mesh_motion_; }
@@ -45,12 +45,12 @@ public:
     std::array<double, 3> axis, double omega, double curTime);
   void end_openfast();
 
-  double total_openfastfsi_execution_time() { return openFastTimer_.second; }
+  double total_openfastfsi_execution_time() { return 0.0; }
   double total_nalu_fsi_execution_time() { return naluTimer_.second; }
 
 private:
-  OpenfastFSI() = delete;
-  OpenfastFSI(const OpenfastFSI&) = delete;
+  ModeShapeAnalysis() = delete;
+  ModeShapeAnalysis(const ModeShapeAnalysis&) = delete;
 
   void load(const YAML::Node&);
 
@@ -66,39 +66,31 @@ private:
 
   std::vector<std::string> partNames_;
 
-  // Data for coupling to Openfast
+  std::unique_ptr<fsiTurbine> fsiTurbineData_;
 
-  fast::OpenFAST FAST;
+  std::string ncFileName_ ;
+  std::array<double, 3> turbineBasePos_;
+  std::vector<std::array<double, 6>> modeShape_;
 
-  fast::fastInputs fi;
-
-  std::vector<std::unique_ptr<fsiTurbine>> fsiTurbineData_;
+  double modeFreq_;
 
   bool mesh_motion_;
-
-  bool enable_calc_loads_{false};
 
   int tStep_{0}; // Time step count
 
   double dt_{-1.0}; // Store nalu-wind step
 
-  std::pair<double, double> openFastTimer_{
-    0.0, 0.0}; // store time taken in openfast calls
   std::pair<double, double> naluTimer_{
     0.0, 0.0}; // store time taken in openfast calls
 
   int writeFreq_{
     30}; // Frequency to write line loads and deflections to netcdf file
 
-  void read_turbine_data(int iTurb, fast::fastInputs& fi, YAML::Node turbNode);
 
-  void bcast_turbine_params(int iTurb);
-
-  void read_inputs(fast::fastInputs& fi, YAML::Node& ofNode);
 };
 
 } // namespace nalu
 
 } // namespace sierra
 
-#endif /* OPENFASTFSI_H */
+#endif /* MODALSHAPEANALYSIS_H */

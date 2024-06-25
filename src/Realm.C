@@ -613,7 +613,7 @@ Realm::look_ahead_and_creation(const YAML::Node& node)
 
   // Contains actuators and FSI data structures
   aeroModels_ = std::make_unique<AeroContainer>(node);
-  if (aeroModels_->has_fsi())
+  if ( (aeroModels_->has_fsi()) || (aeroModels_->has_mode_shape()) )
     solutionOptions_->openfastFSI_ = true;
 
   // Boundary Layer Statistics post-processing
@@ -1009,7 +1009,7 @@ Realm::setup_interior_algorithms()
       all_part_vec.insert(
         all_part_vec.begin(), mmPartVec.begin(), mmPartVec.end());
     }
-    if (aeroModels_->has_fsi()) {
+    if ( (aeroModels_->has_fsi()) || (aeroModels_->has_mode_shape()) ) {
       NaluEnv::self().naluOutputP0()
         << "Inserting part vector for MeshVelocity algorithm" << std::endl;
       auto fsi_part_vec = aeroModels_->fsi_parts();
@@ -1851,6 +1851,7 @@ Realm::update_geometry_due_to_mesh_motion()
   // check for mesh motion
   if (does_mesh_move()) {
     if (aeroModels_->is_active()) {
+      NaluEnv::self().naluOutputP0() << "Aero models: Updating displacements" << std::endl;
       aeroModels_->update_displacements(get_current_time());
     }
 
@@ -1871,7 +1872,7 @@ Realm::update_geometry_due_to_mesh_motion()
     if (meshMotionAlg_)
       meshMotionAlg_->post_compute_geometry();
 
-    if (aeroModels_->has_fsi())
+    if ( (aeroModels_->has_fsi()) || (aeroModels_->has_mode_shape()) )
       aeroModels_->compute_div_mesh_velocity();
 
     // and non-conformal algorithm
@@ -3472,7 +3473,7 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
       if (has_mesh_motion())
         meshMotionAlg_->restart_reinit(foundRestartTime);
 
-      if (aeroModels_->has_fsi()) {
+      if ( (aeroModels_->has_fsi()) || (aeroModels_->has_mode_shape()) ) {
         NaluEnv::self().naluOutputP0()
           << "Aero models - Update displacements and set current coordinates"
           << std::endl;
@@ -4042,7 +4043,7 @@ Realm::dump_simulation_time()
       << std::endl;
   }
 
-  if (aeroModels_->has_fsi()) {
+  if ( (aeroModels_->has_fsi()) || (aeroModels_->has_mode_shape()) ) {
     double naluFsiTimer = aeroModels_->nalu_fsi_accumulated_time();
     double openFastFsiTimer = aeroModels_->openfast_accumulated_time();
     // nalu fsi calculations
