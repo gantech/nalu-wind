@@ -12,6 +12,7 @@
 #ifdef NALU_USES_OPENFAST_FSI
 #include "aero/fsi/OpenfastFSI.h"
 #endif
+#include "aero/fsi/ModeShapeAnalysis.h"
 #include <FieldTypeDef.h>
 #include <stk_io/IossBridge.hpp>
 
@@ -35,7 +36,9 @@ AeroContainer::~AeroContainer()
 #endif
 }
 
-AeroContainer::AeroContainer(const YAML::Node& node) : fsiContainer_(nullptr)
+AeroContainer::AeroContainer(const YAML::Node& node) :
+    fsiContainer_(nullptr),
+    modalContainer_(nullptr)
 {
   // look for Actuator
   std::vector<const YAML::Node*> foundActuator;
@@ -59,13 +62,18 @@ AeroContainer::AeroContainer(const YAML::Node& node) : fsiContainer_(nullptr)
       "FSI can not be used without a specialized branch of openfast yet");
 #endif
   }
+
+  if (node["mode_shape_analysis"])
+      modalContainer_ = new ModeShapeAnalysis(node["mode_shape_analysis"]);
+//      modalContainer_ = std::make_unique<ModeShapeAnalysis>(node["mode_shape_analysis"]);
+
 }
 
 void
 AeroContainer::register_nodal_fields(
   stk::mesh::MetaData& meta, const stk::mesh::PartVector& part_vec)
 {
-  if (has_actuators()) {
+   if (has_actuators()) {
     stk::mesh::Selector selector = stk::mesh::selectUnion(part_vec);
     const int nDim = meta.spatial_dimension();
     VectorFieldType* actuatorSource = &(
@@ -93,6 +101,8 @@ AeroContainer::setup(double timeStep, std::shared_ptr<stk::mesh::BulkData> bulk)
     fsiContainer_->setup(timeStep, bulk_);
   }
 #endif
+  if (has_mode_shape())
+    modalContainer_->setup(timeStep, bulk_);
 }
 
 void
@@ -109,6 +119,9 @@ AeroContainer::init(double currentTime, double restartFrequency)
   (void)currentTime;
   (void)restartFrequency;
 #endif
+  if (has_mode_shape())
+    modalContainer_->initialize(restartFrequency, currentTime);
+
 }
 
 void
@@ -118,14 +131,13 @@ AeroContainer::execute(double& actTimer)
     actuatorModel_.execute(actTimer);
   }
 }
+
 void
 AeroContainer::update_displacements(
   const double currentTime, bool updateCC, bool predict)
 {
 #ifdef NALU_USES_OPENFAST_FSI
   if (has_fsi()) {
-    NaluEnv::self().naluOutputP0()
-      << "Calling update displacements inside AeroContainer" << std::endl;
     if (predict)
       fsiContainer_->predict_struct_states();
     fsiContainer_->map_displacements(currentTime, updateCC);
@@ -133,6 +145,10 @@ AeroContainer::update_displacements(
 #else
   (void)currentTime;
 #endif
+  if (has_mode_shape()) {
+    modalContainer_->predict_struct_states();
+    modalContainer_->map_displacements(currentTime, updateCC);
+  }
 }
 
 void
@@ -184,6 +200,11 @@ AeroContainer::fsi_parts()
     }
   }
 #endif
+  if (has_mode_shape()) {
+    auto part_vec = modalContainer_->get_fsiTurbineData()->getPartVec();
+    for (auto* part : part_vec)
+      all_part_vec.push_back(part);
+  }
   return all_part_vec;
 }
 
@@ -202,6 +223,12 @@ AeroContainer::fsi_bndry_parts()
     }
   }
 #endif
+  if (has_mode_shape()) {
+    auto part_vec =
+      modalContainer_->get_fsiTurbineData()->getBndryPartVec();
+    for (auto* part : part_vec)
+      all_bndry_part_vec.push_back(part);
+  }
   return all_bndry_part_vec;
 }
 
@@ -220,6 +247,14 @@ AeroContainer::fsi_bndry_part_names()
     }
   }
 #endif
+
+  if (has_mode_shape()) {
+    auto bp_names =
+      modalContainer_->get_fsiTurbineData()->getBndryPartNames();
+    for (auto bp : bp_names)
+      bndry_part_names.push_back(bp);
+  }
+
   return bndry_part_names;
 }
 
@@ -244,6 +279,8 @@ AeroContainer::nalu_fsi_accumulated_time()
   else
     return -1.0;
 #endif
+  if (has_mode_shape())
+    return modalContainer_->total_nalu_fsi_execution_time();
   return -1.0;
 }
 

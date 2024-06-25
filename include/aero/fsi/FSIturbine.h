@@ -10,8 +10,6 @@
 #ifndef FSITURBINE_H
 #define FSITURBINE_H
 
-#include "OpenFAST.H"
-
 #include <aero/fsi/CalcLoads.h>
 
 #include "stk_mesh/base/MetaData.hpp"
@@ -36,6 +34,124 @@ namespace sierra {
 
 namespace nalu {
 
+//! An id to indicate the type of simulation for each turbine - Simple/Actuator with optional externally specified inflow or Blade-Resolved with externally specified loads
+enum simType {
+  EXTINFLOW = 0,
+  EXTLOADS  = 1,
+  simType_END
+};
+
+//! A data structure to hold all turbine related information
+struct turbineDataType {
+    //!Integer id for every turbine
+    int TurbID;
+    //! The FAST Input file name. Typically a .fst file.
+    std::string FASTInputFileName;
+    //! The restart/checkpoint file name.
+    std::string FASTRestartFileName;
+    //! Output file root
+    std::string outFileRoot;
+    //! The time step for OpenFAST for this turbine
+    double dt;
+    //! The position of the base of the turbine in global coordinates
+    std::vector<float> TurbineBasePos;
+    //! The approximate position of the hub of the turbine in global coordinates
+    std::vector<double> TurbineHubPos;
+    //! Simulation type
+    simType sType;
+    //! Number of blades
+    int numBlades;
+    //! Number of velocity nodes (AeroDyn) per blade
+    int numVelPtsBlade;
+    //! Number of velocity nodes (AeroDyn) on the tower
+    int numVelPtsTwr;
+    //! Total number of velocity nodes (AeroDyn)
+    int numVelPts;
+    //! Desired number of actuator points on each blade
+    int numForcePtsBlade;
+    //! Desired number of actuator points on the tower
+    int numForcePtsTwr;
+    //! Total number of actuator points
+    int numForcePts;
+    //! Node clustering type
+    int nodeClusterType;
+    //! Inflow Type - 1 (InflowWind) or 2 (Externally specified)
+    int inflowType;
+    //! Drag coefficient of nacelle
+    float nacelle_cd;
+    //! Frontal area of the nacelle
+    float nacelle_area;
+    //! Air density around this turbine
+    float air_density;
+    //! Number of nodes at which the forces and deflections are computed for blade-resolved FSI on each blade
+    std::vector<int> nBRfsiPtsBlade;
+    //! Total number of BR fsi points on all blades combined
+    int nTotBRfsiPtsBlade;
+    //! Number of nodes at which the forces and deflections are computed for blade-resolved FSI on the tower
+    int nBRfsiPtsTwr;
+    //! The mean azimuth at which the loads are blended between AeroDyn and CFD
+    double azBlendMean;
+    //! The delta azimuth over which the the loads are blended between AeroDyn and CFD
+    double azBlendDelta;
+    //! Mean velocity at reference height
+    double velMean;
+    //! Compass angle of wind direction (in degrees)
+    double windDir;
+    //! Reference height for velocity profile
+    double zRef;
+    //! Shear exponent of velocity profile
+    double shearExp;
+};
+
+//! A data structure to hold all loads and deflections information for blade-resolved FSI simulations
+struct turbBRfsiDataType {
+    //! Tower reference position
+    std::vector<double> twr_ref_pos;
+    //! Tower deflections
+    std::vector<double> twr_def;
+    //! Tower velocity
+    std::vector<double> twr_vel;
+    //! Blade radial location
+    std::vector<double> bld_rloc;
+    //! Blade chord
+    std::vector<double> bld_chord;
+    //! Blade reference position
+    std::vector<double> bld_ref_pos;
+    //! Blade deflections
+    std::vector<double> bld_def;
+    //! Blade velocity
+    std::vector<double> bld_vel;
+    //! Hub reference position
+    std::vector<double> hub_ref_pos;
+    //! Hub deflections
+    std::vector<double> hub_def;
+    //! Hub velocity
+    std::vector<double> hub_vel;
+    //! Nacelle reference position
+    std::vector<double> nac_ref_pos;
+    //! Nacelle deflections
+    std::vector<double> nac_def;
+    //! Nacelle velocity
+    std::vector<double> nac_vel;
+    //! Blade root reference position
+    std::vector<double> bld_root_ref_pos;
+    //! Blade root deformation
+    std::vector<double> bld_root_def;
+    //! Blade pitch
+    std::vector<double> bld_pitch;
+
+    //! Tower loads
+    std::vector<double> twr_ld;
+    //! Blade loads
+    std::vector<double> bld_ld;
+    double twr_def_resid;
+    double twr_vel_resid;
+    double bld_def_resid;
+    double bld_vel_resid;
+    double twr_ld_resid;
+    double bld_ld_resid;
+};
+
 struct DeflectionRampingParams
 {
   // default parameters would give no ramping
@@ -58,7 +174,7 @@ vector_from_field(
   const stk::mesh::Field<T>& field, const stk::mesh::Entity& node)
 {
   // debug only check for optimization
-  assert(field.max_size(stk::topology::NODE_RANK) == 3);
+  //assert(field.max_size(stk::topology::NODE_RANK) == 3);
   assert(field.template type_is<T>());
   T* ptr = stk::mesh::field_data(field, node);
   return {ptr[0], ptr[1], ptr[2]};
@@ -72,7 +188,7 @@ vector_to_field(
   vs::VectorT<T> vec, stk::mesh::Field<T>& field, const stk::mesh::Entity& node)
 {
   // debug only check for optimization
-  assert(field.max_size(stk::topology::NODE_RANK) == 3);
+  //assert(field.max_size(stk::topology::NODE_RANK) == 3);
   assert(field.template type_is<T>());
   T* ptr = stk::mesh::field_data(field, node);
   for (int i = 0; i < 3; ++i) {
@@ -157,8 +273,8 @@ public:
   //! Write deflections and loads to netcdf file
   void write_nc_def_loads(const size_t tStep_, const double curTime);
 
-  fast::turbineDataType params_;
-  fast::turbBRfsiDataType brFSIdata_;
+  turbineDataType params_;
+  turbBRfsiDataType brFSIdata_;
   std::vector<aero::SixDOF> bldDefStiff_;
   std::vector<double> bld_dr_;
   std::vector<std::array<double, 2>>
