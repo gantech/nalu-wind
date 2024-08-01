@@ -137,7 +137,7 @@ compute_translational_displacements(
 {
   const auto fullDisp =
     compute_translational_displacements(fullDeflections, referencePos, cfdPos);
-  return stiffDisp + ramp * (fullDisp - stiffDisp);
+  return ramp * fullDisp; //stiffDisp + ramp * (fullDisp - stiffDisp);
 }
 
 //! Convert one array of 6 velocities (transX, transY, transZ, wmX, wmY, wmZ)
