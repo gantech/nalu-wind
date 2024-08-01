@@ -46,7 +46,8 @@ ModeShapeAnalysis::load(const YAML::Node& node)
 {
 
   fsiTurbineData_ = std::make_unique<fsiTurbine>(0, node);
-  get_required(node, "turbine_base_pos", turbineBasePos_);
+
+  get_required(node, "t_start", t_start_);
 
   get_required(node, "nc_file_name", ncFileName_);
 
@@ -63,6 +64,9 @@ ModeShapeAnalysis::load(const YAML::Node& node)
   fsiTurbineData_->params_.nBRfsiPtsBlade.resize(1);
   fsiTurbineData_->params_.nBRfsiPtsBlade[0] = n_bld_nds;
   fsiTurbineData_->params_.nBRfsiPtsTwr = 0;
+
+  refPosLoc_.resize(n_bld_nds);
+  refOrientLoc_.resize(n_bld_nds);
 
   if (node["mode"]) {
     get_required(node["mode"], "freq", modeFreq_);
@@ -176,38 +180,45 @@ ModeShapeAnalysis::compute_mapping()
 {
 
 
-        size_t nBldPts = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
+        size_t n_bld_nds = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
 
         int ncid, ierr;
         ierr = nc_open(ncFileName_.c_str(), NC_NOCLOBBER, &ncid);
         //check_nc_error(ierr, "nc_open");
 
-        std::vector<double> tmpArray;
-        int nc_var_id;
+        std::vector<double> tmpArray, tmpArray2;
+        int nc_var_id, nc_var_id2;
 
         {
         nc_inq_varid(ncid, "bld_ref_pos", &nc_var_id);
-        tmpArray.resize(nBldPts);
-        std::vector<size_t> count_dim{1, 1, nBldPts};
+        nc_inq_varid(ncid, "bld_disp", &nc_var_id2);
+        tmpArray.resize(n_bld_nds);
+        tmpArray2.resize(n_bld_nds);
+        std::vector<size_t> count_dim{1, 1, n_bld_nds};
+        std::vector<size_t> count_dim2{1, 1, 1, n_bld_nds};
         for (size_t iDim = 0; iDim < 3; iDim++) {
             std::vector<size_t> start_dim{0, iDim, 0};
+            std::vector<size_t> start_dim2{0, 0, iDim, 0};
             ierr = nc_get_vara_double(
               ncid, nc_var_id, start_dim.data(), count_dim.data(),
               tmpArray.data());
-            for (size_t i = 0; i < nBldPts; i++)
-                fsiTurbineData_->brFSIdata_.bld_ref_pos[i * 6 + iDim] = tmpArray[i];
-        }
-        nc_inq_varid(ncid, "bld_ref_orient", &nc_var_id);
-        for (size_t iDim = 0; iDim < 3; iDim++) {
-            std::vector<size_t> start_dim{0, iDim, 0};
             ierr = nc_get_vara_double(
-                                      ncid, nc_var_id, start_dim.data(), count_dim.data(),
+                ncid, nc_var_id2, start_dim2.data(), count_dim2.data(),
+                tmpArray2.data());
+            for (size_t i = 0; i < n_bld_nds; i++)
+                fsiTurbineData_->brFSIdata_.bld_ref_pos[i * 6 + iDim] = tmpArray[i] + tmpArray2[i];
+        }
+        nc_inq_varid(ncid, "bld_orient", &nc_var_id);
+        for (size_t iDim = 0; iDim < 3; iDim++) {
+            std::vector<size_t> start_dim{0, 0, iDim, 0};
+            ierr = nc_get_vara_double(
+                                      ncid, nc_var_id, start_dim.data(), count_dim2.data(),
                                       tmpArray.data());
-            for (size_t i = 0; i < nBldPts; i++)
+            for (size_t i = 0; i < n_bld_nds; i++)
                 fsiTurbineData_->brFSIdata_.bld_ref_pos[i * 6 + 3 + iDim] = tmpArray[i];
         }
 
-        for (size_t i = 0; i < nBldPts; i++) {
+        for (size_t i = 0; i < n_bld_nds; i++) {
             NaluEnv::self().naluOutputP0() << fsiTurbineData_->brFSIdata_.bld_ref_pos[i * 6 + 0] << ", "
                                            << fsiTurbineData_->brFSIdata_.bld_ref_pos[i * 6 + 1] << ", "
                                            << fsiTurbineData_->brFSIdata_.bld_ref_pos[i * 6 + 2] << ", "
@@ -221,18 +232,25 @@ ModeShapeAnalysis::compute_mapping()
 
         {
         nc_inq_varid(ncid, "bld_root_ref_pos", &nc_var_id);
+        nc_inq_varid(ncid, "bld_root_disp", &nc_var_id2);
         tmpArray.resize(3);
+        tmpArray2.resize(3);
         std::vector<size_t> count_dim{1,3};
         std::vector<size_t> start_dim{0,0};
+        std::vector<size_t> count_dim2{1,1,3};
+        std::vector<size_t> start_dim2{0,0,0};
         ierr = nc_get_vara_double(
                                   ncid, nc_var_id, start_dim.data(), count_dim.data(),
                                   tmpArray.data());
-        for (size_t i = 0; i < 3; i++)
-            fsiTurbineData_->brFSIdata_.bld_root_ref_pos[i] = tmpArray[i];
-
-        nc_inq_varid(ncid, "hub_ref_orient", &nc_var_id);
         ierr = nc_get_vara_double(
-                                  ncid, nc_var_id, start_dim.data(), count_dim.data(),
+            ncid, nc_var_id2, start_dim2.data(), count_dim2.data(),
+            tmpArray2.data());
+        for (size_t i = 0; i < 3; i++)
+            fsiTurbineData_->brFSIdata_.bld_root_ref_pos[i] = tmpArray[i] + tmpArray2[i];
+
+        nc_inq_varid(ncid, "bld_root_orient", &nc_var_id);
+        ierr = nc_get_vara_double(
+                                  ncid, nc_var_id, start_dim2.data(), count_dim2.data(),
                                   tmpArray.data());
         for (size_t i = 0; i < 3; i++)
             fsiTurbineData_->brFSIdata_.bld_root_ref_pos[i+3] = tmpArray[i];
@@ -253,6 +271,30 @@ ModeShapeAnalysis::compute_mapping()
         }
 
         ierr = nc_close(ncid);
+
+        // Prepare reference positions and orientations in local (blade root) frame
+        vs::Vector wm_ref;
+        vs::Vector wm_bld_root;
+        vs::Vector ref_pos;
+        for (int j = 0; j < 3; j++)
+            wm_bld_root[j] = -fsiTurbineData_->brFSIdata_.bld_root_ref_pos[3+j];
+        for (size_t i = 0; i < n_bld_nds; i++) {
+          for (int j = 0; j < 3; j++) {
+            ref_pos[j] = fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+j] - fsiTurbineData_->brFSIdata_.bld_root_ref_pos[j];
+            wm_ref[j] = -fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+3+j] ;
+          }
+
+          NaluEnv::self().naluOutputP0() << "Node " << i << "ref_pos = "
+                                         << fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+0] << ", "
+                                         << fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+1] << ", "
+                                         << fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+2] << std::endl;
+
+          //Global to local (blade root) frame
+          refPosLoc_[i] = wmp::rotate(wm_bld_root, ref_pos, -1);
+          // Remove blade root orientation from node orientation
+          refOrientLoc_[i] = wmp::pop(wm_bld_root, wm_ref);
+        }
+
 
         /* FAST.getTowerRefPositions( */
         /*   fsiTurbineData_->brFSIdata_.twr_ref_pos.data(), i); */
@@ -349,30 +391,35 @@ ModeShapeAnalysis::send_loads(const double curTime)
 void
 ModeShapeAnalysis::get_displacements(double current_time)
 {
-    // TODO:: Set displacements here from mode shapes
+  // TODO:: Set displacements here from mode shapes
 
-    double sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * current_time);
-    size_t n_bld_nds = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
-    vs::Vector wm_ref;
-    vs::Vector wm_def;
-    vs::Vector wm_tmp;
-    vs::Vector wm_bld_root;
-    vs::Vector wm_final;
-    for (int j = 0; j < 3; j++)
-        wm_bld_root[j] = -fsiTurbineData_->brFSIdata_.bld_root_ref_pos[3+j];
-    for (size_t i = 0; i < n_bld_nds; i++) {
-        for (int j = 0; j < 3; j++)
-            fsiTurbineData_->brFSIdata_.bld_def[i*6+j] = modeShape_[i][j] * sinomegat;
-        for (int j = 0; j < 3; j++) {
-            wm_ref[j] = fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+3+j] ;
-            wm_def[j] = modeShape_[i][j+3] * sinomegat;
-        }
-        wm_final = wmp::compose(wm_def, wm_ref);
-        //wm_final = wmp::compose(wm_bld_root, wm_tmp);
+  double sinomegat = 0.0;
+  if (current_time > t_start_)
+      sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_));
+  size_t n_bld_nds = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
+  vs::Vector wm_def;
+  vs::Vector mode_def;
 
-        for (int j = 0; j < 3; j++)
-            fsiTurbineData_->brFSIdata_.bld_def[i*6+3+j] = wm_final[j];
+  vs::Vector wm_bld_root;
+  vs::Vector wm_final;
+  vs::Vector final_pos;
+  for (int j = 0; j < 3; j++)
+    wm_bld_root[j] = -fsiTurbineData_->brFSIdata_.bld_root_ref_pos[3+j];
+  for (size_t i = 0; i < n_bld_nds; i++) {
+    for (int j = 0; j < 3; j++) {
+      mode_def[j] = modeShape_[i][j] * sinomegat;
+      wm_def[j] = modeShape_[i][j+3] * sinomegat;
     }
+    final_pos = wmp::rotate(wm_bld_root, mode_def + refPosLoc_[i]);
+    wm_final = wmp::compose(wm_bld_root, wmp::compose(wm_def, refOrientLoc_[i]));
+    for (int j = 0; j < 3; j++) {
+      fsiTurbineData_->brFSIdata_.bld_def[i*6+j] =
+          fsiTurbineData_->brFSIdata_.bld_root_ref_pos[j]
+          + final_pos[j]
+          - fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+j];
+      fsiTurbineData_->brFSIdata_.bld_def[i*6+3+j] = -wm_final[j];
+    }
+  }
 }
 
 void

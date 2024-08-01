@@ -69,8 +69,14 @@ private:
   std::unique_ptr<fsiTurbine> fsiTurbineData_;
 
   std::string ncFileName_ ;
-  std::array<double, 3> turbineBasePos_;
+  // Mode shape in local (blade root) frame
   std::vector<std::array<double, 6>> modeShape_;
+  // Reference position of blade nodes in local (blade root) frame
+  std::vector<vs::Vector> refPosLoc_;
+  std::vector<vs::Vector> refOrientLoc_;
+
+
+  double t_start_; //When to start the mode oscillations
 
   double modeFreq_;
 
