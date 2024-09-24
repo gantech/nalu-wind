@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nalu-Wind Input File &mdash; Nalu-Wind 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Lessons Learned from Meshing the McAlister Case" href="McAlisterLessonsLearned.html" />
+    <link rel="prev" title="Invoking Nalu-Wind - Command-line options" href="nalux.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Nalu-Wind
+          </a>
+              <div class="version">
+                0.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference external" href="https://github.com/Exawind/nalu-wind">Nalu-Wind Homepage</a></li>
+<li class="toctree-l1"><a class="reference external" href="http://my.cdash.org/index.php?project=Exawind">Nalu-Wind Nightly Test Results</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">User Manual</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../building.html">Building Nalu-Wind</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../running.html">Running Nalu-Wind</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="nalu_mesh.html">Exodus-II File Format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="nalux.html">Invoking Nalu-Wind - Command-line options</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Nalu-Wind Input File</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#linear-solvers">Linear Solvers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#time-integration-options">Time Integration Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#physics-realm-options">Physics Realm Options</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#transfers">Transfers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#simulations">Simulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="McAlisterLessonsLearned.html">Lessons Learned from Meshing the McAlister Case</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer/index.html">Developer Manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../theory/index.html">Theory Manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../verification/index.html">Verification Manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zrefs.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Nalu-Wind</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">User Manual</a></li>
+          <li class="breadcrumb-item"><a href="../running.html">Running Nalu-Wind</a></li>
+      <li class="breadcrumb-item active">Nalu-Wind Input File</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/source/user/nalu_run/nalu_inp.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="nalu-wind-input-file">
+<span id="user-nalu-input-file"></span><h1>Nalu-Wind Input File<a class="headerlink" href="#nalu-wind-input-file" title="Link to this heading"></a></h1>
+<p>Nalu-Wind requires the user to provide an input file, in YAML format, during
+invocation at the command line using the <a class="reference internal" href="nalux.html#cmdoption-naluX-i"><code class="xref std std-option docutils literal notranslate"><span class="pre">naluX</span> <span class="pre">-i</span></code></a> flag. By default,
+<strong class="program">naluX</strong> will look for <code class="file docutils literal notranslate"><span class="pre">nalu.i</span></code> in the current working directory
+to determine the mesh file as well as the run setup for execution. A sample
+<a class="reference download internal" download="" href="../../../_downloads/9479a46ef6805a408bce963d5fe58798/nalu.i"><code class="xref download docutils literal notranslate"><span class="pre">nalu.i</span></code></a> is shown below:</p>
+<div class="literal-block-wrapper docutils container" id="id75">
+<div class="code-block-caption"><span class="caption-number">1 </span><span class="caption-text">Sample Nalu-Wind input file for the Heat Conduction problem</span><a class="headerlink" href="#id75" title="Link to this code"></a></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># -*- mode: yaml -*-</span>
+<span class="c1">#</span>
+<span class="c1"># Example Nalu input file for a heat conduction problem</span>
+<span class="c1">#</span>
+
+<span class="hll"><span class="nt">Simulations</span><span class="p">:</span>
+</span><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sim1</span>
+<span class="w">    </span><span class="nt">time_integrator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ti_1</span>
+<span class="w">    </span><span class="nt">optimizer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">opt1</span>
+
+<span class="hll"><span class="nt">linear_solvers</span><span class="p">:</span>
+</span><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solve_scalar</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tpetra</span>
+<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gmres</span><span class="w"> </span>
+<span class="w">    </span><span class="nt">preconditioner</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sgs</span><span class="w"> </span>
+<span class="w">    </span><span class="nt">tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-3</span>
+<span class="w">    </span><span class="nt">max_iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span><span class="w"> </span>
+<span class="w">    </span><span class="nt">kspace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span><span class="w"> </span>
+<span class="w">    </span><span class="nt">output_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+
+<span class="hll"><span class="nt">realms</span><span class="p">:</span>
+</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">realm_1</span>
+<span class="w">    </span><span class="nt">mesh</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">periodic3d.g</span>
+<span class="w">    </span><span class="nt">use_edges</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no</span><span class="w"> </span>
+<span class="w">    </span><span class="nt">automatic_decomposition_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rcb</span>
+
+<span class="w">    </span><span class="nt">equation_systems</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">theEqSys</span>
+<span class="w">      </span><span class="nt">max_iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w"> </span>
+<span class="w">  </span>
+<span class="w">      </span><span class="nt">solver_system_specification</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solve_scalar</span>
+<span class="w">   </span>
+<span class="w">      </span><span class="nt">systems</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">HeatConduction</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myHC</span>
+<span class="w">            </span><span class="nt">max_iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">            </span><span class="nt">convergence_tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1e-5</span>
+
+<span class="w">    </span><span class="nt">initial_conditions</span><span class="p">:</span>
+
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">constant</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ic_1</span>
+<span class="w">        </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">block_1</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+
+<span class="w">    </span><span class="nt">material_properties</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">block_1</span>
+<span class="w">      </span><span class="nt">specifications</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">density</span>
+<span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">constant</span>
+<span class="w">          </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">thermal_conductivity</span>
+<span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">constant</span>
+<span class="w">          </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">specific_heat</span>
+<span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">constant</span>
+<span class="w">          </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+
+<span class="w">    </span><span class="nt">boundary_conditions</span><span class="p">:</span>
+
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wall_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_left</span>
+<span class="w">      </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">surface_1</span>
+<span class="w">      </span><span class="nt">wall_user_data</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20.0</span>
+
+
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wall_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_right</span>
+<span class="w">      </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">surface_2</span>
+<span class="w">      </span><span class="nt">wall_user_data</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">40.0</span>
+
+<span class="w">    </span><span class="nt">solution_options</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myOptions</span>
+
+<span class="w">      </span><span class="nt">use_consolidated_solver_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">yes</span>
+
+<span class="w">      </span><span class="nt">options</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">element_source_terms</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FEM_DIFF</span>
+
+<span class="w">    </span><span class="nt">output</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">output_data_base_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">femHC.e</span>
+<span class="w">      </span><span class="nt">output_frequency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">      </span><span class="nt">output_node_set</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no</span><span class="w"> </span>
+<span class="w">      </span><span class="nt">output_variables</span><span class="p">:</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dual_nodal_volume</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">temperature</span>
+
+<span class="hll"><span class="nt">Time_Integrators</span><span class="p">:</span>
+</span><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">StandardTimeIntegrator</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ti_1</span>
+<span class="w">      </span><span class="nt">start_time</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">      </span><span class="nt">termination_step_count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25</span><span class="w"> </span>
+<span class="w">      </span><span class="nt">time_step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span><span class="w"> </span>
+<span class="w">      </span><span class="nt">time_stepping_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fixed</span>
+<span class="w">      </span><span class="nt">time_step_count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">      </span><span class="nt">second_order_accuracy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no</span>
+
+<span class="w">      </span><span class="nt">realms</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">realm_1</span>
+</pre></div>
+</div>
+</div>
+<p>Nalu-Wind input file contains the following top-level sections that describe the
+simulation to be executed.</p>
+<p><strong>Realms</strong></p>
+<blockquote>
+<div><p>Realms describe the computational domain (via mesh input files) and the set of
+physics equations (Low-Mach Navier-Stokes, Heat Conduction, etc.) that are
+solved over this particular domain. The list can contain multiple
+computational domains (<em>realms</em>) that use different meshes as well as solve
+different sets of physics equations and interact via <em>solution transfer</em>. This
+section also contains information regarding the initial and boundary
+conditions, solution output and restart options, the linear solvers used to
+solve the linear system of equations, and solution options that govern the
+discretization of the equation set.</p>
+<p>A special case of a realm instance is the input-output realm; this realm type
+does not solve any physics equations, but instead serves one of the following
+purposes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>provide time-varying boundary conditions to one or more boundaries within
+one or more of the participating realms in the simulations. In this
+context, it acts as an <em>input</em> realm.</p></li>
+<li><p>extract a subset of data for output at a different frequency from the
+other realms. In this context, it acts as an <em>output</em> realm.</p></li>
+</ul>
+</div></blockquote>
+<p>Inclusion of an input/output realm will require the user to provide the
+additional <a href="#id1"><span class="problematic" id="id2">:inpfile:`transfers`</span></a> section in the Nalu-Wind input file that defines
+the solution fields that are transferred between the realms. See
+<a class="reference internal" href="#nalu-inp-realm"><span class="std std-ref">Physics Realm Options</span></a> for detailed documentation on all Realm options.</p>
+</div></blockquote>
+<p><strong>Linear Solvers</strong></p>
+<blockquote>
+<div><p>This section configures the solvers and preconditioners used to solve the
+resulting linear system of equations within Nalu-Wind. The linear system
+convergence tolerance and other controls are set here and can be used with
+multiple systems across different realms. See <a class="reference internal" href="#nalu-inp-linear-solvers"><span class="std std-ref">Linear Solvers</span></a>
+for more details.</p>
+</div></blockquote>
+<p><strong>Time Integrators</strong></p>
+<blockquote>
+<div><p>This section configures the time integration scheme used (first/second order
+in time), the duration of simulation, fixed or adaptive timestepping based on
+Courant number constraints, etc. Each time integration section in this list
+can accept one or more <a href="#id3"><span class="problematic" id="id4">:inpfile:`realms`</span></a> that are integrated in time using
+that specific time integration scheme. See <a class="reference internal" href="#nalu-inp-time-integrators"><span class="std std-ref">Time Integration Options</span></a>
+for complete documentation of all time integration options available in Nalu-Wind.</p>
+</div></blockquote>
+<p><strong>Transfers</strong></p>
+<blockquote>
+<div><p>An optional section that defines one or more solution transfer definitions
+between the participating <a href="#id5"><span class="problematic" id="id6">:inpfile:`realms`</span></a> during the simulation. Each
+transfer definition provides a mapping of the to and from realm, part, and the
+solution field that must be transferred at every timestep during the
+simulation. See <a class="reference internal" href="#nalu-inp-transfers"><span class="std std-ref">ABL Forcing</span></a> section for complete documentation of
+all transfer options available in Nalu-Wind.</p>
+</div></blockquote>
+<p><strong>Simulations</strong></p>
+<blockquote>
+<div><p>Simulations provides the top-level architecture that orchestrates the
+time-stepping across all the realms and the required equation sets.</p>
+</div></blockquote>
+<section id="linear-solvers">
+<span id="nalu-inp-linear-solvers"></span><h2>Linear Solvers<a class="headerlink" href="#linear-solvers" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">linear_solvers</span></code> section contains a list of one or more linear solver
+settings that specify the solver, preconditioner, convergence tolerance for
+solving a linear system. Every entry in the YAML list will contain the following
+entries:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The variable in the <a href="#id7"><span class="problematic" id="id8">:inpfile:`linear_solvers`</span></a> subsection are prefixed with
+<code class="docutils literal notranslate"><span class="pre">linear_solvers.name</span></code> but only the variable name after the period should
+appear in the input file.</p>
+</div>
+<p><strong>Options Common to both Solver Libraries</strong></p>
+<p><strong>Additional parameters for Belos Solver/Preconditioners</strong></p>
+<p><strong>Additional parameters for Hypre Solver/Preconditioners</strong></p>
+<p>The user is referred to <a class="reference external" href="https://computation.llnl.gov/projects/hypre-scalable-linear-solvers-multigrid-methods/software">Hypre Reference Manual</a>
+for full details on the usage of the parameters described briefly below.</p>
+<p>The parameters that start with <code class="docutils literal notranslate"><span class="pre">bamg_</span></code> prefix refer to options related to
+Hypre’s BoomerAMG preconditioner.</p>
+</section>
+<section id="time-integration-options">
+<span id="nalu-inp-time-integrators"></span><h2>Time Integration Options<a class="headerlink" href="#time-integration-options" title="Link to this heading"></a></h2>
+</section>
+<section id="physics-realm-options">
+<span id="nalu-inp-realm"></span><h2>Physics Realm Options<a class="headerlink" href="#physics-realm-options" title="Link to this heading"></a></h2>
+<p>As mentioned previously, <a href="#id9"><span class="problematic" id="id10">:inpfile:`realms`</span></a> is a YAML list data structure
+containing at least one <a class="reference internal" href="#nalu-inp-realm"><span class="std std-ref">Physics Realm Options</span></a> entry that defines the
+computational domain (provided as an Exodus-II mesh), the set of physics
+equations that must be solved over this domain, along with the necessary initial
+and boundary conditions. Each list entry is a YAML dictionary mapping that is
+described in this section of the manual. The key subsections of a Realm entry
+in the input file are</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Realm subsection</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a href="#id11"><span class="problematic" id="id12">:inpfile:`equation_systems`</span></a></p></td>
+<td><p>Set of physics equations to be solved</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id13"><span class="problematic" id="id14">:inpfile:`initial_conditions`</span></a></p></td>
+<td><p>Initial conditions for the various fields</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id15"><span class="problematic" id="id16">:inpfile:`boundary_conditions`</span></a></p></td>
+<td><p>Boundary condition for the different fields</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id17"><span class="problematic" id="id18">:inpfile:`material_properties`</span></a></p></td>
+<td><p>Material properties (e.g., fluid density, viscosity etc.)</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id19"><span class="problematic" id="id20">:inpfile:`solution_options`</span></a></p></td>
+<td><p>Discretization and numerical stability</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id21"><span class="problematic" id="id22">:inpfile:`mesh_transformation`</span></a></p></td>
+<td><p>Mesh transformation</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id23"><span class="problematic" id="id24">:inpfile:`mesh_motion`</span></a></p></td>
+<td><p>Mesh motion</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id25"><span class="problematic" id="id26">:inpfile:`output`</span></a></p></td>
+<td><p>Solution output options (file, frequency, etc.)</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id27"><span class="problematic" id="id28">:inpfile:`restart`</span></a></p></td>
+<td><p>Optional: Restart options (restart time, checkpoint frequency etc.)</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id29"><span class="problematic" id="id30">:inpfile:`time_step_control`</span></a></p></td>
+<td><p>Optional: Parameters determining variable timestepping</p></td>
+</tr>
+</tbody>
+</table>
+<p>In addition to the sections mentioned in the table, there are several additional
+sections that could be present depending on the specific simulation type and
+post-processing options requested by the user. A brief description of these
+optional sections are provided below:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Realm subsection</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a href="#id31"><span class="problematic" id="id32">:inpfile:`turbulence_averaging`</span></a></p></td>
+<td><p>Generate statistics for the flow field</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id33"><span class="problematic" id="id34">:inpfile:`post_processing`</span></a></p></td>
+<td><p>Extract integrated data from the simulation</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id35"><span class="problematic" id="id36">:inpfile:`solution_norm`</span></a></p></td>
+<td><p>Compare the solution error to a reference solution</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id37"><span class="problematic" id="id38">:inpfile:`data_probes`</span></a></p></td>
+<td><p>Extract data using probes</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id39"><span class="problematic" id="id40">:inpfile:`actuator`</span></a></p></td>
+<td><p>Model turbine blades/tower using actuator lines</p></td>
+</tr>
+<tr class="row-odd"><td><p><a href="#id41"><span class="problematic" id="id42">:inpfile:`abl_forcing`</span></a></p></td>
+<td><p>Momentum source term to drive ABL flows to a desired velocity profile</p></td>
+</tr>
+<tr class="row-even"><td><p><a href="#id43"><span class="problematic" id="id44">:inpfile:`boundary_layer_statistics`</span></a></p></td>
+<td><p>Compute boundary layer statistics</p></td>
+</tr>
+</tbody>
+</table>
+<section id="common-options">
+<h3>Common options<a class="headerlink" href="#common-options" title="Link to this heading"></a></h3>
+</section>
+<section id="equation-systems">
+<h3>Equation Systems<a class="headerlink" href="#equation-systems" title="Link to this heading"></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The variable in the <a href="#id45"><span class="problematic" id="id46">:inpfile:`equation_systems`</span></a> subsection are prefixed with
+<code class="docutils literal notranslate"><span class="pre">equation_systems.name</span></code> but only the variable name after the period should
+appear in the input file.</p>
+</div>
+</section>
+<section id="initial-conditions">
+<h3>Initial conditions<a class="headerlink" href="#initial-conditions" title="Link to this heading"></a></h3>
+</section>
+<section id="boundary-conditions">
+<h3>Boundary Conditions<a class="headerlink" href="#boundary-conditions" title="Link to this heading"></a></h3>
+<p>All BC types require <a href="#id47"><span class="problematic" id="id48">:inpfile:`bc.target_name`</span></a> that contains a list of side sets
+where the specified BC is to be applied. Additional information necessary for
+certain BC types are provided by a sub-dictionary with the key
+<code class="docutils literal notranslate"><span class="pre">&lt;type&gt;_user_data:</span></code> that contains the parameters necessary to initialize a
+specific BC type.</p>
+<section id="inflow-boundary-condition">
+<h4>Inflow Boundary Condition<a class="headerlink" href="#inflow-boundary-condition" title="Link to this heading"></a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">inflow_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_inflow</span>
+<span class="w">  </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inlet</span>
+<span class="w">  </span><span class="nt">inflow_user_data</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">velocity</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="nv">1.0</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</section>
+<section id="open-boundary-condition">
+<h4>Open Boundary Condition<a class="headerlink" href="#open-boundary-condition" title="Link to this heading"></a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">open_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_open</span>
+<span class="w">  </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outlet</span>
+<span class="w">  </span><span class="nt">open_user_data</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">velocity</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nv">0</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">pressure</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">    </span><span class="nt">entrainment_method</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">computed</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">specified</span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">total_pressure</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">yes</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">no</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</section>
+<section id="wall-boundary-condition">
+<h4>Wall Boundary Condition<a class="headerlink" href="#wall-boundary-condition" title="Link to this heading"></a></h4>
+<p>The following input file snippet shows an example of using an ABL wall function at the
+terrain during ABL simulations. See <a class="reference internal" href="../../theory/boundaryConditions.html#theory-abl-wall-function"><span class="std std-ref">ABL Wall Function</span></a> for more
+details on the actual implementation.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Wall boundary condition example for ABL terrain modeling</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wall_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_terrain</span>
+<span class="w">  </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">terrain</span>
+<span class="w">  </span><span class="nt">wall_user_data</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">velocity</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nv">0</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">use_abl_wall_function</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">yes</span>
+<span class="w">    </span><span class="nt">heat_flux</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">    </span><span class="nt">roughness_height</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span>
+<span class="w">    </span><span class="nt">gravity_vector_component</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">    </span><span class="nt">reference_temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300.0</span>
+</pre></div>
+</div>
+<p>The entry <a href="#id49"><span class="problematic" id="id50">:inpfile:`gravity_vector_component`</span></a> is an integer that
+specifies the component of the gravity vector, defined in
+<a href="#id51"><span class="problematic" id="id52">:inpfile:`solution_options.gravity`</span></a>, that should be used in the
+definition of the Monin-Obukhov length scale calculation.  The
+entry <a href="#id53"><span class="problematic" id="id54">:inpfile:`reference_temperature`</span></a> is the reference temperature
+used in calculation of the Monin-Obukhov length scale.</p>
+<p>When there is mesh motion involved the wall boundary velocity takes the value of
+the mesh_velocity along the part represented by <a href="#id55"><span class="problematic" id="id56">:inpfile:`bc.target_name`</span></a>. In
+such a scenario all information under <a href="#id57"><span class="problematic" id="id58">:inpfile:`bc.wall_user_data`</span></a> is rendered
+unused.</p>
+<p>Example of wall boundary with a custom user function for temperature at the wall</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">wall_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_6</span>
+<span class="w">  </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">surface_6</span>
+<span class="w">  </span><span class="nt">wall_user_data</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">user_function_name</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">steady_2d_thermal</span>
+</pre></div>
+</div>
+</section>
+<section id="symmetry-boundary-condition">
+<h4>Symmetry Boundary Condition<a class="headerlink" href="#symmetry-boundary-condition" title="Link to this heading"></a></h4>
+<p>Requires no additional input other than <a href="#id59"><span class="problematic" id="id60">:inpfile:`bc.target_name`</span></a>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">symmetry_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_top</span>
+<span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">target_name</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">top</span>
+<span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">symmetry_user_data</span><span class="p p-Indicator">:</span>
+</pre></div>
+</div>
+</section>
+<section id="periodic-boundary-condition">
+<h4>Periodic Boundary Condition<a class="headerlink" href="#periodic-boundary-condition" title="Link to this heading"></a></h4>
+<p>Unlike the other BCs described so far, the parameter <a href="#id61"><span class="problematic" id="id62">:inpfile:`bc.target_name`</span></a>
+behaves differently for the periodic BC. This parameter must be a list
+containing exactly two entries: the boundary face pair where periodicity is
+enforced. The nodes on these planes must coincide after translation in the
+direction of periodicity. This BC also requires a <a href="#id63"><span class="problematic" id="id64">:inpfile:`periodic_user_data`</span></a>
+section that specifies the search tolerance for locating node pairs.</p>
+</section>
+<section id="non-conformal-boundary">
+<h4>Non-Conformal Boundary<a class="headerlink" href="#non-conformal-boundary" title="Link to this heading"></a></h4>
+<p>Like the periodic BC, the parameter <a href="#id65"><span class="problematic" id="id66">:inpfile:`bc.target_name`</span></a> must be a list
+with exactly two entries that specify the boundary plane pair forming the
+non-conformal boundary.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">non_conformal_boundary_condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bc_left</span>
+<span class="w">  </span><span class="nt">target_name</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">surface_77</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">surface_7</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">non_conformal_user_data</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">expand_box_percentage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="material-properties">
+<h3>Material Properties<a class="headerlink" href="#material-properties" title="Link to this heading"></a></h3>
+</section>
+<section id="solution-options">
+<h3>Solution Options<a class="headerlink" href="#solution-options" title="Link to this heading"></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The documentation for this section is incomplete.</p>
+</div>
+</section>
+<section id="mesh-transformation">
+<h3>Mesh Transformation<a class="headerlink" href="#mesh-transformation" title="Link to this heading"></a></h3>
+</section>
+<section id="mesh-motion">
+<h3>Mesh Motion<a class="headerlink" href="#mesh-motion" title="Link to this heading"></a></h3>
+</section>
+<section id="output-options">
+<h3>Output Options<a class="headerlink" href="#output-options" title="Link to this heading"></a></h3>
+</section>
+<section id="restart-options">
+<h3>Restart Options<a class="headerlink" href="#restart-options" title="Link to this heading"></a></h3>
+</section>
+<section id="time-step-control-options">
+<h3>Time-step Control Options<a class="headerlink" href="#time-step-control-options" title="Link to this heading"></a></h3>
+<p><strong>Turbine specific input options</strong></p>
+</section>
+<section id="actuator-turbine-model">
+<h3>Actuator Turbine Model<a class="headerlink" href="#actuator-turbine-model" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">actuator</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ActLineFAST</span>
+<span class="w">  </span><span class="nt">search_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stk_kdtree</span>
+<span class="w">  </span><span class="nt">search_target_part</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Unspecified-2-HEX</span>
+
+<span class="w">  </span><span class="nt">n_turbines_glob</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">dry_run</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+<span class="w">  </span><span class="nt">debug</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+<span class="w">  </span><span class="nt">t_start</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">  </span><span class="nt">simStart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">init</span><span class="w"> </span><span class="c1"># init/trueRestart/restartDriverInitFAST</span>
+<span class="w">  </span><span class="nt">t_max</span><span class="p">:</span><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">5.0</span>
+<span class="w">  </span><span class="nt">n_every_checkpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+
+<span class="w">  </span><span class="nt">Turbine0</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">procNo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">    </span><span class="nt">num_force_pts_blade</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">    </span><span class="nt">num_force_pts_tower</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">    </span><span class="nt">nacelle_cd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="nt">nacelle_area</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="nt">air_density</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.225</span>
+<span class="w">    </span><span class="nt">epsilon</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">5.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5.0</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">turbine_base_pos</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-90.0</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">turbine_hub_pos</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">restart_filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">    </span><span class="nt">FAST_input_filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Test01.fst&quot;</span>
+<span class="w">    </span><span class="nt">turb_id</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">turbine_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">machine_zero</span>
+
+<span class="w">  </span><span class="nt">Turbine1</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">procNo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">    </span><span class="nt">num_force_pts_blade</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">    </span><span class="nt">num_force_pts_tower</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">    </span><span class="nt">nacelle_cd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="nt">nacelle_area</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="nt">air_density</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.225</span>
+<span class="w">    </span><span class="nt">epsilon</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">5.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5.0</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">turbine_base_pos</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">250.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-90.0</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">turbine_hub_pos</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">250.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">restart_filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">    </span><span class="nt">FAST_input_filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Test02.fst&quot;</span>
+<span class="w">    </span><span class="nt">turb_id</span><span class="p">:</span><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">    </span><span class="nt">turbine_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">machine_one</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">t_max</span></code> can only be set when OpenFAST is running from <cite>t=0s</cite> and <code class="docutils literal notranslate"><span class="pre">simStart</span></code> is <code class="docutils literal notranslate"><span class="pre">init</span></code>. <code class="docutils literal notranslate"><span class="pre">t_max</span></code> can not be changed on a restart. OpenFAST will not be able to run beyond <code class="docutils literal notranslate"><span class="pre">t_max</span></code>. Choose <code class="docutils literal notranslate"><span class="pre">t_max</span></code> to be large enough to accomodate any possible future extensions of runs. One can change <code class="docutils literal notranslate"><span class="pre">t_start</span></code> and <code class="docutils literal notranslate"><span class="pre">t_end</span></code> to start and stop the simulation any number of times as long as <code class="docutils literal notranslate"><span class="pre">t_end</span></code> &lt;= <code class="docutils literal notranslate"><span class="pre">t_max</span></code>.</p>
+</div>
+<p><strong>Turbine specific input options</strong></p>
+</section>
+<section id="fluid-structure-interaction">
+<h3>Fluid-Structure Interaction<a class="headerlink" href="#fluid-structure-interaction" title="Link to this heading"></a></h3>
+</section>
+<section id="turbulence-averaging">
+<h3>Turbulence averaging<a class="headerlink" href="#turbulence-averaging" title="Link to this heading"></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The variable in the <a href="#id67"><span class="problematic" id="id68">:inpfile:`turbulence_averaging`</span></a> subsection are
+prefixed with <code class="docutils literal notranslate"><span class="pre">turbulence_averaging.name</span></code> but only the variable
+name after the period should appear in the input file.</p>
+</div>
+</section>
+<section id="data-probes">
+<h3>Data probes<a class="headerlink" href="#data-probes" title="Link to this heading"></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The variable in the <a href="#id69"><span class="problematic" id="id70">:inpfile:`data_probes`</span></a> subsection are prefixed
+with <code class="docutils literal notranslate"><span class="pre">data_probes.name</span></code> but only the variable name after the
+period should appear in the input file.</p>
+</div>
+</section>
+<section id="post-processing">
+<h3>Post-processing<a class="headerlink" href="#post-processing" title="Link to this heading"></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The variable in the <a href="#id71"><span class="problematic" id="id72">:inpfile:`post_processing`</span></a> subsection are prefixed with
+<code class="docutils literal notranslate"><span class="pre">post_processing.name</span></code> but only the variable name after the period should
+appear in the input file.</p>
+</div>
+</section>
+<section id="abl-forcing">
+<span id="nalu-inp-transfers"></span><h3>ABL Forcing<a class="headerlink" href="#abl-forcing" title="Link to this heading"></a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The variables in the <a href="#id73"><span class="problematic" id="id74">:inpfile:`abl_forcing`</span></a> subsection are
+prefixed with <code class="docutils literal notranslate"><span class="pre">abl_forcing.name</span></code> but only the variable
+name after the period should appear in the input file.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>There are now two options in the following inputs.
+The can be <code class="docutils literal notranslate"><span class="pre">momentum</span></code> and/or <code class="docutils literal notranslate"><span class="pre">temperature</span></code>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The temperature has the same inputs as the momentum source
+(<code class="docutils literal notranslate"><span class="pre">abl_forcing.temperature.type</span></code>,
+<code class="docutils literal notranslate"><span class="pre">abl_forcing.temperature.relaxation_factor</span></code>,
+<code class="docutils literal notranslate"><span class="pre">abl_forcing.temperature.heights</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">abl_forcing.temperature.target_part_format</span></code>)
+which take the same options.</p>
+</div>
+</section>
+<section id="boundary-layer-statistics">
+<h3>Boundary Layer Statistics<a class="headerlink" href="#boundary-layer-statistics" title="Link to this heading"></a></h3>
+</section>
+</section>
+</section>
+<section id="transfers">
+<h1>Transfers<a class="headerlink" href="#transfers" title="Link to this heading"></a></h1>
+</section>
+<section id="simulations">
+<h1>Simulations<a class="headerlink" href="#simulations" title="Link to this heading"></a></h1>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nalux.html" class="btn btn-neutral float-left" title="Invoking Nalu-Wind - Command-line options" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="McAlisterLessonsLearned.html" class="btn btn-neutral float-right" title="Lessons Learned from Meshing the McAlister Case" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

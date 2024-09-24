@@ -1,0 +1,16 @@
+var searchData=
+[
+  ['face_5ftopology_5ffor_5forder_1153',['face_topology_for_order',['../namespacesierra_1_1nalu.html#aa3f75ac338ce3e31e5cdc6774213cb35',1,'sierra::nalu']]],
+  ['field_5faxpby_1154',['field_axpby',['../namespacesierra_1_1nalu.html#abd9a8fedd1b1b862cf448e9e635a8d57',1,'sierra::nalu']]],
+  ['field_5fcopy_1155',['field_copy',['../namespacesierra_1_1nalu.html#a3df340da7575ac62dd83469a76852e18',1,'sierra::nalu']]],
+  ['field_5ffill_1156',['field_fill',['../namespacesierra_1_1nalu.html#aa38257e01a84127a7d3e217eb2f5dbca',1,'sierra::nalu']]],
+  ['field_5fgather_1157',['field_gather',['../namespacesierra_1_1nalu_1_1matrix__free.html#a7dae32fff63eb8acf6c686c8ad75adec',1,'sierra::nalu::matrix_free::field_gather(const_node_mesh_index_view conn, const stk::mesh::NgpField&lt; double &gt; &amp;field, node_scalar_view simd_node_field)'],['../namespacesierra_1_1nalu_1_1matrix__free.html#a84d9f02a4f388215376831bef8a4df28',1,'sierra::nalu::matrix_free::field_gather(const_node_mesh_index_view conn, const stk::mesh::NgpField&lt; double &gt; &amp;field, node_vector_view simd_node_field)']]],
+  ['field_5findex_5fcopy_1158',['field_index_copy',['../namespacesierra_1_1nalu.html#a02dd05cecf061445d21c28e2404d9ea0',1,'sierra::nalu']]],
+  ['field_5fscale_1159',['field_scale',['../namespacesierra_1_1nalu.html#ad934610f444cc40ba37f8de4ad7cc676',1,'sierra::nalu']]],
+  ['fill_5fin_5fextra_5fdof_5frows_5fper_5fnode_1160',['fill_in_extra_dof_rows_per_node',['../namespacesierra_1_1nalu.html#ac6947fbb39006eec1526272839f8222b',1,'sierra::nalu']]],
+  ['fill_5fintg_5fexp_5fface_5fshift_1161',['fill_intg_exp_face_shift',['../namespacesierra_1_1nalu.html#a06f2b182b7fd4a3c237736557f93d55d',1,'sierra::nalu']]],
+  ['fill_5fneighbor_5fprocs_1162',['fill_neighbor_procs',['../namespacesierra_1_1nalu.html#af54578f7e6bd82e7f38541c3e3f8e700',1,'sierra::nalu']]],
+  ['fill_5fowned_5fand_5fshared_5fthen_5fnonowned_5fordered_5fby_5fproc_1163',['fill_owned_and_shared_then_nonowned_ordered_by_proc',['../namespacesierra_1_1nalu.html#af96be14292cdc5c056ff9cc6b1c57714',1,'sierra::nalu']]],
+  ['fill_5fpre_5freq_5fdata_1164',['fill_pre_req_data',['../namespacesierra_1_1nalu.html#a856730db92b49b370480dcc1046aeaae',1,'sierra::nalu::fill_pre_req_data(const ElemDataRequestsGPU &amp;dataNeeded, const stk::mesh::NgpMesh &amp;ngpMesh, stk::mesh::EntityRank entityRank, stk::mesh::Entity entity, ScratchViews&lt; T, DeviceTeamHandleType, DeviceShmem &gt; &amp;prereqData)'],['../namespacesierra_1_1nalu.html#ae7bb21154cda433d189c88b7a64c3c1e',1,'sierra::nalu::fill_pre_req_data(const ElemDataRequestsGPU &amp;dataNeeded, const stk::mesh::NgpMesh &amp;ngpMesh, stk::mesh::EntityRank entityRank, stk::mesh::Entity entity, ScratchViews&lt; double, DeviceTeamHandleType, DeviceShmem &gt; &amp;prereqData)'],['../namespacesierra_1_1nalu.html#a3abec435e40cf18715747e7bc4de3bec',1,'sierra::nalu::fill_pre_req_data(const ElemDataRequestsGPU &amp;dataNeeded, const stk::mesh::NgpMesh &amp;ngpMesh, stk::mesh::EntityRank entityRank, stk::mesh::Entity entity, ScratchViews&lt; DoubleType, DeviceTeamHandleType, DeviceShmem &gt; &amp;prereqData)']]],
+  ['fill_5fsend_5fghosts_5fto_5fremove_5ffrom_5fghosting_1165',['fill_send_ghosts_to_remove_from_ghosting',['../namespacesierra_1_1nalu.html#a2f8849c2cbefcb19222c4255f0ee5668',1,'sierra::nalu']]]
+];
