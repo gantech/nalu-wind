@@ -71,6 +71,9 @@ ModeShapeAnalysis::load(const YAML::Node& node)
   if (node["mode"]) {
     get_required(node["mode"], "freq", modeFreq_);
     get_required(node["mode"], "shape", modeShape_);
+    get_required(node["mode"], "phase", modeShapePhase_);
+    nFEnds_ = modeShape_.size();
+    get_required(node["mode"], "interp_matrix", interpMatrix_);
     NaluEnv::self().naluOutputP0() << "Mode shape at freq " << modeFreq_  << " is :" << std::endl;
     for (int i = 0; i < n_bld_nds; i++) {
         NaluEnv::self().naluOutputP0() << modeShape_[i][0] << ", " << modeShape_[i][1] << ", " << modeShape_[i][2] << ", "
@@ -394,25 +397,66 @@ ModeShapeAnalysis::get_displacements(double current_time)
   // TODO:: Set displacements here from mode shapes
 
   double sinomegat = 0.0;
-  if (current_time > t_start_)
-      sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_));
+  if (current_time > t_start_) {
+      sinomegat =
+  }
   size_t n_bld_nds = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
-  vs::Vector wm_def;
-  vs::Vector mode_def;
+  vs::Vector rot_def; //Cartesian rotations for node of mode shape
+  vs::Vector wm_def; // Wiener-Milenkovic parameters for node of mode shape
+  vs::Vector mode_def; // Translational deflections for node of mode shape
 
   vs::Vector wm_bld_root;
   vs::Vector wm_final;
   vs::Vector final_pos;
   for (int j = 0; j < 3; j++)
     wm_bld_root[j] = -fsiTurbineData_->brFSIdata_.bld_root_ref_pos[3+j];
-  for (size_t i = 0; i < n_bld_nds; i++) {
-    for (int j = 0; j < 3; j++) {
-      mode_def[j] = modeShape_[i][j] * sinomegat;
-      wm_def[j] = modeShape_[i][j+3] * sinomegat;
+
+
+  // Mode shape at current time at finite element nodes
+  std::vector<std::array<double, 6>> mode_shape_t;
+  mode_shape_t.resize(nFEnds_);
+
+  //Calculate realization of mode shape at time t at finite element nodes
+  for (size_t i = 0; i < nFEnds_; i++) {
+    for (size_t j = 0; j < 3; j++) {
+      double sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
+      mode_shape_t[i][j] = modeShape_[i][j] * sinomegat;
+      sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
+      rot_def[j] = modeShape_[i][j+3] * sinomegat;
     }
+    double phi = mag(rot_def);
+    vs::Vector nvec = rot_def.normalize();
+    wm_def = 4.0 * stk::math::tan(0.25 * phi) * nvec;
+    for (size_t j = 0; j < 3; j++)
+      mode_shape_t[i][j+3] = wm_def[j];
+  }
+
+  // Remove root rotation from all nodes
+
+  // Mode shape at current time at quadrature points
+  std::vector<std::array<double, 6>> mode_shape_qp_t;
+  mode_shape_qp_t.resize(n_bld_nds);
+  // Interpolate mode shape to quadrature points
+  for (size_t i = 0; i < n_bld_nds; i++) {
+    for (size_t j = 0; j < 6; j++) {
+      mode_shape_qp_t[i][j] = 0.0;
+      for (size_t k = 0; k < nFEnds_; k++)
+        mode_shape_qp_t[i][j] += interpMatrix_[i][k] * mode_shape_t[k][j];
+    }
+  }
+
+  // Add root rotation back to all nodes
+
+  // Now calculate mode shape in the actual turbine configuration
+  for (size_t i = 0; i < n_bld_nds; i++) {
+    for (size_t j = 0; j < 3; j++) {
+      mode_def[j] = mode_shape_qp_t[i][j];
+      wm_def[j] = mode_shape_qp_t[i][j+3];
+    }
+
     final_pos = wmp::rotate(wm_bld_root, mode_def + refPosLoc_[i]);
     wm_final = wmp::compose(wm_bld_root, wmp::compose(wm_def, refOrientLoc_[i]));
-    for (int j = 0; j < 3; j++) {
+    for (size_t j = 0; j < 3; j++) {
       fsiTurbineData_->brFSIdata_.bld_def[i*6+j] =
           fsiTurbineData_->brFSIdata_.bld_root_ref_pos[j]
           + final_pos[j]
