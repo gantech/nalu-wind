@@ -396,6 +396,10 @@ ModeShapeAnalysis::get_displacements(double current_time)
 {
   // TODO:: Set displacements here from mode shapes
 
+  double prefac = 0.0;
+  if (current_time > t_start_)
+      prefac = 1.0;
+
   size_t n_bld_nds = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
   vs::Vector rot_def; //Cartesian rotations for node of mode shape
   vs::Vector wm_def; // Wiener-Milenkovic parameters for node of mode shape
@@ -416,10 +420,10 @@ ModeShapeAnalysis::get_displacements(double current_time)
   //Calculate realization of mode shape at time t at finite element nodes
   for (size_t i = 0; i < nFEnds_; i++) {
     for (size_t j = 0; j < 3; j++) {
-      double sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
-      mode_shape_t[i][j] = modeShape_[i][j] * sinomegat;
-      sinomegat = stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
-      rot_def[j] = modeShape_[i][j+3] * sinomegat;
+      double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
+      mode_shape_t[i][j] = modeShape_[i][j] * cosomegat;
+      cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
+      rot_def[j] = modeShape_[i][j+3] * cosomegat;
     }
     double phi = mag(rot_def);
     vs::Vector nvec = rot_def.normalize();
