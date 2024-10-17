@@ -396,15 +396,12 @@ ModeShapeAnalysis::get_displacements(double current_time)
 {
   // TODO:: Set displacements here from mode shapes
 
-  double sinomegat = 0.0;
-  if (current_time > t_start_) {
-      sinomegat =
-  }
   size_t n_bld_nds = fsiTurbineData_->params_.nBRfsiPtsBlade[0];
   vs::Vector rot_def; //Cartesian rotations for node of mode shape
   vs::Vector wm_def; // Wiener-Milenkovic parameters for node of mode shape
   vs::Vector mode_def; // Translational deflections for node of mode shape
 
+  vs::Vector wm_zero;
   vs::Vector wm_bld_root;
   vs::Vector wm_final;
   vs::Vector final_pos;
@@ -432,6 +429,18 @@ ModeShapeAnalysis::get_displacements(double current_time)
   }
 
   // Remove root rotation from all nodes
+  for (size_t j = 0; j < 3; j++) //Store reference rotation into wm_zero
+      wm_zero[j] = mode_shape_t[0][j+3];
+
+  for (size_t i = 0; i < nFEnds_; i++) {
+      for (size_t j = 0; j < 3; j++)
+          wm_def[j] = mode_shape_t[i][j+3];
+
+      wm_def = wmp::pop(wm_zero, wm_def);
+
+      for (size_t j = 0; j < 3; j++)
+          mode_shape_t[i][j+3] = wm_def[j];
+  }
 
   // Mode shape at current time at quadrature points
   std::vector<std::array<double, 6>> mode_shape_qp_t;
@@ -446,6 +455,15 @@ ModeShapeAnalysis::get_displacements(double current_time)
   }
 
   // Add root rotation back to all nodes
+  for (size_t i = 0; i < n_bld_nds; i++) {
+      for (size_t j = 0; j < 3; j++)
+          wm_def[j] = mode_shape_qp_t[i][j+3];
+
+      wm_def = wmp::push(wm_zero, wm_def);
+
+      for (size_t j = 0; j < 3; j++)
+          mode_shape_qp_t[i][j+3] = wm_def[j];
+  }
 
   // Now calculate mode shape in the actual turbine configuration
   for (size_t i = 0; i < n_bld_nds; i++) {
