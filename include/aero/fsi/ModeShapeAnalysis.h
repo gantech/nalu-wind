@@ -69,8 +69,14 @@ private:
   std::unique_ptr<fsiTurbine> fsiTurbineData_;
 
   std::string ncFileName_ ;
-  // Mode shape in local (blade root) frame
+  // Mode shape in local (blade root) frame at finite element nodes
   std::vector<std::array<double, 6>> modeShape_;
+  // Mode shape phase in local (blade root) frame at finite element nodes
+  std::vector<std::array<double, 6>> modeShapePhase_;
+  // Number of finite element nodes
+  size_t nFEnds_;
+  // Interpolation matrix from finite element nodes to quadrature points
+  std::vector<std::vector<double>> interpMatrix_;
   // Reference position of blade nodes in local (blade root) frame
   std::vector<vs::Vector> refPosLoc_;
   std::vector<vs::Vector> refOrientLoc_;
