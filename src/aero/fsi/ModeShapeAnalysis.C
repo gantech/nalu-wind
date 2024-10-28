@@ -15,6 +15,8 @@
 #include "netcdf.h"
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <fstream>
 #include <cassert>
 #include <cmath>
@@ -450,15 +452,12 @@ ModeShapeAnalysis::get_displacements(double current_time)
   std::vector<std::array<double, 6>> mode_shape_qp_t;
   mode_shape_qp_t.resize(n_bld_nds);
   // Interpolate mode shape to quadrature points
-  NaluEnv::self().naluOutputP0() << "After matrix interpolation to QP" << std::endl;
   for (size_t i = 0; i < n_bld_nds; i++) {
     for (size_t j = 0; j < 6; j++) {
       mode_shape_qp_t[i][j] = 0.0;
       for (size_t k = 0; k < nFEnds_; k++)
         mode_shape_qp_t[i][j] += interpMatrix_[i][k] * mode_shape_t[k][j];
-      NaluEnv::self().naluOutputP0() << mode_shape_qp_t[i][j] << ", " ;
     }
-    NaluEnv::self().naluOutputP0() << std::endl;
   }
 
   // Add root rotation back to all nodes
@@ -472,7 +471,6 @@ ModeShapeAnalysis::get_displacements(double current_time)
           mode_shape_qp_t[i][j+3] = wm_def[j];
   }
 
-  NaluEnv::self().naluOutputP0() << "Operating point configuration " << std::endl;
   // Now calculate mode shape in the operating point configuration
   for (size_t i = 0; i < n_bld_nds; i++) {
     for (size_t j = 0; j < 3; j++) {
@@ -488,14 +486,27 @@ ModeShapeAnalysis::get_displacements(double current_time)
           + final_pos[j]
           - fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+j];
 
-      NaluEnv::self().naluOutputP0()
-          << fsiTurbineData_->brFSIdata_.bld_def[i*6+0] << ", "
-          << fsiTurbineData_->brFSIdata_.bld_def[i*6+1] << ", "
-          << fsiTurbineData_->brFSIdata_.bld_def[i*6+2] << std::endl;
-
       fsiTurbineData_->brFSIdata_.bld_def[i*6+3+j] = -wm_final[j];
     }
   }
+
+
+  if (bulk_->parallel_rank() == 0) {
+    std::stringstream mshape_file_name;
+    mshape_file_name << "mode_shape_" << std::setprecision(4) << current_time << ".csv";
+    std::ofstream mode_shape_file(mshape_file_name.str());
+
+    mode_shape_file << "ms_tx, ms_ty, ms_tz, ms_rotx, ms_roty, ms_rotz, " ;
+    mode_shape_file << "op_ms_tx, op_ms_ty, op_ms_tz, op_ms_rotx, op_ms_roty, op_ms_rotz" << std::endl;
+    for (size_t i = 0; i < n_bld_nds; i++) {
+      for (size_t j = 0; j < 6; j++)
+        mode_shape_file << mode_shape_qp_t[i][j] << ", " ;
+      for (size_t j = 0; j < 5; j++)
+        mode_shape_file << fsiTurbineData_->brFSIdata_.bld_def[i*6+j] << ", ";
+      mode_shape_file << fsiTurbineData_->brFSIdata_.bld_def[i*6+5] << std::endl;
+    }
+  }
+
 }
 
 void
