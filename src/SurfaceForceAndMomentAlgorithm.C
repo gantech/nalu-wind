@@ -110,7 +110,8 @@ SurfaceForceAndMomentAlgorithm::SurfaceForceAndMomentAlgorithm(
            << "Fpy" << std::setw(w_) << "Fpz" << std::setw(w_) << "Fvx"
            << std::setw(w_) << "Fvy" << std::setw(w_) << "Fvz" << std::setw(w_)
            << "Mtx" << std::setw(w_) << "Mty" << std::setw(w_) << "Mtz"
-           << std::setw(w_) << "Y+min" << std::setw(w_) << "Y+max" << std::endl;
+           << std::setw(w_) << "Y+min" << std::setw(w_) << "Y+max" << 
+           std::setw(w_) << "AeroPower" << std::endl;
     myfile.close();
   }
 }
@@ -175,6 +176,19 @@ SurfaceForceAndMomentAlgorithm::execute()
 
   // deal with state
   ScalarFieldType& densityNp1 = density_->field_of_state(stk::mesh::StateNP1);
+
+  // deal with mesh displacement to get velocity
+  VectorFieldType meshDisp = *meta_data.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, "mesh_displacement");
+  meshDisp->sync_to_host();
+  VectorFieldType& meshDispNp1 = meshDisp->field_of_state(stk::mesh::StateNP1); 
+  VectorFieldType& meshDispN = meshDisp->field_of_state(stk::mesh::StateN);
+  VectorFieldType& meshDispNm1 = meshDisp->field_of_state(stk::mesh::StateNM1);
+  double mesh_vel[3] = {};
+  double dt = realm_.get_time_step();
+  double gamma1 = realm_.get_gamma1();
+  double gamma2 = realm_.get_gamma2();
+  double gamma3 = realm_.get_gamma3();
 
   // define vector of parent topos; should always be UNITY in size
   std::vector<stk::topology> parentTopo;
@@ -313,6 +327,10 @@ SurfaceForceAndMomentAlgorithm::execute()
         double* tauWallVector = stk::mesh::field_data(*tauWallVector_, node);
         double* tauWall = stk::mesh::field_data(*tauWall_, node);
         double* yplus = stk::mesh::field_data(*yplus_, node);
+        double* dispNp1 = stk::mesh::field_data(meshDispNp1, node);
+        double* dispN = stk::mesh::field_data(meshDispN, node);
+        double* dispNm1 = stk::mesh::field_data(meshDispNm1, node);
+
         const double assembledArea =
           *stk::mesh::field_data(*assembledArea_, node);
 
@@ -374,6 +392,11 @@ SurfaceForceAndMomentAlgorithm::execute()
         // projection
         *tauWall += std::sqrt(tauTangential) * areaFac;
 
+        double aero_power = 0.0;
+        for (int j = 0; j < 3; j++)
+          aero_power += ws_t_force[j] * (gamma1 * dispNp1[j] + gamma2 * dispN[j] + gamma3 * dispNm1[j]) / dt;
+        
+
         cross_product(&ws_t_force[0], &ws_moment[0], &ws_radius[0]);
 
         // assemble force and moment
@@ -430,6 +453,9 @@ SurfaceForceAndMomentAlgorithm::execute()
     stk::all_reduce_min(comm, &yplusMin, &g_yplusMin, 1);
     stk::all_reduce_max(comm, &yplusMax, &g_yplusMax, 1);
 
+    double g_aero_power = 0.0;
+    stk::all_reduce_sum(comm, &aero_power, &g_aero_power, 1);
+
     // deal with file name and banner
     if (NaluEnv::self().parallel_rank() == 0) {
       std::ofstream myfile;
@@ -442,6 +468,7 @@ SurfaceForceAndMomentAlgorithm::execute()
              << std::setw(w_) << g_force_moment[6] << std::setw(w_)
              << g_force_moment[7] << std::setw(w_) << g_force_moment[8]
              << std::setw(w_) << g_yplusMin << std::setw(w_) << g_yplusMax
+             << std::setw(w_) << g_aero_power
              << std::endl;
       myfile.close();
     }
