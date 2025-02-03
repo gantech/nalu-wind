@@ -1785,7 +1785,7 @@ fsiTurbine::computeMapping()
 
         // if we are very very close to a point then we need to use it
         // curvature issues can break the projection
-        if (!foundProj && minDispMapInterp < 0.50) {
+        if (!foundProj && minDispMapInterp < 0.99) {
           *dispMapInterpNode = 0.0;
           *dispMapNode = minDispMap;
           foundProj = true;
