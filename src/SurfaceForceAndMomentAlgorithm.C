@@ -177,8 +177,8 @@ SurfaceForceAndMomentAlgorithm::execute()
   // deal with state
   ScalarFieldType& densityNp1 = density_->field_of_state(stk::mesh::StateNP1);
 
-  // deal with mesh displacement to get velocity
-  VectorFieldType meshDisp = *meta_data.get_field<VectorFieldType>(
+  // deal with mesh displacement to get velocity for aero power calculation
+  VectorFieldType* meshDisp = meta_data.get_field<double>(
     stk::topology::NODE_RANK, "mesh_displacement");
   meshDisp->sync_to_host();
   VectorFieldType& meshDispNp1 = meshDisp->field_of_state(stk::mesh::StateNP1); 
@@ -189,6 +189,7 @@ SurfaceForceAndMomentAlgorithm::execute()
   double gamma1 = realm_.get_gamma1();
   double gamma2 = realm_.get_gamma2();
   double gamma3 = realm_.get_gamma3();
+  double aero_power = 0.0;
 
   // define vector of parent topos; should always be UNITY in size
   std::vector<stk::topology> parentTopo;
@@ -392,11 +393,9 @@ SurfaceForceAndMomentAlgorithm::execute()
         // projection
         *tauWall += std::sqrt(tauTangential) * areaFac;
 
-        double aero_power = 0.0;
         for (int j = 0; j < 3; j++)
           aero_power += ws_t_force[j] * (gamma1 * dispNp1[j] + gamma2 * dispN[j] + gamma3 * dispNm1[j]) / dt;
-        
-
+     
         cross_product(&ws_t_force[0], &ws_moment[0], &ws_radius[0]);
 
         // assemble force and moment
