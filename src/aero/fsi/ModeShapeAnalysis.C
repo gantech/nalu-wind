@@ -74,6 +74,7 @@ ModeShapeAnalysis::load(const YAML::Node& node)
     get_required(node["mode"], "freq", modeFreq_);
     get_required(node["mode"], "shape", modeShape_);
     get_required(node["mode"], "phase", modeShapePhase_);
+    get_required(node["mode"], "amplitude", amplitude_);
     nFEnds_ = modeShape_.size();
     get_required(node["mode"], "interp_matrix", interpMatrix_);
     NaluEnv::self().naluOutputP0() << "Mode shape at freq " << modeFreq_  << " is :" << std::endl;
@@ -423,9 +424,9 @@ ModeShapeAnalysis::get_displacements(double current_time)
   for (size_t i = 0; i < nFEnds_; i++) {
     for (size_t j = 0; j < 3; j++) {
       double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
-      mode_shape_t[i][j] = modeShape_[i][j] * cosomegat;
+      mode_shape_t[i][j] = amplitude_ * modeShape_[i][j] * cosomegat;
       cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
-      rot_def[j] = modeShape_[i][j+3] * cosomegat;
+      rot_def[j] = amplitude_ * modeShape_[i][j+3] * cosomegat;
     }
     double phi = mag(rot_def);
     vs::Vector nvec = rot_def.normalize();

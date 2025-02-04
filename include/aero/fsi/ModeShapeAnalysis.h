@@ -69,6 +69,8 @@ private:
   std::unique_ptr<fsiTurbine> fsiTurbineData_;
 
   std::string ncFileName_ ;
+  // Amplitude of oscillation along the edge direction
+  double amplitude_;
   // Mode shape in local (blade root) frame at finite element nodes
   std::vector<std::array<double, 6>> modeShape_;
   // Mode shape phase in local (blade root) frame at finite element nodes
