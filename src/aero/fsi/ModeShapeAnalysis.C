@@ -407,6 +407,8 @@ ModeShapeAnalysis::get_displacements(double current_time)
   vs::Vector rot_def; //Cartesian rotations for node of mode shape
   vs::Vector wm_def; // Wiener-Milenkovic parameters for node of mode shape
   vs::Vector mode_def; // Translational deflections for node of mode shape
+  vs::Vector mode_tvel; // Translational velocity for node of mode shape
+  vs::Vector mode_rvel; // Rotational velocity for node of mode shape
 
   vs::Vector wm_zero;
   vs::Vector wm_bld_root;
@@ -419,14 +421,21 @@ ModeShapeAnalysis::get_displacements(double current_time)
   // Mode shape at current time at finite element nodes
   std::vector<std::array<double, 6>> mode_shape_t;
   mode_shape_t.resize(nFEnds_);
+  // Velocity
+  std::vector<std::array<double, 6>> mode_shape_vel;
+  mode_shape_vel.resize(nFEnds_);  
 
   //Calculate realization of mode shape at time t at finite element nodes
   for (size_t i = 0; i < nFEnds_; i++) {
     for (size_t j = 0; j < 3; j++) {
       double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
+      double sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
       mode_shape_t[i][j] = amplitude_ * modeShape_[i][j] * cosomegat;
+      mode_shape_vel[i][j] = 2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j] * sinomegat;
       cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
+      sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
       rot_def[j] = amplitude_ * modeShape_[i][j+3] * cosomegat;
+      mode_shape_vel[i][j+3] = 2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j+3] * sinomegat;
     }
     double phi = mag(rot_def);
     vs::Vector nvec = rot_def.normalize();
@@ -452,12 +461,16 @@ ModeShapeAnalysis::get_displacements(double current_time)
   // Mode shape at current time at quadrature points
   std::vector<std::array<double, 6>> mode_shape_qp_t;
   mode_shape_qp_t.resize(n_bld_nds);
+  std::vector<std::array<double, 6>> mode_shape_qp_vel;
+  mode_shape_qp_vel.resize(n_bld_nds);
   // Interpolate mode shape to quadrature points
   for (size_t i = 0; i < n_bld_nds; i++) {
     for (size_t j = 0; j < 6; j++) {
       mode_shape_qp_t[i][j] = 0.0;
-      for (size_t k = 0; k < nFEnds_; k++)
+      for (size_t k = 0; k < nFEnds_; k++) {
         mode_shape_qp_t[i][j] += interpMatrix_[i][k] * mode_shape_t[k][j];
+        mode_shape_qp_vel[i][j] += interpMatrix_[i][k] * mode_shape_vel[k][j];
+      }
     }
   }
 
@@ -477,8 +490,12 @@ ModeShapeAnalysis::get_displacements(double current_time)
     for (size_t j = 0; j < 3; j++) {
       mode_def[j] = mode_shape_qp_t[i][j];
       wm_def[j] = mode_shape_qp_t[i][j+3];
+      mode_tvel[j] = mode_shape_qp_vel[i][j];
+      mode_rvel[j] = mode_shape_qp_vel[i][j+3];
     }
 
+    final_tvel = wmp::rotate(wm_bld_root, mode_tvel);
+    final_rvel = wmp::rotate(wm_bld_root, mode_rvel);    
     final_pos = wmp::rotate(wm_bld_root, mode_def + refPosLoc_[i]);
     wm_final = wmp::compose(wm_bld_root, wmp::compose(wm_def, refOrientLoc_[i]));
     for (size_t j = 0; j < 3; j++) {
@@ -488,6 +505,8 @@ ModeShapeAnalysis::get_displacements(double current_time)
           - fsiTurbineData_->brFSIdata_.bld_ref_pos[i*6+j];
 
       fsiTurbineData_->brFSIdata_.bld_def[i*6+3+j] = -wm_final[j];
+      fsiTurbineData_->brFSIdata_.bld_vel[i*6+j] = final_tvel[j];
+      fsiTurbineData_->brFSIdata_.bld_vel[i*6+3+j] = final_rvel[j];
     }
   }
 
