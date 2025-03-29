@@ -414,6 +414,8 @@ ModeShapeAnalysis::get_displacements(double current_time)
   vs::Vector wm_bld_root;
   vs::Vector wm_final;
   vs::Vector final_pos;
+  vs::Vector final_tvel;
+  vs::Vector final_rvel;
   for (int j = 0; j < 3; j++)
     wm_bld_root[j] = -fsiTurbineData_->brFSIdata_.bld_root_ref_pos[3+j];
 
