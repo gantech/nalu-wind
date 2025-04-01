@@ -433,11 +433,11 @@ ModeShapeAnalysis::get_displacements(double current_time)
       double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
       double sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
       mode_shape_t[i][j] = amplitude_ * modeShape_[i][j] * cosomegat;
-      mode_shape_vel[i][j] = 2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j] * sinomegat;
+      mode_shape_vel[i][j] = -2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j] * sinomegat;
       cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
       sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
       rot_def[j] = amplitude_ * modeShape_[i][j+3] * cosomegat;
-      mode_shape_vel[i][j+3] = 2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j+3] * sinomegat;
+      mode_shape_vel[i][j+3] = -2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j+3] * sinomegat;
     }
     double phi = mag(rot_def);
     vs::Vector nvec = rot_def.normalize();
