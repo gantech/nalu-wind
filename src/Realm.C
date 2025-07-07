@@ -432,6 +432,8 @@ Realm::initialize_prolog()
 
   if (aeroModels_->is_active())
     aeroModels_->setup(get_time_step_from_file(), bulkData_);
+  augment_restart_variable_list("disp_map");
+  augment_restart_variable_list("disp_map_interp");
 
   // interior algorithm creation
   setup_interior_algorithms();
@@ -505,7 +507,6 @@ Realm::initialize_prolog()
     enforce_bc_on_exposed_faces();
 
   // output and restart files
-  create_output_mesh();
   create_restart_mesh();
 
   // sort exposed faces only when using consolidated bc NGP approach
@@ -526,6 +527,8 @@ Realm::initialize_prolog()
 
   if (solutionOptions_->meshTransformation_)
     meshTransformationAlg_->initialize(get_current_time());
+
+  create_output_mesh();
 
   if (does_mesh_move())
     init_current_coordinates();

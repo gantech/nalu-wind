@@ -256,6 +256,7 @@ fsiTurbine::setup(std::shared_ptr<stk::mesh::BulkData> bulk)
   dispMap_ = meta.get_field<int>(stk::topology::NODE_RANK, "disp_map");
   if (dispMap_ == NULL)
     dispMap_ = &(meta.declare_field<int>(stk::topology::NODE_RANK, "disp_map"));
+  realm_.augment_restart_variable_list("disp_map");
 
   dispMapInterp_ =
     meta.get_field<double>(stk::topology::NODE_RANK, "disp_map_interp");
@@ -957,7 +958,7 @@ fsiTurbine::computeHubForceMomentForPart(
 
   std::vector<double> l_hubForceMoment(6, 0.0);
 
-  // TODO: This is looping over the wrong buckets - Nodes instead of faces
+ // TODO: This is looping over the wrong buckets - Nodes instead of faces
   // Is this even required anymore? Probly can delete
 
   // std::array<double, 3> tmpMeshPos{

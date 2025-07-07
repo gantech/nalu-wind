@@ -110,8 +110,9 @@ SurfaceForceAndMomentAlgorithm::SurfaceForceAndMomentAlgorithm(
            << "Fpy" << std::setw(w_) << "Fpz" << std::setw(w_) << "Fvx"
            << std::setw(w_) << "Fvy" << std::setw(w_) << "Fvz" << std::setw(w_)
            << "Mtx" << std::setw(w_) << "Mty" << std::setw(w_) << "Mtz"
-           << std::setw(w_) << "Y+min" << std::setw(w_) << "Y+max" << 
-           std::setw(w_) << "AeroPower" << std::endl;
+           << std::setw(w_) << "Y+min" << std::setw(w_) << "Y+max" <<
+        std::setw(w_) << "AeroPower" << std::setw(w_) << "AeroPPower"
+           << std::setw(w_) << "AeroVPower" << std::endl;
     myfile.close();
   }
 }
@@ -181,7 +182,7 @@ SurfaceForceAndMomentAlgorithm::execute()
   VectorFieldType* meshDisp = meta_data.get_field<double>(
     stk::topology::NODE_RANK, "mesh_displacement");
   meshDisp->sync_to_host();
-  VectorFieldType& meshDispNp1 = meshDisp->field_of_state(stk::mesh::StateNP1); 
+  VectorFieldType& meshDispNp1 = meshDisp->field_of_state(stk::mesh::StateNP1);
   VectorFieldType& meshDispN = meshDisp->field_of_state(stk::mesh::StateN);
   VectorFieldType& meshDispNm1 = meshDisp->field_of_state(stk::mesh::StateNM1);
   double mesh_vel[3] = {};
@@ -190,6 +191,8 @@ SurfaceForceAndMomentAlgorithm::execute()
   double gamma2 = realm_.get_gamma2();
   double gamma3 = realm_.get_gamma3();
   double aero_power = 0.0;
+  double aero_p_power = 0.0;
+  double aero_v_power = 0.0;
 
   // define vector of parent topos; should always be UNITY in size
   std::vector<stk::topology> parentTopo;
@@ -393,9 +396,12 @@ SurfaceForceAndMomentAlgorithm::execute()
         // projection
         *tauWall += std::sqrt(tauTangential) * areaFac;
 
-        for (int j = 0; j < 3; j++)
-          aero_power += ws_t_force[j] * (gamma1 * dispNp1[j] + gamma2 * dispN[j] + gamma3 * dispNm1[j]) / dt;
-     
+        for (int j = 0; j < 3; j++) {
+            aero_power += ws_t_force[j] * (gamma1 * dispNp1[j] + gamma2 * dispN[j] + gamma3 * dispNm1[j]) / dt;
+            aero_p_power += ws_p_force[j] * (gamma1 * dispNp1[j] + gamma2 * dispN[j] + gamma3 * dispNm1[j]) / dt;
+            aero_v_power += ws_v_force[j] * (gamma1 * dispNp1[j] + gamma2 * dispN[j] + gamma3 * dispNm1[j]) / dt;
+        }
+
         cross_product(&ws_t_force[0], &ws_moment[0], &ws_radius[0]);
 
         // assemble force and moment
@@ -453,7 +459,11 @@ SurfaceForceAndMomentAlgorithm::execute()
     stk::all_reduce_max(comm, &yplusMax, &g_yplusMax, 1);
 
     double g_aero_power = 0.0;
+    double g_aero_p_power = 0.0;
+    double g_aero_v_power = 0.0;
     stk::all_reduce_sum(comm, &aero_power, &g_aero_power, 1);
+    stk::all_reduce_sum(comm, &aero_p_power, &g_aero_p_power, 1);
+    stk::all_reduce_sum(comm, &aero_v_power, &g_aero_v_power, 1);
 
     // deal with file name and banner
     if (NaluEnv::self().parallel_rank() == 0) {
@@ -467,8 +477,8 @@ SurfaceForceAndMomentAlgorithm::execute()
              << std::setw(w_) << g_force_moment[6] << std::setw(w_)
              << g_force_moment[7] << std::setw(w_) << g_force_moment[8]
              << std::setw(w_) << g_yplusMin << std::setw(w_) << g_yplusMax
-             << std::setw(w_) << g_aero_power
-             << std::endl;
+             << std::setw(w_) << g_aero_power << std::setw(w_) << g_aero_p_power
+             << std::setw(w_) << g_aero_v_power << std::endl;
       myfile.close();
     }
   }
