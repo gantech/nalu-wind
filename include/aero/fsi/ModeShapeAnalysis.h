@@ -1,3 +1,4 @@
+
 #ifndef MODALSHAPEANALYSIS_H
 #define MODALSHAPEANALYSIS_H
 
@@ -69,12 +70,14 @@ private:
   std::unique_ptr<fsiTurbine> fsiTurbineData_;
 
   std::string ncFileName_ ;
-  // Amplitude of oscillation along the edge direction
-  double amplitude_;
+  // Amplitude of oscillation along the different modes
+  std::vector<double> amplitude_;
+  // Number of modes to be considered
+  int nModes_{1};
   // Mode shape in local (blade root) frame at finite element nodes
-  std::vector<std::array<double, 6>> modeShape_;
+  std::vector<std::vector<std::array<double, 6>>> modeShape_;
   // Mode shape phase in local (blade root) frame at finite element nodes
-  std::vector<std::array<double, 6>> modeShapePhase_;
+  std::vector<std::vector<std::array<double, 6>>> modeShapePhase_;
   // Number of finite element nodes
   size_t nFEnds_;
   // Interpolation matrix from finite element nodes to quadrature points
@@ -86,7 +89,7 @@ private:
 
   double t_start_; //When to start the mode oscillations
 
-  double modeFreq_;
+  std::vector<double> modeFreq_;
 
   bool mesh_motion_;
 

@@ -71,11 +71,21 @@ ModeShapeAnalysis::load(const YAML::Node& node)
   refOrientLoc_.resize(n_bld_nds);
 
   if (node["mode"]) {
+    get_required(node["mode"], "n_modes", nModes_);
+    if (nModes_ < 1) {
+      throw std::runtime_error(
+        "n_modes must be greater than or equal to 1 in mode_shape_analysis");
+    } else {
+      modeShape_.resize(nModes_);
+      modeShapePhase_.resize(nModes_);
+    }
     get_required(node["mode"], "freq", modeFreq_);
-    get_required(node["mode"], "shape", modeShape_);
-    get_required(node["mode"], "phase", modeShapePhase_);
+    for (int i = 0; i < nModes_; i++) {
+      get_required(node["mode"], "shape", modeShape_[i]);
+      get_required(node["mode"], "phase", modeShapePhase_[i]);
+    }
     get_required(node["mode"], "amplitude", amplitude_);
-    nFEnds_ = modeShape_.size();
+    nFEnds_ = modeShape_[0].size();
     get_required(node["mode"], "interp_matrix", interpMatrix_);
     NaluEnv::self().naluOutputP0() << "Mode shape at freq " << modeFreq_  << " is :" << std::endl;
     for (int i = 0; i < n_bld_nds; i++) {
@@ -430,14 +440,21 @@ ModeShapeAnalysis::get_displacements(double current_time)
   //Calculate realization of mode shape at time t at finite element nodes
   for (size_t i = 0; i < nFEnds_; i++) {
     for (size_t j = 0; j < 3; j++) {
-      double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
-      double sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j]);
-      mode_shape_t[i][j] = amplitude_ * modeShape_[i][j] * cosomegat;
-      mode_shape_vel[i][j] = -2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j] * sinomegat;
-      cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
-      sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_ * (current_time-t_start_) + modeShapePhase_[i][j+3]);
-      rot_def[j] = amplitude_ * modeShape_[i][j+3] * cosomegat;
-      mode_shape_vel[i][j+3] = -2.0 * 3.14159265358979323846 * modeFreq_ * amplitude_ * modeShape_[i][j+3] * sinomegat;
+      mode_shape_t[i][j] = 0.0;
+      mode_shape_vel[i][j] = 0.0;
+      rot_def[j] = 0.0;
+      mode_shape_t[i][j+3] = 0.0;
+      mode_shape_vel[i][j+3] = 0.0;
+      for (size_t k = 0; k < nModes_; k++) {
+        double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j]);
+        double sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j]);
+        mode_shape_t[i][j] += amplitude_ * modeShape_[k][i][j] * cosomegat;
+        mode_shape_vel[i][j] += -2.0 * 3.14159265358979323846 * modeFreq_[k] * amplitude_ * modeShape_[k][i][j] * sinomegat;
+        cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j+3]);
+        sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j+3]);
+        rot_def[j] += amplitude_ * modeShape_[k][i][j+3] * cosomegat;
+        mode_shape_vel[i][j+3] += -2.0 * 3.14159265358979323846 * modeFreq_[k] * amplitude_ * modeShape_[k][i][j+3] * sinomegat;
+      }
     }
     double phi = mag(rot_def);
     vs::Vector nvec = rot_def.normalize();
