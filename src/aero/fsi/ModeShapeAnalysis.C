@@ -85,13 +85,7 @@ ModeShapeAnalysis::load(const YAML::Node& node)
       get_required(node["mode"], "phase", modeShapePhase_[i]);
     }
     get_required(node["mode"], "amplitude", amplitude_);
-    nFEnds_ = modeShape_[0].size();
     get_required(node["mode"], "interp_matrix", interpMatrix_);
-    NaluEnv::self().naluOutputP0() << "Mode shape at freq " << modeFreq_  << " is :" << std::endl;
-    for (int i = 0; i < n_bld_nds; i++) {
-        NaluEnv::self().naluOutputP0() << modeShape_[i][0] << ", " << modeShape_[i][1] << ", " << modeShape_[i][2] << ", "
-                                       << modeShape_[i][3] << ", "  << modeShape_[i][4] << ", "  << modeShape_[i][5] << std::endl;
-    }
   } else {
       throw std::runtime_error(
           "mode is required in mode_shape_analysis with both freq and shape entries");
@@ -448,12 +442,12 @@ ModeShapeAnalysis::get_displacements(double current_time)
       for (size_t k = 0; k < nModes_; k++) {
         double cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j]);
         double sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j]);
-        mode_shape_t[i][j] += amplitude_ * modeShape_[k][i][j] * cosomegat;
-        mode_shape_vel[i][j] += -2.0 * 3.14159265358979323846 * modeFreq_[k] * amplitude_ * modeShape_[k][i][j] * sinomegat;
+        mode_shape_t[i][j] += amplitude_[k] * modeShape_[k][i][j] * cosomegat;
+        mode_shape_vel[i][j] += -2.0 * 3.14159265358979323846 * modeFreq_[k] * amplitude_[k] * modeShape_[k][i][j] * sinomegat;
         cosomegat = prefac * stk::math::cos(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j+3]);
         sinomegat = prefac * stk::math::sin(2.0 * 3.14159265358979323846 * modeFreq_[k] * (current_time-t_start_) + modeShapePhase_[k][i][j+3]);
-        rot_def[j] += amplitude_ * modeShape_[k][i][j+3] * cosomegat;
-        mode_shape_vel[i][j+3] += -2.0 * 3.14159265358979323846 * modeFreq_[k] * amplitude_ * modeShape_[k][i][j+3] * sinomegat;
+        rot_def[j] += amplitude_[k] * modeShape_[k][i][j+3] * cosomegat;
+        mode_shape_vel[i][j+3] += -2.0 * 3.14159265358979323846 * modeFreq_[k] * amplitude_[k] * modeShape_[k][i][j+3] * sinomegat;
       }
     }
     double phi = mag(rot_def);
@@ -530,21 +524,6 @@ ModeShapeAnalysis::get_displacements(double current_time)
   }
 
 
-  if (bulk_->parallel_rank() == 0) {
-    std::stringstream mshape_file_name;
-    mshape_file_name << "mode_shape_" << std::setprecision(4) << current_time << ".csv";
-    std::ofstream mode_shape_file(mshape_file_name.str());
-
-    mode_shape_file << "ms_tx, ms_ty, ms_tz, ms_rotx, ms_roty, ms_rotz, " ;
-    mode_shape_file << "op_ms_tx, op_ms_ty, op_ms_tz, op_ms_rotx, op_ms_roty, op_ms_rotz" << std::endl;
-    for (size_t i = 0; i < n_bld_nds; i++) {
-      for (size_t j = 0; j < 6; j++)
-        mode_shape_file << mode_shape_qp_t[i][j] << ", " ;
-      for (size_t j = 0; j < 5; j++)
-        mode_shape_file << fsiTurbineData_->brFSIdata_.bld_def[i*6+j] << ", ";
-      mode_shape_file << fsiTurbineData_->brFSIdata_.bld_def[i*6+5] << std::endl;
-    }
-  }
 
 }
 
