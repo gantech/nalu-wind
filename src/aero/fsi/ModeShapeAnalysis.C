@@ -92,11 +92,12 @@ ModeShapeAnalysis::load(const YAML::Node& node)
                                          << modeFreq_[i] << std::endl;
       NaluEnv::self().naluOutputP0() << "Mode " << i << " amplitude = "
                                          << amplitude_[i] << std::endl;
-      NaluEnv::self().naluOutputP0() << "Mode " << i << " shape = ";
+      NaluEnv::self().naluOutputP0() << "Mode " << i << " shape = " << std::endl;
       for (size_t j = 0; j < 11; j++) {
-        NaluEnv::self().naluOutputP0() << modeShape_[i][j] << " ";
+        NaluEnv::self().naluOutputP0() << modeShape_[i][j][0] << " " << modeShape_[i][j][1] << " "
+                                         << modeShape_[i][j][2] << " " << modeShape_[i][j][3] << " "
+                                         << modeShape_[i][j][4] << " " << modeShape_[i][j][5] << std::endl;
       }
-      NaluEnv::self().naluOutputP0() << std::endl;
     }
   } else {
       throw std::runtime_error(
