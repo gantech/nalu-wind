@@ -81,8 +81,8 @@ ModeShapeAnalysis::load(const YAML::Node& node)
     }
     get_required(node["mode"], "freq", modeFreq_);
     for (int i = 0; i < nModes_; i++) {
-      get_required(node["mode"][i], "shape", modeShape_[i]);
-      get_required(node["mode"][i], "phase", modeShapePhase_[i]);
+      modeShape_[i] = get_yaml_value(node["mode"]["shape"][i]);
+      modeShapePhase_[i] = get_yaml_value(node["mode"]["phase"][i]);
     }
     get_required(node["mode"], "amplitude", amplitude_);
     get_required(node["mode"], "interp_matrix", interpMatrix_);
