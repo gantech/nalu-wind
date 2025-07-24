@@ -86,6 +86,18 @@ ModeShapeAnalysis::load(const YAML::Node& node)
     }
     get_required(node["mode"], "amplitude", amplitude_);
     get_required(node["mode"], "interp_matrix", interpMatrix_);
+
+    for (int i = 0; i < nModes_; i++) {
+      NaluEnv::self().naluOutputP0() << "Mode " << i << " frequency = "
+                                         << modeFreq_[i] << std::endl;
+      NaluEnv::self().naluOutputP0() << "Mode " << i << " amplitude = "
+                                         << amplitude_[i] << std::endl;
+      NaluEnv::self().naluOutputP0() << "Mode " << i << " shape = ";
+      for (size_t j = 0; j < 11; j++) {
+        NaluEnv::self().naluOutputP0() << modeShape_[i][j] << " ";
+      }
+      NaluEnv::self().naluOutputP0() << std::endl;
+    }
   } else {
       throw std::runtime_error(
           "mode is required in mode_shape_analysis with both freq and shape entries");
