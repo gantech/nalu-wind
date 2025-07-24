@@ -86,7 +86,7 @@ ModeShapeAnalysis::load(const YAML::Node& node)
     }
     get_required(node["mode"], "amplitude", amplitude_);
     get_required(node["mode"], "interp_matrix", interpMatrix_);
-
+    nFEnds_ = 11;
     for (int i = 0; i < nModes_; i++) {
       NaluEnv::self().naluOutputP0() << "Mode " << i << " frequency = "
                                          << modeFreq_[i] << std::endl;
