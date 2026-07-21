@@ -76,6 +76,10 @@ void
 MeshMotionAlg::execute(const double time)
 {
   for (size_t i = 0; i < movingFrameVec_.size(); i++) {
+    movingFrameVec_[i]->prep_mesh_motion(time);
+  }
+  
+  for (size_t i = 0; i < movingFrameVec_.size(); i++) {
     movingFrameVec_[i]->update_coordinates_velocity(time);
   }
 }

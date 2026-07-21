@@ -23,6 +23,8 @@ public:
 
   virtual void update_coordinates_velocity(const double time);
 
+  virtual void prep_mesh_motion(const double time);
+
   void post_compute_geometry();
 
 private:

@@ -10,6 +10,8 @@ target_sources(${kynema_ugf_lib_name} PRIVATE
    ${CMAKE_CURRENT_SOURCE_DIR}/MotionScalingKernel.C
    ${CMAKE_CURRENT_SOURCE_DIR}/MotionTranslationKernel.C
    ${CMAKE_CURRENT_SOURCE_DIR}/MotionOscillationKernel.C
+   ${CMAKE_CURRENT_SOURCE_DIR}/MotionOscillationCylinderRBF.C
+   ${CMAKE_CURRENT_SOURCE_DIR}/MotionOscillationCylinderRBF.C
    ${CMAKE_CURRENT_SOURCE_DIR}/MotionWavesKernel.C
    ${CMAKE_CURRENT_SOURCE_DIR}/TurbineSurrogateKernel.C
 )

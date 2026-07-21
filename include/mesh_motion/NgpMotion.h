@@ -109,6 +109,12 @@ public:
 
   virtual void free_on_device() = 0;
 
+  /** Function for motion-specific preprocessing
+   *
+   * @param[in] time Current time
+   */
+  virtual void prep_mesh_motion(const double time) {}
+
   /** Function to compute motion-specific transformation matrix
    *
    * @param[in] time Current time

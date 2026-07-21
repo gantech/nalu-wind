@@ -13,6 +13,14 @@ namespace sierra {
 namespace kynema_ugf {
 
 void
+FrameMoving::prep_mesh_motion(const double time)
+{
+  for (auto& mm : motionKernels_) {
+    mm->prep_mesh_motion(time);
+  }
+}
+
+void
 FrameMoving::update_coordinates_velocity(const double time)
 {
   assert(partVec_.size() > 0);
