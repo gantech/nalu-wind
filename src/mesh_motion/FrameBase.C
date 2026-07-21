@@ -7,6 +7,7 @@
 #include "mesh_motion/MotionPrescribedKernel.h"
 #include "mesh_motion/MotionTranslationKernel.h"
 #include "mesh_motion/MotionOscillationKernel.h"
+#include "mesh_motion/MotionOscillationCylinderRBF.h"
 #include "mesh_motion/TurbineSurrogateKernel.h"
 #include "mesh_motion/MotionWavesKernel.h"
 #include "KynemaUGFParsing.h"
@@ -74,6 +75,8 @@ FrameBase::load(const YAML::Node& node)
         motionKernels_[i].reset(new MotionRotationKernel(motion_def));
       else if (type == "oscillation")
         motionKernels_[i].reset(new MotionOscillationKernel(motion_def));
+      else if (type == "oscillation_rbf")
+        motionKernels_[i].reset(new MotionOscillationCylinderRBF(motion_def));
       else if (type == "scaling")
         motionKernels_[i].reset(new MotionScalingKernel(meta_, motion_def));
       else if (type == "translation")
