@@ -32,17 +32,17 @@ MotionOscillationCylinderRBF::load(const YAML::Node& node)
   get_if_present(node, "amplitude_factor", amplitudeFactor_, amplitudeFactor_);
   get_if_present(node, "rbf_basis_parameter", rbfBasisParameter_, rbfBasisParameter_);
 
-  // New input: number of control points per z-plane on the cylinder
+  // Number of control points on cylinder circumference in x-y plane
   get_if_present(
-    node, "num_cylinder_control_points_per_plane",
-    numCylinderControlPointsPerPlane_, numCylinderControlPointsPerPlane_);
+    node, "num_cylinder_control_points", numCylinderControlPoints_,
+    numCylinderControlPoints_);
 
-  // Backward compatibility: treat legacy total count as per-plane if provided
+  // Backward compatibility: previous key used per-plane wording
   if (
-    !node["num_cylinder_control_points_per_plane"] &&
-    node["num_cylinder_control_points"]) {
-    numCylinderControlPointsPerPlane_ =
-      node["num_cylinder_control_points"].as<int>();
+    !node["num_cylinder_control_points"] &&
+    node["num_cylinder_control_points_per_plane"]) {
+    numCylinderControlPoints_ =
+      node["num_cylinder_control_points_per_plane"].as<int>();
   }
 
   // Parse domain extents if provided
@@ -52,23 +52,16 @@ MotionOscillationCylinderRBF::load(const YAML::Node& node)
     }
   }
 
-  if (numControlPlanes_ < 2) {
+  if (numCylinderControlPoints_ < 3) {
     throw std::runtime_error(
-      "MotionOscillationCylinderRBF: numControlPlanes must be >= 2.");
-  }
-
-  if (numCylinderControlPointsPerPlane_ < 3) {
-    throw std::runtime_error(
-      "MotionOscillationCylinderRBF: num_cylinder_control_points_per_plane "
-      "must be >= 3.");
+      "MotionOscillationCylinderRBF: num_cylinder_control_points must be >= 3.");
   }
 
   // Calculate total control points
-  // Cylinder surface: numControlPlanes x numCylinderControlPointsPerPlane
-  // Hexahedron: numControlPlanes x 8 (4 corners + 4 edge-midpoints in each plane)
-  totalCylinderControlPoints_ =
-    numControlPlanes_ * numCylinderControlPointsPerPlane_;
-  totalHexControlPoints_ = numControlPlanes_ * 8;
+  // Cylinder surface: one ring in x-y plane
+  // Hexahedron: 8 points in x-y plane (4 corners + 4 edge midpoints)
+  totalCylinderControlPoints_ = numCylinderControlPoints_;
+  totalHexControlPoints_ = 8;
   totalControlPoints_ = totalCylinderControlPoints_ + totalHexControlPoints_;
 
   // Allocate Kokkos views on device
@@ -87,9 +80,8 @@ MotionOscillationCylinderRBF::load(const YAML::Node& node)
 
   KynemaUGFEnv::self().kynema_ugfOutputP0()
     << "MotionOscillationCylinderRBF initialized with " << totalControlPoints_
-    << " control points (" << numControlPlanes_ << " planes, "
-    << numCylinderControlPointsPerPlane_
-    << " cylinder points per plane), frequency=" << frequency_
+    << " control points (x-y-only RBF, " << numCylinderControlPoints_
+    << " cylinder points), frequency=" << frequency_
     << ", amplitude_factor=" << amplitudeFactor_ << std::endl;
 }
 
@@ -99,42 +91,30 @@ MotionOscillationCylinderRBF::generate_control_points_on_device()
 {
   auto controlPoints = controlPoints_;
   auto cylinderRadius = cylinderRadius_;
-  auto cylinderHeight = cylinderHeight_;
-  auto numPlanes = numControlPlanes_;
-  auto numCylPerPlane = numCylinderControlPointsPerPlane_;
+  auto numCyl = numCylinderControlPoints_;
   auto numCylTotal = totalCylinderControlPoints_;
   auto xMin = domainExtents_[0];
   auto yMin = domainExtents_[1];
-  auto zMin = domainExtents_[2];
   auto xMax = domainExtents_[3];
   auto yMax = domainExtents_[4];
-  auto zMax = domainExtents_[5];
 
   Kokkos::parallel_for(
     totalControlPoints_, KOKKOS_LAMBDA(const int cpIdx) {
       if (cpIdx < numCylTotal) {
-        // Cylinder control points: numCylPerPlane points on each of 5 z-planes
-        const int plane = cpIdx / numCylPerPlane;
-        const int iTheta = cpIdx % numCylPerPlane;
+        // Cylinder control points: one ring in x-y plane
+        const int iTheta = cpIdx;
         const double theta =
           2.0 * M_PI * static_cast<double>(iTheta) /
-          static_cast<double>(numCylPerPlane);
-        const double z =
-          cylinderHeight * static_cast<double>(plane) /
-          static_cast<double>(numPlanes - 1);
+          static_cast<double>(numCyl);
 
         controlPoints(cpIdx, 0) = cylinderRadius * std::cos(theta);
         controlPoints(cpIdx, 1) = cylinderRadius * std::sin(theta);
-        controlPoints(cpIdx, 2) = z;
+        controlPoints(cpIdx, 2) = 0.0;
       } else {
-        // Hex control points: 8 points on each of 5 z-planes
-        // [4 corners + 4 edge midpoints] in x-y, swept through z
+        // Hex control points: 8 points in x-y plane
+        // [4 corners + 4 edge midpoints]
         const int localIdx = cpIdx - numCylTotal;
-        const int plane = localIdx / 8;
-        const int planePt = localIdx % 8;
-        const double z =
-          zMin + (zMax - zMin) * static_cast<double>(plane) /
-                   static_cast<double>(numPlanes - 1);
+        const int planePt = localIdx;
         const double xMid = 0.5 * (xMin + xMax);
         const double yMid = 0.5 * (yMin + yMax);
 
@@ -164,7 +144,7 @@ MotionOscillationCylinderRBF::generate_control_points_on_device()
           controlPoints(cpIdx, 1) = yMid;
         }
 
-        controlPoints(cpIdx, 2) = z;
+        controlPoints(cpIdx, 2) = 0.0;
       }
     });
 
@@ -184,11 +164,10 @@ MotionOscillationCylinderRBF::assemble_rbf_matrix_on_device()
   Kokkos::parallel_for(
     Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0, 0}, {numCP, numCP}),
     KOKKOS_LAMBDA(const int i, const int j) {
-      // Compute distance between control points i and j
+      // Compute x-y distance between control points i and j
       double dx = controlPoints(i, 0) - controlPoints(j, 0);
       double dy = controlPoints(i, 1) - controlPoints(j, 1);
-      double dz = controlPoints(i, 2) - controlPoints(j, 2);
-      double dist_sq = dx * dx + dy * dy + dz * dz;
+      double dist_sq = dx * dx + dy * dy;
 
       // Exponential RBF basis function
       rbfMatrix(i, j) = std::exp(-rbfBasisParam * dist_sq);
@@ -324,13 +303,12 @@ MotionOscillationCylinderRBF::build_transformation(
     return transMat; // Outside domain, no deformation
   }
 
-  // Compute RBF interpolation for y-direction deformation
+  // Compute x-y-only RBF interpolation for y-direction deformation
   double deformation_y = 0.0;
   for (int i = 0; i < totalControlPoints_; ++i) {
     double dx = xyz[0] - controlPoints_(i, 0);
     double dy = xyz[1] - controlPoints_(i, 1);
-    double dz = xyz[2] - controlPoints_(i, 2);
-    double dist_sq = dx * dx + dy * dy + dz * dz;
+    double dist_sq = dx * dx + dy * dy;
 
     // Exponential RBF basis function
     double phi_i = stk::math::exp(-rbfBasisParameter_ * dist_sq);
@@ -372,13 +350,12 @@ MotionOscillationCylinderRBF::compute_velocity(
     amplitudeFactor_ * cylinderRadius_ * 2.0 * 2.0 * M_PI * frequency_ *
     stk::math::cos(angle);
 
-  // Compute RBF interpolation for y-direction velocity
+  // Compute x-y-only RBF interpolation for y-direction velocity
   double velocity_y = 0.0;
   for (int i = 0; i < totalControlPoints_; ++i) {
     double dx = cxyz[0] - controlPoints_(i, 0);
     double dy = cxyz[1] - controlPoints_(i, 1);
-    double dz = cxyz[2] - controlPoints_(i, 2);
-    double dist_sq = dx * dx + dy * dy + dz * dz;
+    double dist_sq = dx * dx + dy * dy;
 
     // Exponential RBF basis function
     double phi_i = stk::math::exp(-rbfBasisParameter_ * dist_sq);

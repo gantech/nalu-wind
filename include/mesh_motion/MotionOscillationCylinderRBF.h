@@ -59,11 +59,8 @@ private:
   // Domain extents (min and max for x, y, z)
   double domainExtents_[6]{-8.0, -8.0, 0.0, 8.0, 8.0, 4.0};
 
-  // Number of control points per z-plane on cylinder surface
-  int numCylinderControlPointsPerPlane_{36};
-
-  // Number of z-planes for control points (fixed to 5 planes)
-  int numControlPlanes_{5};
+  // Number of control points on cylinder surface in x-y plane
+  int numCylinderControlPoints_{36};
 
   // Total number of control points (cylinder + hexahedron)
   int totalControlPoints_{0};
