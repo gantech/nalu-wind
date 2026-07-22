@@ -13,6 +13,7 @@ MotionOscillationCylinderRBF::MotionOscillationCylinderRBF(const YAML::Node& nod
   : NgpMotionKernel<MotionOscillationCylinderRBF>()
 {
   load(node);
+  isDeforming_ = true;
 }
 
 void
