@@ -45,38 +45,16 @@ public:
 private:
   void load(const YAML::Node&);
 
-  void generate_control_points_on_device();
-  void assemble_rbf_matrix_on_device();
-  void solve_rbf_weights_on_device();
-
   // Cylinder parameters
   double cylinderRadius_{1.0};
   double cylinderHeight_{4.0};
   double amplitudeFactor_{0.3};
   double frequency_{1.0};
-  double rbfBasisParameter_{1.0};
+  double rigidRadius_{1.0};
+  double outerBlendRadius_{8.0};
 
   // Domain extents (min and max for x, y, z)
   double domainExtents_[6]{-8.0, -8.0, 0.0, 8.0, 8.0, 4.0};
-
-  // Number of control points on cylinder surface in x-y plane
-  int numCylinderControlPoints_{36};
-
-  // Total number of control points (cylinder + hexahedron)
-  int totalControlPoints_{0};
-
-  // Split totals for indexing and RHS assembly
-  int totalCylinderControlPoints_{0};
-  int totalHexControlPoints_{0};
-
-  // Control points (numCP x 3): each row is [x, y, z]
-  Kokkos::View<double**> controlPoints_;
-
-  // RBF matrix (numCP x numCP)
-  Kokkos::View<double**> rbfMatrix_;
-
-  // RBF weights for y-direction (numCP x 1)
-  Kokkos::View<double*> rbfWeights_;
 };
 
 } // namespace kynema_ugf
