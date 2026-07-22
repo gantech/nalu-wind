@@ -4,6 +4,7 @@
 #include <KynemaUGFParsing.h>
 #include <cmath>
 #include <stdexcept>
+#include <vector>
 
 namespace sierra {
 namespace kynema_ugf {
@@ -30,9 +31,19 @@ MotionOscillationCylinderRBF::load(const YAML::Node& node)
   get_required(node, "frequency", frequency_);
   get_if_present(node, "amplitude_factor", amplitudeFactor_, amplitudeFactor_);
   get_if_present(node, "rbf_basis_parameter", rbfBasisParameter_, rbfBasisParameter_);
+
+  // New input: number of control points per z-plane on the cylinder
   get_if_present(
-    node, "num_cylinder_control_points", numCylinderControlPoints_,
-    numCylinderControlPoints_);
+    node, "num_cylinder_control_points_per_plane",
+    numCylinderControlPointsPerPlane_, numCylinderControlPointsPerPlane_);
+
+  // Backward compatibility: treat legacy total count as per-plane if provided
+  if (
+    !node["num_cylinder_control_points_per_plane"] &&
+    node["num_cylinder_control_points"]) {
+    numCylinderControlPointsPerPlane_ =
+      node["num_cylinder_control_points"].as<int>();
+  }
 
   // Parse domain extents if provided
   if (node["domain_extents"]) {
@@ -41,10 +52,24 @@ MotionOscillationCylinderRBF::load(const YAML::Node& node)
     }
   }
 
+  if (numControlPlanes_ < 2) {
+    throw std::runtime_error(
+      "MotionOscillationCylinderRBF: numControlPlanes must be >= 2.");
+  }
+
+  if (numCylinderControlPointsPerPlane_ < 3) {
+    throw std::runtime_error(
+      "MotionOscillationCylinderRBF: num_cylinder_control_points_per_plane "
+      "must be >= 3.");
+  }
+
   // Calculate total control points
-  // Cylinder surface: numCylinderControlPoints
-  // Hexahedron: 8 corners + 12 edge midpoints + 6 face centers = 26 points
-  totalControlPoints_ = numCylinderControlPoints_ + 26;
+  // Cylinder surface: numControlPlanes x numCylinderControlPointsPerPlane
+  // Hexahedron: numControlPlanes x 8 (4 corners + 4 edge-midpoints in each plane)
+  totalCylinderControlPoints_ =
+    numControlPlanes_ * numCylinderControlPointsPerPlane_;
+  totalHexControlPoints_ = numControlPlanes_ * 8;
+  totalControlPoints_ = totalCylinderControlPoints_ + totalHexControlPoints_;
 
   // Allocate Kokkos views on device
   controlPoints_ = Kokkos::View<double**>("controlPoints", totalControlPoints_, 3);
@@ -62,8 +87,10 @@ MotionOscillationCylinderRBF::load(const YAML::Node& node)
 
   KynemaUGFEnv::self().kynema_ugfOutputP0()
     << "MotionOscillationCylinderRBF initialized with " << totalControlPoints_
-    << " control points, frequency=" << frequency_ << ", amplitude_factor="
-    << amplitudeFactor_ << std::endl;
+    << " control points (" << numControlPlanes_ << " planes, "
+    << numCylinderControlPointsPerPlane_
+    << " cylinder points per plane), frequency=" << frequency_
+    << ", amplitude_factor=" << amplitudeFactor_ << std::endl;
 }
 
 // Kernel to generate control points on the cylinder surface and hexahedron boundary
@@ -73,7 +100,9 @@ MotionOscillationCylinderRBF::generate_control_points_on_device()
   auto controlPoints = controlPoints_;
   auto cylinderRadius = cylinderRadius_;
   auto cylinderHeight = cylinderHeight_;
-  auto numCylCP = numCylinderControlPoints_;
+  auto numPlanes = numControlPlanes_;
+  auto numCylPerPlane = numCylinderControlPointsPerPlane_;
+  auto numCylTotal = totalCylinderControlPoints_;
   auto xMin = domainExtents_[0];
   auto yMin = domainExtents_[1];
   auto zMin = domainExtents_[2];
@@ -81,114 +110,65 @@ MotionOscillationCylinderRBF::generate_control_points_on_device()
   auto yMax = domainExtents_[4];
   auto zMax = domainExtents_[5];
 
-  // Lambda to generate points on device
-  auto generate_lambda = [=]() {
-    // Generate cylinder surface control points (uniformly spaced in azimuthal direction)
-    int cpPerEnd = numCylCP / 2;
-    for (int i = 0; i < cpPerEnd; ++i) {
-      double theta = 2.0 * M_PI * static_cast<double>(i) / static_cast<double>(cpPerEnd);
-      double x = cylinderRadius * std::cos(theta);
-      double y = cylinderRadius * std::sin(theta);
+  Kokkos::parallel_for(
+    totalControlPoints_, KOKKOS_LAMBDA(const int cpIdx) {
+      if (cpIdx < numCylTotal) {
+        // Cylinder control points: numCylPerPlane points on each of 5 z-planes
+        const int plane = cpIdx / numCylPerPlane;
+        const int iTheta = cpIdx % numCylPerPlane;
+        const double theta =
+          2.0 * M_PI * static_cast<double>(iTheta) /
+          static_cast<double>(numCylPerPlane);
+        const double z =
+          cylinderHeight * static_cast<double>(plane) /
+          static_cast<double>(numPlanes - 1);
 
-      // Point at z = 0
-      controlPoints(i, 0) = x;
-      controlPoints(i, 1) = y;
-      controlPoints(i, 2) = 0.0;
+        controlPoints(cpIdx, 0) = cylinderRadius * std::cos(theta);
+        controlPoints(cpIdx, 1) = cylinderRadius * std::sin(theta);
+        controlPoints(cpIdx, 2) = z;
+      } else {
+        // Hex control points: 8 points on each of 5 z-planes
+        // [4 corners + 4 edge midpoints] in x-y, swept through z
+        const int localIdx = cpIdx - numCylTotal;
+        const int plane = localIdx / 8;
+        const int planePt = localIdx % 8;
+        const double z =
+          zMin + (zMax - zMin) * static_cast<double>(plane) /
+                   static_cast<double>(numPlanes - 1);
+        const double xMid = 0.5 * (xMin + xMax);
+        const double yMid = 0.5 * (yMin + yMax);
 
-      // Point at z = height
-      controlPoints(cpPerEnd + i, 0) = x;
-      controlPoints(cpPerEnd + i, 1) = y;
-      controlPoints(cpPerEnd + i, 2) = cylinderHeight;
-    }
+        if (planePt == 0) {
+          controlPoints(cpIdx, 0) = xMin;
+          controlPoints(cpIdx, 1) = yMin;
+        } else if (planePt == 1) {
+          controlPoints(cpIdx, 0) = xMax;
+          controlPoints(cpIdx, 1) = yMin;
+        } else if (planePt == 2) {
+          controlPoints(cpIdx, 0) = xMax;
+          controlPoints(cpIdx, 1) = yMax;
+        } else if (planePt == 3) {
+          controlPoints(cpIdx, 0) = xMin;
+          controlPoints(cpIdx, 1) = yMax;
+        } else if (planePt == 4) {
+          controlPoints(cpIdx, 0) = xMid;
+          controlPoints(cpIdx, 1) = yMin;
+        } else if (planePt == 5) {
+          controlPoints(cpIdx, 0) = xMax;
+          controlPoints(cpIdx, 1) = yMid;
+        } else if (planePt == 6) {
+          controlPoints(cpIdx, 0) = xMid;
+          controlPoints(cpIdx, 1) = yMax;
+        } else {
+          controlPoints(cpIdx, 0) = xMin;
+          controlPoints(cpIdx, 1) = yMid;
+        }
 
-    // Generate hexahedron control points
-    int hexCPStart = numCylCP;
+        controlPoints(cpIdx, 2) = z;
+      }
+    });
 
-    // 8 corners
-    int cornerIdx = hexCPStart;
-    double corners[8][3] = {
-      {xMin, yMin, zMin}, {xMax, yMin, zMin}, {xMax, yMax, zMin}, {xMin, yMax, zMin},
-      {xMin, yMin, zMax}, {xMax, yMin, zMax}, {xMax, yMax, zMax}, {xMin, yMax, zMax}};
-    for (int i = 0; i < 8; ++i) {
-      controlPoints(cornerIdx + i, 0) = corners[i][0];
-      controlPoints(cornerIdx + i, 1) = corners[i][1];
-      controlPoints(cornerIdx + i, 2) = corners[i][2];
-    }
-
-    // 12 edge midpoints
-    int edgeIdx = hexCPStart + 8;
-    // Bottom face edges (z = zMin)
-    controlPoints(edgeIdx + 0, 0) = (xMin + xMax) / 2.0;
-    controlPoints(edgeIdx + 0, 1) = yMin;
-    controlPoints(edgeIdx + 0, 2) = zMin;
-    controlPoints(edgeIdx + 1, 0) = xMax;
-    controlPoints(edgeIdx + 1, 1) = (yMin + yMax) / 2.0;
-    controlPoints(edgeIdx + 1, 2) = zMin;
-    controlPoints(edgeIdx + 2, 0) = (xMin + xMax) / 2.0;
-    controlPoints(edgeIdx + 2, 1) = yMax;
-    controlPoints(edgeIdx + 2, 2) = zMin;
-    controlPoints(edgeIdx + 3, 0) = xMin;
-    controlPoints(edgeIdx + 3, 1) = (yMin + yMax) / 2.0;
-    controlPoints(edgeIdx + 3, 2) = zMin;
-
-    // Top face edges (z = zMax)
-    controlPoints(edgeIdx + 4, 0) = (xMin + xMax) / 2.0;
-    controlPoints(edgeIdx + 4, 1) = yMin;
-    controlPoints(edgeIdx + 4, 2) = zMax;
-    controlPoints(edgeIdx + 5, 0) = xMax;
-    controlPoints(edgeIdx + 5, 1) = (yMin + yMax) / 2.0;
-    controlPoints(edgeIdx + 5, 2) = zMax;
-    controlPoints(edgeIdx + 6, 0) = (xMin + xMax) / 2.0;
-    controlPoints(edgeIdx + 6, 1) = yMax;
-    controlPoints(edgeIdx + 6, 2) = zMax;
-    controlPoints(edgeIdx + 7, 0) = xMin;
-    controlPoints(edgeIdx + 7, 1) = (yMin + yMax) / 2.0;
-    controlPoints(edgeIdx + 7, 2) = zMax;
-
-    // Vertical edges (connecting bottom to top)
-    controlPoints(edgeIdx + 8, 0) = xMin;
-    controlPoints(edgeIdx + 8, 1) = yMin;
-    controlPoints(edgeIdx + 8, 2) = (zMin + zMax) / 2.0;
-    controlPoints(edgeIdx + 9, 0) = xMax;
-    controlPoints(edgeIdx + 9, 1) = yMin;
-    controlPoints(edgeIdx + 9, 2) = (zMin + zMax) / 2.0;
-    controlPoints(edgeIdx + 10, 0) = xMax;
-    controlPoints(edgeIdx + 10, 1) = yMax;
-    controlPoints(edgeIdx + 10, 2) = (zMin + zMax) / 2.0;
-    controlPoints(edgeIdx + 11, 0) = xMin;
-    controlPoints(edgeIdx + 11, 1) = yMax;
-    controlPoints(edgeIdx + 11, 2) = (zMin + zMax) / 2.0;
-
-    // 6 face centers
-    int faceIdx = hexCPStart + 20;
-    // Bottom face
-    controlPoints(faceIdx + 0, 0) = (xMin + xMax) / 2.0;
-    controlPoints(faceIdx + 0, 1) = (yMin + yMax) / 2.0;
-    controlPoints(faceIdx + 0, 2) = zMin;
-    // Top face
-    controlPoints(faceIdx + 1, 0) = (xMin + xMax) / 2.0;
-    controlPoints(faceIdx + 1, 1) = (yMin + yMax) / 2.0;
-    controlPoints(faceIdx + 1, 2) = zMax;
-    // Front face
-    controlPoints(faceIdx + 2, 0) = (xMin + xMax) / 2.0;
-    controlPoints(faceIdx + 2, 1) = yMin;
-    controlPoints(faceIdx + 2, 2) = (zMin + zMax) / 2.0;
-    // Back face
-    controlPoints(faceIdx + 3, 0) = (xMin + xMax) / 2.0;
-    controlPoints(faceIdx + 3, 1) = yMax;
-    controlPoints(faceIdx + 3, 2) = (zMin + zMax) / 2.0;
-    // Left face
-    controlPoints(faceIdx + 4, 0) = xMin;
-    controlPoints(faceIdx + 4, 1) = (yMin + yMax) / 2.0;
-    controlPoints(faceIdx + 4, 2) = (zMin + zMax) / 2.0;
-    // Right face
-    controlPoints(faceIdx + 5, 0) = xMax;
-    controlPoints(faceIdx + 5, 1) = (yMin + yMax) / 2.0;
-    controlPoints(faceIdx + 5, 2) = (zMin + zMax) / 2.0;
-  };
-
-  // Execute on host (simple point generation doesn't require device)
-  generate_lambda();
+  Kokkos::fence();
 }
 
 // Kernel to assemble RBF matrix with exponential basis function
@@ -229,8 +209,7 @@ MotionOscillationCylinderRBF::solve_rbf_weights_on_device()
   // Then scale by actual amplitude when applying in build_transformation
   Kokkos::View<double*> rhs("rhs", numCP);
 
-  auto numCylCP = numCylinderControlPoints_;
-  auto controlPoints = controlPoints_;
+  auto numCylCP = totalCylinderControlPoints_;
 
   // Set RHS: 1.0 for cylinder surface points, 0.0 for hexahedron boundary points
   Kokkos::parallel_for(
