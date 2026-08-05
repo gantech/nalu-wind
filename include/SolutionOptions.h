@@ -63,7 +63,7 @@ public:
 
   inline bool has_mesh_deformation() const
   {
-    return (externalMeshDeformation_ || openfastFSI_);
+    return ( (externalMeshDeformation_ || openfastFSI_) || kynemaFMBBeam_ );
   }
 
   inline bool does_mesh_move() const
@@ -138,6 +138,7 @@ public:
   bool externalMeshDeformation_;
   bool openfastFSI_;
   bool kynemaFMBSixDof_{false};
+  bool kynemaFMBBeam_{false};
   bool ncAlgGaussLabatto_;
   bool ncAlgUpwindAdvection_;
   bool ncAlgIncludePstab_;

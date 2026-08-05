@@ -618,8 +618,10 @@ Realm::look_ahead_and_creation(const YAML::Node& node)
 
   // Contains actuators and FSI data structures
   aeroModels_ = std::make_unique<AeroContainer>(node);
-  if (aeroModels_->has_six_dof())
+  if (aeroModels_->has_six_dof() )
     solutionOptions_->kynemaFMBSixDof_ = true;
+  if (aeroModels_->has_beam())
+    solutionOptions_->kynemaFMBBeam_ = true;
   if (aeroModels_->has_fsi())
     solutionOptions_->openfastFSI_ = true;
 
@@ -3495,10 +3497,14 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
       init_current_coordinates();
 
       // reset the current time for the meshMotionAlgs
-      if (has_mesh_motion() && !aeroModels_->has_six_dof())
+      if (
+        has_mesh_motion() && !aeroModels_->has_six_dof() &&
+        !aeroModels_->has_beam())
         meshMotionAlg_->restart_reinit(foundRestartTime);
 
-      if (aeroModels_->has_fsi() || aeroModels_->has_six_dof()) {
+      if (
+        aeroModels_->has_fsi() || aeroModels_->has_six_dof() ||
+        aeroModels_->has_beam()) {
         KynemaUGFEnv::self().kynema_ugfOutputP0()
           << "Aero models - Update displacements and set current coordinates"
           << std::endl;
@@ -3507,7 +3513,9 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
 
       compute_geometry();
 
-      if (has_mesh_motion() && !aeroModels_->has_six_dof())
+      if (
+        has_mesh_motion() && !aeroModels_->has_six_dof() &&
+        !aeroModels_->has_beam())
         meshMotionAlg_->post_compute_geometry();
     }
   }
