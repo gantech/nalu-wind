@@ -84,11 +84,17 @@ public:
   void post_external_data_transfer_work();
   static bool check_for_valid_turblence_model(TurbulenceModel turbModel);
 
+  stk::mesh::FieldBase* get_rhs_output_field() override
+  {
+    return rhsNodal_;
+  }
+
   const bool managePNG_;
 
   ScalarFieldType* tke_;
   VectorFieldType* dkdx_;
   ScalarFieldType* kTmp_;
+  ScalarFieldType* rhsNodal_;
   ScalarFieldType* visc_;
   ScalarFieldType* tvisc_;
   ScalarFieldType* evisc_;

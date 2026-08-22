@@ -167,6 +167,7 @@ public:
   bool activateOpenMdotCorrection_;
   double mdotAlgOpenCorrection_;
   bool explicitlyZeroOpenPressureGradient_;
+  bool outputAssembledRhsNodal_;
 
   bool resetAMSAverages_;
   bool transition_model_;

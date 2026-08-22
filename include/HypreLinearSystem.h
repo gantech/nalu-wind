@@ -234,6 +234,7 @@ public:
    *  @param[out] linearSolutionField STK field where the solution is populated
    */
   virtual int solve(stk::mesh::FieldBase* linearSolutionField);
+  virtual void copyRhsToField(stk::mesh::FieldBase* rhsField) override;
 
   //! Helper method to transfer the solution from a HYPRE_IJVector instance to
   //! the STK field data instance.

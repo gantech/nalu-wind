@@ -233,9 +233,14 @@ public:
   std::array<std::vector<stk::mesh::Part*>, 3> notProjectedDir_;
 
   ScalarFieldType* get_diagonal_field() override { return Udiag_; }
+  stk::mesh::FieldBase* get_rhs_output_field() override
+  {
+    return rhsNodal_;
+  }
 
 private:
   ScalarFieldType* Udiag_;
+  VectorFieldType* rhsNodal_;
 };
 
 class ContinuityEquationSystem : public EquationSystem
@@ -294,6 +299,11 @@ public:
     const std::map<std::string, std::string>& theNames,
     const std::map<std::string, std::vector<double>>& theParams) override;
 
+  stk::mesh::FieldBase* get_rhs_output_field() override
+  {
+    return rhsNodal_;
+  }
+
   virtual void manage_projected_nodal_gradient(EquationSystems& eqSystems);
   virtual void compute_projected_nodal_gradient();
 
@@ -308,6 +318,7 @@ public:
   VectorFieldType* coordinates_;
 
   ScalarFieldType* pTmp_;
+  ScalarFieldType* rhsNodal_;
 
   ScalarNodalGradAlgDriver nodalGradAlgDriver_;
   std::unique_ptr<MdotAlgDriver> mdotAlgDriver_;

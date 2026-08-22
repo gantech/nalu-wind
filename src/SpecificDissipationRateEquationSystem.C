@@ -111,6 +111,7 @@ SpecificDissipationRateEquationSystem::SpecificDissipationRateEquationSystem(
     sdr_(NULL),
     dwdx_(NULL),
     wTmp_(NULL),
+    rhsNodal_(NULL),
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
@@ -176,6 +177,11 @@ SpecificDissipationRateEquationSystem::register_nodal_fields(
   // delta solution for linear solver; share delta since this is a split system
   wTmp_ = &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "wTmp"));
   stk::mesh::put_field_on_mesh(*wTmp_, selector, nullptr);
+
+  // Assembled SDR RHS (pre-solve), exported for diagnostics.
+  rhsNodal_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "sdr_rhs_nodal"));
+  stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nullptr);
 
   visc_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "viscosity"));

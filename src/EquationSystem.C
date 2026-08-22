@@ -321,6 +321,17 @@ EquationSystem::assemble_and_solve(stk::mesh::FieldBase* deltaSolution)
   timeB = KynemaUGFEnv::self().kynema_ugf_time();
   timerLoadComplete_ += (timeB - timeA);
 
+  // Optionally expose the assembled RHS as a nodal field for diagnostics.
+  if (
+    realm_.solutionOptions_->outputAssembledRhsNodal_ &&
+    get_rhs_output_field() != nullptr) {
+    stk::mesh::FieldBase* rhsField = get_rhs_output_field();
+    timeA = KynemaUGFEnv::self().kynema_ugf_time();
+    linsys_->copyRhsToField(rhsField);
+    timeB = KynemaUGFEnv::self().kynema_ugf_time();
+    timerMisc_ += (timeB - timeA);
+  }
+
   // solve the system; extract delta
   timeA = KynemaUGFEnv::self().kynema_ugf_time();
   error = linsys_->solve(deltaSolution);

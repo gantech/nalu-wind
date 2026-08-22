@@ -205,6 +205,7 @@ public:
   // Solve
   virtual int solve(stk::mesh::FieldBase* linearSolutionField) = 0;
   virtual void loadComplete() = 0;
+  virtual void copyRhsToField(stk::mesh::FieldBase*) {}
 
   virtual void writeToFile(const char* filename, bool useOwned = true) = 0;
   virtual void

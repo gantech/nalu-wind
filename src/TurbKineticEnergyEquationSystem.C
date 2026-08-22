@@ -123,6 +123,7 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
     tke_(NULL),
     dkdx_(NULL),
     kTmp_(NULL),
+    rhsNodal_(NULL),
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
@@ -208,6 +209,11 @@ TurbKineticEnergyEquationSystem::register_nodal_fields(
   // delta solution for linear solver; share delta since this is a split system
   kTmp_ = &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "pTmp"));
   stk::mesh::put_field_on_mesh(*kTmp_, selector, nullptr);
+
+  // Assembled TKE RHS (pre-solve), exported for diagnostics.
+  rhsNodal_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "tke_rhs_nodal"));
+  stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nullptr);
 
   visc_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "viscosity"));

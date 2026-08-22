@@ -2559,6 +2559,54 @@ HypreLinearSystem::solve(stk::mesh::FieldBase* linearSolutionField)
   return status;
 }
 
+void
+HypreLinearSystem::copyRhsToField(stk::mesh::FieldBase* stkField)
+{
+  auto& meta = realm_.meta_data();
+  const auto selector =
+    stk::mesh::selectField(*stkField) & meta.locally_owned_part() &
+    !(stk::mesh::selectUnion(realm_.get_slave_part_vector())) &
+    !(realm_.get_inactive_selector());
+
+  HypreLinSysCoeffApplier* hcApplier =
+    dynamic_cast<HypreLinSysCoeffApplier*>(hostCoeffApplier.get());
+
+  using Traits = kynema_ugf_ngp::NGPMeshTraits<stk::mesh::NgpMesh>;
+  auto ngpField = realm_.ngp_field_manager().get_field<double>(
+    stkField->mesh_meta_data_ordinal());
+  auto ngpHypreGlobalId = hcApplier->ngpHypreGlobalId_;
+  const auto& ngpMesh = hcApplier->ngpMesh_;
+  const auto periodic_node_to_hypre_id = hcApplier->periodic_node_to_hypre_id_;
+
+  auto iLower = iLower_;
+  auto iUpper = iUpper_;
+  auto numDof = numDof_;
+
+  // Use Hypre internal APIs to access owned RHS values directly.
+  double* rhs_data = hypre_VectorData(
+    hypre_ParVectorLocalVector((hypre_ParVector*)hypre_IJVectorObject(rhs_)));
+  kynema_ugf_ngp::run_entity_algorithm(
+    "HypreLinearSystem::copyRhsToField", ngpMesh, stk::topology::NODE_RANK,
+    selector, KOKKOS_LAMBDA(const Traits::MeshIndex& mi) {
+      const auto node = ngpMesh.get_entity(stk::topology::NODE_RANK, mi);
+      HypreIntType hid;
+      if (periodic_node_to_hypre_id.exists(node.local_offset()))
+        hid = periodic_node_to_hypre_id.value_at(
+          periodic_node_to_hypre_id.find(node.local_offset()));
+      else
+        hid = ngpHypreGlobalId.get(ngpMesh, node, 0);
+
+      for (unsigned d = 0; d < numDof; ++d) {
+        const HypreIntType lid = hid * numDof + d;
+        if (lid >= iLower && lid <= iUpper) {
+          ngpField.get(mi, d) = rhs_data[lid - iLower];
+        }
+      }
+    });
+  ngpField.modify_on_device();
+  sync_field(stkField);
+}
+
 double
 HypreLinearSystem::copy_hypre_to_stk(stk::mesh::FieldBase* stkField)
 {

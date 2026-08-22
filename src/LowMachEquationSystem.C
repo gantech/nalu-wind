@@ -1052,6 +1052,7 @@ MomentumEquationSystem::MomentumEquationSystem(EquationSystems& eqSystems)
     dudx_(NULL),
     coordinates_(NULL),
     uTmp_(NULL),
+    rhsNodal_(NULL),
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
@@ -1187,6 +1188,13 @@ MomentumEquationSystem::register_nodal_fields(
   uTmp_ = &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "uTmp"));
   stk::mesh::put_field_on_mesh(*uTmp_, selector, nDim, nullptr);
   stk::io::set_field_output_type(*uTmp_, stk::io::FieldOutputType::VECTOR_3D);
+
+  // Assembled momentum RHS (pre-solve), exported for diagnostics.
+  rhsNodal_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "momentum_rhs_nodal"));
+  stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nDim, nullptr);
+  stk::io::set_field_output_type(
+    *rhsNodal_, stk::io::FieldOutputType::VECTOR_3D);
 
   coordinates_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "coordinates"));
@@ -2851,6 +2859,7 @@ ContinuityEquationSystem::ContinuityEquationSystem(
     massFlowRate_(NULL),
     coordinates_(NULL),
     pTmp_(NULL),
+    rhsNodal_(NULL),
     nodalGradAlgDriver_(realm_, "pressure", "dpdx"),
     mdotAlgDriver_(new MdotAlgDriver(realm_, elementContinuityEqs)),
     projectedNodalGradEqs_(NULL)
@@ -2923,6 +2932,11 @@ ContinuityEquationSystem::register_nodal_fields(
   // delta solution for linear solver; share delta with other split systems
   pTmp_ = &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "pTmp"));
   stk::mesh::put_field_on_mesh(*pTmp_, selector, nullptr);
+
+  // Assembled continuity RHS (pre-solve), exported for diagnostics.
+  rhsNodal_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "continuity_rhs_nodal"));
+  stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nullptr);
 
   coordinates_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "coordinates"));

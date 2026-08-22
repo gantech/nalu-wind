@@ -83,6 +83,7 @@ SolutionOptions::SolutionOptions()
     activateOpenMdotCorrection_(false),
     mdotAlgOpenCorrection_(0.0),
     explicitlyZeroOpenPressureGradient_(false),
+    outputAssembledRhsNodal_(false),
     resetAMSAverages_(true),
     transition_model_(false),
     gammaEqActive_(false),
@@ -290,6 +291,12 @@ SolutionOptions::load(const YAML::Node& y_node)
     get_if_present(
       y_solution_options, "explicitly_zero_open_pressure_gradient",
       explicitlyZeroOpenPressureGradient_, explicitlyZeroOpenPressureGradient_);
+
+    // Optional diagnostic: export assembled linear-system RHS into nodal
+    // fields for supported equation systems.
+    get_if_present(
+      y_solution_options, "output_assembled_rhs_nodal",
+      outputAssembledRhsNodal_, outputAssembledRhsNodal_);
 
     // first set of options; hybrid, source, etc.
     const YAML::Node y_options =

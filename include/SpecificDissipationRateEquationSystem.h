@@ -71,11 +71,17 @@ public:
   void assemble_nodal_gradient();
   void compute_effective_diff_flux_coeff();
 
+  stk::mesh::FieldBase* get_rhs_output_field() override
+  {
+    return rhsNodal_;
+  }
+
   const bool managePNG_;
 
   ScalarFieldType* sdr_;
   VectorFieldType* dwdx_;
   ScalarFieldType* wTmp_;
+  ScalarFieldType* rhsNodal_;
   ScalarFieldType* visc_;
   ScalarFieldType* tvisc_;
   ScalarFieldType* evisc_;

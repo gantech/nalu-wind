@@ -371,6 +371,7 @@ public:
   bool resetOversetRows_{true};
 
   virtual ScalarFieldType* get_diagonal_field() { return nullptr; }
+  virtual stk::mesh::FieldBase* get_rhs_output_field() { return nullptr; }
 
   // owner equation system
   /*EquationSystem *ownerEqs_;*/
