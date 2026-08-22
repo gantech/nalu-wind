@@ -270,8 +270,8 @@ SpecificDissipationRateEquationSystem::register_interior_algorithm(
       solverAlgMap, realm_, part, this,
 
       [&](AssembleNGPNodeSolverAlgorithm& nodeAlg) {
-        if (!elementMassAlg)
-          nodeAlg.add_kernel<ScalarMassBDFNodeKernel>(realm_.bulk_data(), sdr_);
+        /* if (!elementMassAlg) */
+        /*   nodeAlg.add_kernel<ScalarMassBDFNodeKernel>(realm_.bulk_data(), sdr_); */
         if (realm_.solutionOptions_->gammaEqActive_) {
           if (
             TurbulenceModel::SST == realm_.solutionOptions_->turbulenceModel_) {

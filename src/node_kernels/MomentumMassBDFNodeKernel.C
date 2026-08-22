@@ -98,11 +98,12 @@ MomentumMassBDFNodeKernel::execute(
     const NodeKernelTraits::DblType uNp1 = velocityNp1_.get(node, i);
     const NodeKernelTraits::DblType dpdx = dpdx_.get(node, i);
 
-    rhs(i) += -(gamma1_ * rhoNp1 * uNp1 * dnvNp1 + gamma2_ * rhoN * uN * dnvN +
-                gamma3_ * rhoNm1 * uNm1 * dnvNm1) /
-                dt_ -
-              dpdx * dnvNp1;
-    lhs(i, i) += lhsfac;
+    /* rhs(i) += -(gamma1_ * rhoNp1 * uNp1 * dnvNp1 + gamma2_ * rhoN * uN * dnvN + */
+    /*             gamma3_ * rhoNm1 * uNm1 * dnvNm1) / */
+    /*             dt_ - */
+    /*           dpdx * dnvNp1; */
+    rhs(i) -= dpdx * dnvNp1;
+    /* lhs(i, i) += lhsfac; */
   }
 }
 

@@ -298,8 +298,8 @@ TurbKineticEnergyEquationSystem::register_interior_algorithm(
     process_ngp_node_kernels(
       solverAlgMap, realm_, part, this,
       [&](AssembleNGPNodeSolverAlgorithm& nodeAlg) {
-        if (!elementMassAlg)
-          nodeAlg.add_kernel<ScalarMassBDFNodeKernel>(realm_.bulk_data(), tke_);
+        /* if (!elementMassAlg) */
+        /*   nodeAlg.add_kernel<ScalarMassBDFNodeKernel>(realm_.bulk_data(), tke_); */
 
         switch (turbulenceModel_) {
         case TurbulenceModel::KSGS:

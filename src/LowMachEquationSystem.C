@@ -2790,9 +2790,9 @@ MomentumEquationSystem::assemble_and_solve(stk::mesh::FieldBase* deltaSolution)
       "LowMach::udiag_post_processing", ngpMesh, stk::topology::NODE_RANK, sel,
       KOKKOS_LAMBDA(const MeshIndex& mi) {
         double udiagTmp =
-          ngpUdiag.get(mi, 0) / (ngpRho.get(mi, 0) * ngpdVol.get(mi, 0));
-        ngpUdiag.get(mi, 0) =
-          (udiagTmp - projTimeScale) * alphaU + projTimeScale;
+            ngpUdiag.get(mi, 0) / (ngpRho.get(mi, 0) * ngpdVol.get(mi, 0));
+        ngpUdiag.get(mi, 0) = udiagTmp * alphaU;
+        //(udiagTmp - projTimeScale) * alphaU + projTimeScale;
       });
     ngpUdiag.modify_on_device();
     ngpUdiag.sync_to_host();
