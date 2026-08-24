@@ -542,6 +542,80 @@ HypreUVWLinearSystem::solve(stk::mesh::FieldBase* slnField)
 }
 
 void
+HypreUVWLinearSystem::copyRhsToField(stk::mesh::FieldBase* stkField)
+{
+  if (stkField == nullptr) {
+    return;
+  }
+
+  HypreUVWLinSysCoeffApplier* hcApplier =
+    dynamic_cast<HypreUVWLinSysCoeffApplier*>(hostCoeffApplier.get());
+  if (hcApplier == nullptr || hcApplier->rhs_dev_.extent(0) == 0) {
+    return;
+  }
+
+  auto& meta = realm_.meta_data();
+  const auto selector =
+    stk::mesh::selectField(*stkField) & meta.locally_owned_part() &
+    !(stk::mesh::selectUnion(realm_.get_slave_part_vector())) &
+    !(realm_.get_inactive_selector());
+
+  const auto& buckets = realm_.get_buckets(stk::topology::NODE_RANK, selector);
+  if (buckets.empty()) {
+    return;
+  }
+
+  const unsigned fieldNumComp =
+    field_bytes_per_entity(*stkField, *buckets[0]) / sizeof(double);
+  const unsigned numComp = std::min<unsigned>(nDim_, fieldNumComp);
+  if (numComp == 0u) {
+    return;
+  }
+
+  using Traits = kynema_ugf_ngp::NGPMeshTraits<stk::mesh::NgpMesh>;
+  auto ngpField = realm_.ngp_field_manager().get_field<double>(
+    stkField->mesh_meta_data_ordinal());
+  auto ngpHypreGlobalId = hcApplier->ngpHypreGlobalId_;
+  const auto& ngpMesh = hcApplier->ngpMesh_;
+  const auto periodic_node_to_hypre_id = hcApplier->periodic_node_to_hypre_id_;
+
+  auto iLower = iLower_;
+  auto iUpper = iUpper_;
+  auto nComp = numComp;
+
+  // Rows are per-node here; each velocity component is a separate column.
+  auto rhsDev = hcApplier->rhs_dev_;
+  const size_t numRhsRows = rhsDev.extent(0);
+  const size_t numRhsComp = rhsDev.extent(1);
+
+  kynema_ugf_ngp::run_entity_algorithm(
+    "HypreUVWLinearSystem::copyRhsToField", ngpMesh, stk::topology::NODE_RANK,
+    selector, KOKKOS_LAMBDA(const Traits::MeshIndex& mi) {
+      const auto node = ngpMesh.get_entity(stk::topology::NODE_RANK, mi);
+      HypreIntType hid;
+      if (periodic_node_to_hypre_id.exists(node.local_offset()))
+        hid = periodic_node_to_hypre_id.value_at(
+          periodic_node_to_hypre_id.find(node.local_offset()));
+      else
+        hid = ngpHypreGlobalId.get(ngpMesh, node, 0);
+
+      if (hid < iLower || hid > iUpper)
+        return;
+
+      const size_t index = static_cast<size_t>(hid - iLower);
+      if (index >= numRhsRows)
+        return;
+
+      for (unsigned d = 0; d < nComp; ++d) {
+        if (d < numRhsComp)
+          ngpField.get(mi, d) = rhsDev(index, d);
+      }
+    });
+  ngpField.modify_on_device();
+  sync_field(stkField);
+}
+
+void
 HypreUVWLinearSystem::copy_hypre_to_stk(
   stk::mesh::FieldBase* stkField, std::vector<double>& rhsNorm)
 {

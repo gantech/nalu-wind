@@ -65,6 +65,8 @@ public:
 
   virtual int solve(stk::mesh::FieldBase*);
 
+  virtual void copyRhsToField(stk::mesh::FieldBase* rhsField) override;
+
   void copy_hypre_to_stk(stk::mesh::FieldBase*, std::vector<double>&);
 
   /** Populate the LHS and RHS for the Dirichlet rows in linear system

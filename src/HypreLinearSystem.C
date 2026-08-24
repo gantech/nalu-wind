@@ -2562,14 +2562,33 @@ HypreLinearSystem::solve(stk::mesh::FieldBase* linearSolutionField)
 void
 HypreLinearSystem::copyRhsToField(stk::mesh::FieldBase* stkField)
 {
+  if (stkField == nullptr || !hypreMatrixVectorsCreated_) {
+    return;
+  }
+
+  HypreLinSysCoeffApplier* hcApplier =
+    dynamic_cast<HypreLinSysCoeffApplier*>(hostCoeffApplier.get());
+  if (hcApplier == nullptr || hcApplier->rhs_dev_.extent(0) == 0) {
+    return;
+  }
+
   auto& meta = realm_.meta_data();
   const auto selector =
     stk::mesh::selectField(*stkField) & meta.locally_owned_part() &
     !(stk::mesh::selectUnion(realm_.get_slave_part_vector())) &
     !(realm_.get_inactive_selector());
 
-  HypreLinSysCoeffApplier* hcApplier =
-    dynamic_cast<HypreLinSysCoeffApplier*>(hostCoeffApplier.get());
+  const auto& buckets = realm_.get_buckets(stk::topology::NODE_RANK, selector);
+  if (buckets.empty()) {
+    return;
+  }
+
+  const unsigned fieldNumComp =
+    field_bytes_per_entity(*stkField, *buckets[0]) / sizeof(double);
+  const unsigned numComp = std::min<unsigned>(numDof_, fieldNumComp);
+  if (numComp == 0u) {
+    return;
+  }
 
   using Traits = kynema_ugf_ngp::NGPMeshTraits<stk::mesh::NgpMesh>;
   auto ngpField = realm_.ngp_field_manager().get_field<double>(
@@ -2581,10 +2600,13 @@ HypreLinearSystem::copyRhsToField(stk::mesh::FieldBase* stkField)
   auto iLower = iLower_;
   auto iUpper = iUpper_;
   auto numDof = numDof_;
+  auto nComp = numComp;
 
-  // Use Hypre internal APIs to access owned RHS values directly.
-  double* rhs_data = hypre_VectorData(
-    hypre_ParVectorLocalVector((hypre_ParVector*)hypre_IJVectorObject(rhs_)));
+  // Read the assembled RHS accumulation buffer; the HYPRE_IJVector is not
+  // valid for all Hypre linear system variants.
+  auto rhsDev = hcApplier->rhs_dev_;
+  const size_t numRhsRows = rhsDev.extent(0);
+
   kynema_ugf_ngp::run_entity_algorithm(
     "HypreLinearSystem::copyRhsToField", ngpMesh, stk::topology::NODE_RANK,
     selector, KOKKOS_LAMBDA(const Traits::MeshIndex& mi) {
@@ -2596,11 +2618,14 @@ HypreLinearSystem::copyRhsToField(stk::mesh::FieldBase* stkField)
       else
         hid = ngpHypreGlobalId.get(ngpMesh, node, 0);
 
-      for (unsigned d = 0; d < numDof; ++d) {
-        const HypreIntType lid = hid * numDof + d;
-        if (lid >= iLower && lid <= iUpper) {
-          ngpField.get(mi, d) = rhs_data[lid - iLower];
-        }
+      for (unsigned d = 0; d < nComp; ++d) {
+        const HypreIntType row = hid * numDof + d;
+        if (row < iLower || row > iUpper)
+          continue;
+
+        const size_t index = static_cast<size_t>(row - iLower);
+        if (index < numRhsRows)
+          ngpField.get(mi, d) = rhsDev(index, 0);
       }
     });
   ngpField.modify_on_device();
