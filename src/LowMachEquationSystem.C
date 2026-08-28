@@ -735,19 +735,26 @@ LowMachEquationSystem::solve_and_update()
     auto& continuityRhsSnpgrad = fieldMgr.get_field<double>(
       meta.get_field<double>(stk::topology::NODE_RANK, "continuity_rhs_snpgrad")
         ->mesh_meta_data_ordinal());
+    auto& continuityRhsNodal = fieldMgr.get_field<double>(
+      meta.get_field<double>(stk::topology::NODE_RANK, "continuity_rhs_nodal")
+        ->mesh_meta_data_ordinal());
     continuityRhsAdv.sync_to_host();
     continuityRhsPgrad.sync_to_host();
     continuityRhsSnpgrad.sync_to_host();
+    continuityRhsNodal.sync_to_host();
     const std::vector<NGPDoubleFieldType*> continuityRhsFields{
-      &continuityRhsAdv, &continuityRhsPgrad, &continuityRhsSnpgrad};
+      &continuityRhsAdv, &continuityRhsPgrad, &continuityRhsSnpgrad,
+      &continuityRhsNodal};
     stk::mesh::parallel_sum(
       realm_.bulk_data(), continuityRhsFields, false);
     continuityRhsAdv.modify_on_host();
     continuityRhsPgrad.modify_on_host();
     continuityRhsSnpgrad.modify_on_host();
+    continuityRhsNodal.modify_on_host();
     continuityRhsAdv.sync_to_device();
     continuityRhsPgrad.sync_to_device();
     continuityRhsSnpgrad.sync_to_device();
+    continuityRhsNodal.sync_to_device();
 
     // update pressure
     timeA = KynemaUGFEnv::self().kynema_ugf_time();
@@ -841,19 +848,26 @@ LowMachEquationSystem::solve_and_update()
       auto& momentumRhsGradp = fieldMgr.get_field<double>(
         meta.get_field<double>(stk::topology::NODE_RANK, "momentum_rhs_gradp")
           ->mesh_meta_data_ordinal());
+      auto& momentumRhsNodal = fieldMgr.get_field<double>(
+        meta.get_field<double>(stk::topology::NODE_RANK, "momentum_rhs_nodal")
+          ->mesh_meta_data_ordinal());
       momentumRhsAdv.sync_to_host();
       momentumRhsVisc.sync_to_host();
       momentumRhsGradp.sync_to_host();
+      momentumRhsNodal.sync_to_host();
       const std::vector<NGPDoubleFieldType*> momentumRhsFields{
-        &momentumRhsAdv, &momentumRhsVisc, &momentumRhsGradp};
+        &momentumRhsAdv, &momentumRhsVisc, &momentumRhsGradp,
+        &momentumRhsNodal};
       stk::mesh::parallel_sum(
         realm_.bulk_data(), momentumRhsFields, false);
       momentumRhsAdv.modify_on_host();
       momentumRhsVisc.modify_on_host();
       momentumRhsGradp.modify_on_host();
+      momentumRhsNodal.modify_on_host();
       momentumRhsAdv.sync_to_device();
       momentumRhsVisc.sync_to_device();
       momentumRhsGradp.sync_to_device();
+      momentumRhsNodal.sync_to_device();
 
       timeA = KynemaUGFEnv::self().kynema_ugf_time();
       solution_update(
@@ -893,19 +907,26 @@ LowMachEquationSystem::solve_and_update()
         meta.get_field<double>(
           stk::topology::NODE_RANK, "continuity_rhs_snpgrad")
           ->mesh_meta_data_ordinal());
+      auto& continuityRhsNodal = fieldMgr.get_field<double>(
+        meta.get_field<double>(stk::topology::NODE_RANK, "continuity_rhs_nodal")
+          ->mesh_meta_data_ordinal());
       continuityRhsAdv.sync_to_host();
       continuityRhsPgrad.sync_to_host();
       continuityRhsSnpgrad.sync_to_host();
+      continuityRhsNodal.sync_to_host();
       const std::vector<NGPDoubleFieldType*> continuityRhsFields{
-        &continuityRhsAdv, &continuityRhsPgrad, &continuityRhsSnpgrad};
+        &continuityRhsAdv, &continuityRhsPgrad, &continuityRhsSnpgrad,
+        &continuityRhsNodal};
       stk::mesh::parallel_sum(
         realm_.bulk_data(), continuityRhsFields, false);
       continuityRhsAdv.modify_on_host();
       continuityRhsPgrad.modify_on_host();
       continuityRhsSnpgrad.modify_on_host();
+      continuityRhsNodal.modify_on_host();
       continuityRhsAdv.sync_to_device();
       continuityRhsPgrad.sync_to_device();
       continuityRhsSnpgrad.sync_to_device();
+      continuityRhsNodal.sync_to_device();
 
       timeA = KynemaUGFEnv::self().kynema_ugf_time();
       solution_update(
