@@ -745,6 +745,9 @@ LowMachEquationSystem::solve_and_update()
     continuityRhsAdv.modify_on_host();
     continuityRhsPgrad.modify_on_host();
     continuityRhsSnpgrad.modify_on_host();
+    continuityRhsAdv.sync_to_device();
+    continuityRhsPgrad.sync_to_device();
+    continuityRhsSnpgrad.sync_to_device();
 
     // update pressure
     timeA = KynemaUGFEnv::self().kynema_ugf_time();
@@ -848,6 +851,9 @@ LowMachEquationSystem::solve_and_update()
       momentumRhsAdv.modify_on_host();
       momentumRhsVisc.modify_on_host();
       momentumRhsGradp.modify_on_host();
+      momentumRhsAdv.sync_to_device();
+      momentumRhsVisc.sync_to_device();
+      momentumRhsGradp.sync_to_device();
 
       timeA = KynemaUGFEnv::self().kynema_ugf_time();
       solution_update(
@@ -897,6 +903,9 @@ LowMachEquationSystem::solve_and_update()
       continuityRhsAdv.modify_on_host();
       continuityRhsPgrad.modify_on_host();
       continuityRhsSnpgrad.modify_on_host();
+      continuityRhsAdv.sync_to_device();
+      continuityRhsPgrad.sync_to_device();
+      continuityRhsSnpgrad.sync_to_device();
 
       timeA = KynemaUGFEnv::self().kynema_ugf_time();
       solution_update(
