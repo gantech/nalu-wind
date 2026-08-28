@@ -241,6 +241,9 @@ public:
 private:
   ScalarFieldType* Udiag_;
   VectorFieldType* rhsNodal_;
+  VectorFieldType* rhsAdv_;
+  VectorFieldType* rhsVisc_;
+  VectorFieldType* rhsGradp_;
 };
 
 class ContinuityEquationSystem : public EquationSystem
@@ -319,6 +322,9 @@ public:
 
   ScalarFieldType* pTmp_;
   ScalarFieldType* rhsNodal_;
+  ScalarFieldType* rhsAdv_;
+  ScalarFieldType* rhsPgrad_;
+  ScalarFieldType* rhsSnpgrad_;
 
   ScalarNodalGradAlgDriver nodalGradAlgDriver_;
   std::unique_ptr<MdotAlgDriver> mdotAlgDriver_;

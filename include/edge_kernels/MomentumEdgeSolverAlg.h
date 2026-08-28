@@ -37,6 +37,8 @@ private:
   unsigned density_{stk::mesh::InvalidOrdinal};
   unsigned pecletFactor_{stk::mesh::InvalidOrdinal};
   unsigned maskNodeField_{stk::mesh::InvalidOrdinal};
+  unsigned rhsAdv_{stk::mesh::InvalidOrdinal};
+  unsigned rhsVisc_{stk::mesh::InvalidOrdinal};
 };
 
 } // namespace kynema_ugf

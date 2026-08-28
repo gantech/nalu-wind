@@ -33,6 +33,9 @@ private:
   unsigned edgeAreaVec_{stk::mesh::InvalidOrdinal};
   unsigned edgeFaceVelMag_{stk::mesh::InvalidOrdinal};
   unsigned Udiag_{stk::mesh::InvalidOrdinal};
+  unsigned rhsAdv_{stk::mesh::InvalidOrdinal};
+  unsigned rhsPgrad_{stk::mesh::InvalidOrdinal};
+  unsigned rhsSnpgrad_{stk::mesh::InvalidOrdinal};
 };
 
 } // namespace kynema_ugf

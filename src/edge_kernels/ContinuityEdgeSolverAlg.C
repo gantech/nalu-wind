@@ -32,6 +32,9 @@ ContinuityEdgeSolverAlg::ContinuityEdgeSolverAlg(
   edgeAreaVec_ =
     get_field_ordinal(meta, "edge_area_vector", stk::topology::EDGE_RANK);
   Udiag_ = get_field_ordinal(meta, "momentum_diag");
+  rhsAdv_ = get_field_ordinal(meta, "continuity_rhs_adv");
+  rhsPgrad_ = get_field_ordinal(meta, "continuity_rhs_pgrad");
+  rhsSnpgrad_ = get_field_ordinal(meta, "continuity_rhs_snpgrad");
 }
 
 void
@@ -76,6 +79,9 @@ ContinuityEdgeSolverAlg::execute()
   auto pressure = fieldMgr.get_field<double>(pressure_);
   auto udiag = fieldMgr.get_field<double>(Udiag_);
   auto edgeAreaVec = fieldMgr.get_field<double>(edgeAreaVec_);
+  auto rhsAdv = fieldMgr.get_field<double>(rhsAdv_);
+  auto rhsPgrad = fieldMgr.get_field<double>(rhsPgrad_);
+  auto rhsSnpgrad = fieldMgr.get_field<double>(rhsSnpgrad_);
 
   auto source = !add_balanced_forcing
                   ? fieldMgr.get_field<double>(Gpdx_)
@@ -103,6 +109,9 @@ ContinuityEdgeSolverAlg::execute()
   pressure.sync_to_device();
   udiag.sync_to_device();
   edgeAreaVec.sync_to_device();
+  rhsAdv.sync_to_device();
+  rhsPgrad.sync_to_device();
+  rhsSnpgrad.sync_to_device();
   source.sync_to_device();
   source_mask.sync_to_device();
 
@@ -142,7 +151,12 @@ ContinuityEdgeSolverAlg::execute()
       }
       const DblType inv_axdx = 1.0 / axdx;
 
+      DblType tmdot_adv = 0.0;
+      DblType tmdot_pgrad = 0.0;
+      DblType tmdot_snpgrad = 0.0;
+
       DblType tmdot = -projTimeScale * (pressureR - pressureL) * asq * inv_axdx;
+      tmdot_snpgrad = tmdot;
 
       if (add_balanced_forcing) {
         const DblType masked_weights =
@@ -176,7 +190,18 @@ ContinuityEdgeSolverAlg::execute()
           (interpTogether * rhoUjIp + om_interpTogether * rhoIp * ujIp + GjIp) *
             av[d] -
           kxj * GjIp * nocFac;
+        tmdot_adv += (interpTogether * rhoUjIp + om_interpTogether * rhoIp * ujIp) * av[d];
+        tmdot_pgrad += GjIp * av[d];
+        tmdot_snpgrad += -kxj * GjIp * nocFac;
       }
+
+      rhsAdv.get(nodeL, 0) += -tmdot_adv;
+      rhsAdv.get(nodeR, 0) += tmdot_adv;
+      rhsPgrad.get(nodeL, 0) += -tmdot_pgrad;
+      rhsPgrad.get(nodeR, 0) += tmdot_pgrad;
+      rhsSnpgrad.get(nodeL, 0) += -tmdot_snpgrad;
+      rhsSnpgrad.get(nodeR, 0) += tmdot_snpgrad;
+
       tmdot /= tauScale;
       tmdot *= denScale;
       const DblType lhsfac =
@@ -192,6 +217,10 @@ ContinuityEdgeSolverAlg::execute()
       smdata.lhs(1, 1) = -lhsfac;
       smdata.rhs(1) = tmdot;
     });
+
+  rhsAdv.modify_on_device();
+  rhsPgrad.modify_on_device();
+  rhsSnpgrad.modify_on_device();
 }
 
 } // namespace kynema_ugf

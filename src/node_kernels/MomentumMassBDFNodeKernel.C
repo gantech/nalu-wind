@@ -52,6 +52,7 @@ MomentumMassBDFNodeKernel::MomentumMassBDFNodeKernel(
   populate_dnv_states(meta, dnvNm1ID_, dnvNID_, dnvNp1ID_);
 
   dpdxID_ = get_field_ordinal(meta, "dpdx");
+  rhsGradpID_ = get_field_ordinal(meta, "momentum_rhs_gradp");
 }
 
 void
@@ -69,6 +70,7 @@ MomentumMassBDFNodeKernel::setup(Realm& realm)
   dnvN_ = fieldMgr.get_field<double>(dnvNID_);
   dnvNm1_ = fieldMgr.get_field<double>(dnvNm1ID_);
   dpdx_ = fieldMgr.get_field<double>(dpdxID_);
+  rhsGradp_ = fieldMgr.get_field<double>(rhsGradpID_);
   dt_ = realm.get_time_step();
   gamma1_ = realm.get_gamma1();
   gamma2_ = realm.get_gamma2();
@@ -102,6 +104,7 @@ MomentumMassBDFNodeKernel::execute(
     /*             gamma3_ * rhoNm1 * uNm1 * dnvNm1) / */
     /*             dt_ - */
     /*           dpdx * dnvNp1; */
+    rhsGradp_.get(node, i) -= dpdx * dnvNp1;
     rhs(i) -= dpdx * dnvNp1;
     /* lhs(i, i) += lhsfac; */
   }

@@ -1053,6 +1053,9 @@ MomentumEquationSystem::MomentumEquationSystem(EquationSystems& eqSystems)
     coordinates_(NULL),
     uTmp_(NULL),
     rhsNodal_(NULL),
+    rhsAdv_(NULL),
+    rhsVisc_(NULL),
+    rhsGradp_(NULL),
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
@@ -1195,6 +1198,23 @@ MomentumEquationSystem::register_nodal_fields(
   stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nDim, nullptr);
   stk::io::set_field_output_type(
     *rhsNodal_, stk::io::FieldOutputType::VECTOR_3D);
+
+  rhsAdv_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "momentum_rhs_adv"));
+  stk::mesh::put_field_on_mesh(*rhsAdv_, selector, nDim, nullptr);
+  stk::io::set_field_output_type(*rhsAdv_, stk::io::FieldOutputType::VECTOR_3D);
+
+  rhsVisc_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "momentum_rhs_visc"));
+  stk::mesh::put_field_on_mesh(*rhsVisc_, selector, nDim, nullptr);
+  stk::io::set_field_output_type(
+    *rhsVisc_, stk::io::FieldOutputType::VECTOR_3D);
+
+  rhsGradp_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "momentum_rhs_gradp"));
+  stk::mesh::put_field_on_mesh(*rhsGradp_, selector, nDim, nullptr);
+  stk::io::set_field_output_type(
+    *rhsGradp_, stk::io::FieldOutputType::VECTOR_3D);
 
   coordinates_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "coordinates"));
@@ -2860,6 +2880,9 @@ ContinuityEquationSystem::ContinuityEquationSystem(
     coordinates_(NULL),
     pTmp_(NULL),
     rhsNodal_(NULL),
+    rhsAdv_(NULL),
+    rhsPgrad_(NULL),
+    rhsSnpgrad_(NULL),
     nodalGradAlgDriver_(realm_, "pressure", "dpdx"),
     mdotAlgDriver_(new MdotAlgDriver(realm_, elementContinuityEqs)),
     projectedNodalGradEqs_(NULL)
@@ -2937,6 +2960,18 @@ ContinuityEquationSystem::register_nodal_fields(
   rhsNodal_ = &(meta_data.declare_field<double>(
     stk::topology::NODE_RANK, "continuity_rhs_nodal"));
   stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nullptr);
+
+  rhsAdv_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "continuity_rhs_adv"));
+  stk::mesh::put_field_on_mesh(*rhsAdv_, selector, nullptr);
+
+  rhsPgrad_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "continuity_rhs_pgrad"));
+  stk::mesh::put_field_on_mesh(*rhsPgrad_, selector, nullptr);
+
+  rhsSnpgrad_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "continuity_rhs_snpgrad"));
+  stk::mesh::put_field_on_mesh(*rhsSnpgrad_, selector, nullptr);
 
   coordinates_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "coordinates"));

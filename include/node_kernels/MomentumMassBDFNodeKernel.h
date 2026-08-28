@@ -54,6 +54,7 @@ private:
   stk::mesh::NgpField<double> dnvNp1_;
   stk::mesh::NgpField<double> dnvN_;
   stk::mesh::NgpField<double> dnvNm1_;
+  stk::mesh::NgpField<double> rhsGradp_;
 
   unsigned velocityNm1ID_{stk::mesh::InvalidOrdinal};
   unsigned velocityNID_{stk::mesh::InvalidOrdinal};
@@ -65,6 +66,7 @@ private:
   unsigned dnvNp1ID_{stk::mesh::InvalidOrdinal};
   unsigned dnvNID_{stk::mesh::InvalidOrdinal};
   unsigned dnvNm1ID_{stk::mesh::InvalidOrdinal};
+  unsigned rhsGradpID_{stk::mesh::InvalidOrdinal};
 
   double dt_;
   int nDim_;

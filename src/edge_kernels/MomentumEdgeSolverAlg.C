@@ -58,6 +58,8 @@ MomentumEdgeSolverAlg::MomentumEdgeSolverAlg(
     get_field_ordinal(meta, "peclet_factor", stk::topology::EDGE_RANK);
   maskNodeField_ = get_field_ordinal(
     meta, "abl_wall_no_slip_wall_func_node_mask", stk::topology::NODE_RANK);
+  rhsAdv_ = get_field_ordinal(meta, "momentum_rhs_adv");
+  rhsVisc_ = get_field_ordinal(meta, "momentum_rhs_visc");
 
   if (realm_.solutionOptions_->realm_has_vof_) {
     KynemaUGFEnv::self().kynema_ugfOutputP0()
@@ -101,6 +103,11 @@ MomentumEdgeSolverAlg::execute()
     fieldMgr.get_field<double>(massVofBalancedFlowRate_);
   const auto pecletFactor = fieldMgr.get_field<double>(pecletFactor_);
   const auto maskNodeField = fieldMgr.get_field<double>(maskNodeField_);
+  auto rhsAdv = fieldMgr.get_field<double>(rhsAdv_);
+  auto rhsVisc = fieldMgr.get_field<double>(rhsVisc_);
+
+  rhsAdv.sync_to_device();
+  rhsVisc.sync_to_device();
 
   run_algorithm(
     realm_.bulk_data(),
@@ -254,6 +261,8 @@ MomentumEdgeSolverAlg::execute()
 
         // Advective flux
         const DblType adv_flux = mdot * (pecfac * uiUpw + om_pecfac * uiCds);
+        rhsAdv(nodeL, i) -= adv_flux;
+        rhsAdv(nodeR, i) += adv_flux;
 
         DblType diff_flux = 0.0;
         // div(U) part first
@@ -263,6 +272,9 @@ MomentumEdgeSolverAlg::execute()
 
         for (int j = 0; j < ndim; ++j)
           diff_flux += -viscIp * (duidxj[i][j] + duidxj[j][i]) * av[j];
+
+        rhsVisc(nodeL, i) -= diff_flux;
+        rhsVisc(nodeR, i) += diff_flux;
 
         const DblType maskNode = stk::math::min(
           maskNodeField.get(nodeL, 0), maskNodeField.get(nodeR, 0));
@@ -309,7 +321,11 @@ MomentumEdgeSolverAlg::execute()
           smdata.lhs(rowR, colR) -= lhsfacNS / relaxFacU;
         }
       }
+      
     });
+
+  rhsAdv.modify_on_device();
+  rhsVisc.modify_on_device();
 }
 
 } // namespace kynema_ugf
