@@ -30,6 +30,7 @@ SDRSSTNodeKernel::SDRSSTNodeKernel(const stk::mesh::MetaData& meta)
     dwdxID_(get_field_ordinal(meta, "dwdx")),
     dualNodalVolumeID_(get_field_ordinal(meta, "dual_nodal_volume")),
     fOneBlendID_(get_field_ordinal(meta, "sst_f_one_blending")),
+    rhsSourceID_(get_field_ordinal(meta, "sdr_rhs_source")),
     nDim_(meta.spatial_dimension())
 {
 }
@@ -48,6 +49,7 @@ SDRSSTNodeKernel::setup(Realm& realm)
   dwdx_ = fieldMgr.get_field<double>(dwdxID_);
   dualNodalVolume_ = fieldMgr.get_field<double>(dualNodalVolumeID_);
   fOneBlend_ = fieldMgr.get_field<double>(fOneBlendID_);
+  rhsSource_ = fieldMgr.get_field<double>(rhsSourceID_);
 
   // Update turbulence model constants
   betaStar_ = realm.get_turb_model_constant(TM_betaStar);
@@ -149,7 +151,9 @@ SDRSSTNodeKernel::execute(
   // SUST source term
   const DblType Dwamb = beta * density * sdrAmb_ * sdrAmb_;
 
-  rhs(0) += (Pw - Dw + Dwamb + Sw) * dVol;
+  const DblType source = (Pw - Dw + Dwamb + Sw) * dVol;
+  rhsSource_.get(node, 0) += source;
+  rhs(0) += source;
   lhs(0, 0) +=
     (2.0 * beta * density * sdr + stk::math::max(Sw / sdr, 0.0)) * dVol;
 }

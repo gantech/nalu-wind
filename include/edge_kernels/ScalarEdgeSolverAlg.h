@@ -41,6 +41,9 @@ private:
   unsigned edgeAreaVec_{stk::mesh::InvalidOrdinal};
   unsigned massFlowRate_{stk::mesh::InvalidOrdinal};
   unsigned diffFluxCoeff_{stk::mesh::InvalidOrdinal};
+  unsigned rhsAdv_{stk::mesh::InvalidOrdinal};
+  unsigned rhsVisc_{stk::mesh::InvalidOrdinal};
+  bool hasRhsComponents_{false};
 
   PecletFunction<AssembleEdgeSolverAlgorithm::DblType>* pecletFunction_{
     nullptr};

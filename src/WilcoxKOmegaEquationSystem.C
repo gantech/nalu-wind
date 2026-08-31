@@ -209,10 +209,15 @@ WilcoxKOmegaEquationSystem::solve_and_update()
       << " " << k + 1 << "/" << maxIterations_ << std::setw(15) << std::right
       << name_ << std::endl;
 
+    tkeEqSys_->reset_rhs_fields();
+    sdrEqSys_->reset_rhs_fields();
+
     for (int oi = 0; oi < numOversetIters_; ++oi) {
       // tke and sdr assemble, load_complete and solve; Jacobi iteration
       tkeEqSys_->assemble_and_solve(tkeEqSys_->kTmp_);
+      tkeEqSys_->parallel_sum_rhs_fields();
       sdrEqSys_->assemble_and_solve(sdrEqSys_->wTmp_);
+      sdrEqSys_->parallel_sum_rhs_fields();
 
       update_and_clip();
 

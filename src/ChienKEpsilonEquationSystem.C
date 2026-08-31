@@ -213,9 +213,12 @@ ChienKEpsilonEquationSystem::solve_and_update()
       << " " << k + 1 << "/" << maxIterations_ << std::setw(20) << std::right
       << name_ << std::endl;
 
+    tkeEqSys_->reset_rhs_fields();
+
     for (int oi = 0; oi < numOversetIters_; ++oi) {
       // tke and tdr assemble, load_complete and solve; Jacobi iteration
       tkeEqSys_->assemble_and_solve(tkeEqSys_->kTmp_);
+      tkeEqSys_->parallel_sum_rhs_fields();
       tdrEqSys_->assemble_and_solve(tdrEqSys_->eTmp_);
 
       update_and_clip();

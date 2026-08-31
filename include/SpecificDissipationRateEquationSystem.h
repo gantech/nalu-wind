@@ -70,6 +70,8 @@ public:
   void compute_wall_model_parameters();
   void assemble_nodal_gradient();
   void compute_effective_diff_flux_coeff();
+  void reset_rhs_fields();
+  void parallel_sum_rhs_fields();
 
   stk::mesh::FieldBase* get_rhs_output_field() override
   {
@@ -82,6 +84,9 @@ public:
   VectorFieldType* dwdx_;
   ScalarFieldType* wTmp_;
   ScalarFieldType* rhsNodal_;
+  ScalarFieldType* rhsAdv_;
+  ScalarFieldType* rhsVisc_;
+  ScalarFieldType* rhsSource_;
   ScalarFieldType* visc_;
   ScalarFieldType* tvisc_;
   ScalarFieldType* evisc_;

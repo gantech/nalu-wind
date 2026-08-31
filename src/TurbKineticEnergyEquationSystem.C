@@ -88,6 +88,7 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldParallel.hpp>
+#include <stk_mesh/base/NgpFieldParallel.hpp>
 
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -124,6 +125,9 @@ TurbKineticEnergyEquationSystem::TurbKineticEnergyEquationSystem(
     dkdx_(NULL),
     kTmp_(NULL),
     rhsNodal_(NULL),
+    rhsAdv_(NULL),
+    rhsVisc_(NULL),
+    rhsSource_(NULL),
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
@@ -214,6 +218,18 @@ TurbKineticEnergyEquationSystem::register_nodal_fields(
   rhsNodal_ = &(meta_data.declare_field<double>(
     stk::topology::NODE_RANK, "tke_rhs_nodal"));
   stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nullptr);
+
+  rhsAdv_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "tke_rhs_adv"));
+  stk::mesh::put_field_on_mesh(*rhsAdv_, selector, nullptr);
+
+  rhsVisc_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "tke_rhs_visc"));
+  stk::mesh::put_field_on_mesh(*rhsVisc_, selector, nullptr);
+
+  rhsSource_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "tke_rhs_source"));
+  stk::mesh::put_field_on_mesh(*rhsSource_, selector, nullptr);
 
   visc_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "viscosity"));
@@ -750,6 +766,47 @@ TurbKineticEnergyEquationSystem::reinitialize_linear_system()
   linsys_->finalizeLinearSystem();
 }
 
+void
+TurbKineticEnergyEquationSystem::reset_rhs_fields()
+{
+  const auto& ngpMesh = realm_.ngp_mesh();
+  const auto& fieldMgr = realm_.ngp_field_manager();
+  auto rhsAdv = fieldMgr.get_field<double>(rhsAdv_->mesh_meta_data_ordinal());
+  auto rhsVisc = fieldMgr.get_field<double>(rhsVisc_->mesh_meta_data_ordinal());
+  auto rhsSource =
+    fieldMgr.get_field<double>(rhsSource_->mesh_meta_data_ordinal());
+
+  rhsAdv.set_all(ngpMesh, 0.0);
+  rhsVisc.set_all(ngpMesh, 0.0);
+  rhsSource.set_all(ngpMesh, 0.0);
+  rhsAdv.modify_on_device();
+  rhsVisc.modify_on_device();
+  rhsSource.modify_on_device();
+}
+
+void
+TurbKineticEnergyEquationSystem::parallel_sum_rhs_fields()
+{
+  const auto& fieldMgr = realm_.ngp_field_manager();
+  auto& rhsAdv = fieldMgr.get_field<double>(rhsAdv_->mesh_meta_data_ordinal());
+  auto& rhsVisc = fieldMgr.get_field<double>(rhsVisc_->mesh_meta_data_ordinal());
+  auto& rhsSource =
+    fieldMgr.get_field<double>(rhsSource_->mesh_meta_data_ordinal());
+
+  rhsAdv.sync_to_host();
+  rhsVisc.sync_to_host();
+  rhsSource.sync_to_host();
+  const std::vector<NGPDoubleFieldType*> rhsFields{
+    &rhsAdv, &rhsVisc, &rhsSource};
+  stk::mesh::parallel_sum(realm_.bulk_data(), rhsFields, false);
+  rhsAdv.modify_on_host();
+  rhsVisc.modify_on_host();
+  rhsSource.modify_on_host();
+  rhsAdv.sync_to_device();
+  rhsVisc.sync_to_device();
+  rhsSource.sync_to_device();
+}
+
 //--------------------------------------------------------------------------
 //-------- solve_and_update ------------------------------------------------
 //--------------------------------------------------------------------------
@@ -780,9 +837,12 @@ TurbKineticEnergyEquationSystem::solve_and_update()
       << " " << k + 1 << "/" << maxIterations_ << std::setw(15) << std::right
       << userSuppliedName_ << std::endl;
 
+    reset_rhs_fields();
+
     for (int oi = 0; oi < numOversetIters_; ++oi) {
       // tke assemble, load_complete and solve
       assemble_and_solve(kTmp_);
+      parallel_sum_rhs_fields();
 
       // update
       double timeA = KynemaUGFEnv::self().kynema_ugf_time();

@@ -57,6 +57,7 @@
 
 // ngp
 #include "ngp_utils/NgpFieldBLAS.h"
+#include "ngp_utils/NgpTypes.h"
 #include "ngp_algorithms/NodalGradEdgeAlg.h"
 #include "ngp_algorithms/NodalGradElemAlg.h"
 #include "ngp_algorithms/NodalGradBndryElemAlg.h"
@@ -79,6 +80,7 @@
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
 #include <stk_mesh/base/FieldParallel.hpp>
+#include <stk_mesh/base/NgpFieldParallel.hpp>
 
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -112,6 +114,9 @@ SpecificDissipationRateEquationSystem::SpecificDissipationRateEquationSystem(
     dwdx_(NULL),
     wTmp_(NULL),
     rhsNodal_(NULL),
+    rhsAdv_(NULL),
+    rhsVisc_(NULL),
+    rhsSource_(NULL),
     visc_(NULL),
     tvisc_(NULL),
     evisc_(NULL),
@@ -182,6 +187,18 @@ SpecificDissipationRateEquationSystem::register_nodal_fields(
   rhsNodal_ = &(meta_data.declare_field<double>(
     stk::topology::NODE_RANK, "sdr_rhs_nodal"));
   stk::mesh::put_field_on_mesh(*rhsNodal_, selector, nullptr);
+
+  rhsAdv_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "sdr_rhs_adv"));
+  stk::mesh::put_field_on_mesh(*rhsAdv_, selector, nullptr);
+
+  rhsVisc_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "sdr_rhs_visc"));
+  stk::mesh::put_field_on_mesh(*rhsVisc_, selector, nullptr);
+
+  rhsSource_ = &(meta_data.declare_field<double>(
+    stk::topology::NODE_RANK, "sdr_rhs_source"));
+  stk::mesh::put_field_on_mesh(*rhsSource_, selector, nullptr);
 
   visc_ =
     &(meta_data.declare_field<double>(stk::topology::NODE_RANK, "viscosity"));
@@ -661,6 +678,47 @@ SpecificDissipationRateEquationSystem::reinitialize_linear_system()
   // initialize
   solverAlgDriver_->initialize_connectivity();
   linsys_->finalizeLinearSystem();
+}
+
+void
+SpecificDissipationRateEquationSystem::reset_rhs_fields()
+{
+  const auto& ngpMesh = realm_.ngp_mesh();
+  const auto& fieldMgr = realm_.ngp_field_manager();
+  auto rhsAdv = fieldMgr.get_field<double>(rhsAdv_->mesh_meta_data_ordinal());
+  auto rhsVisc = fieldMgr.get_field<double>(rhsVisc_->mesh_meta_data_ordinal());
+  auto rhsSource =
+    fieldMgr.get_field<double>(rhsSource_->mesh_meta_data_ordinal());
+
+  rhsAdv.set_all(ngpMesh, 0.0);
+  rhsVisc.set_all(ngpMesh, 0.0);
+  rhsSource.set_all(ngpMesh, 0.0);
+  rhsAdv.modify_on_device();
+  rhsVisc.modify_on_device();
+  rhsSource.modify_on_device();
+}
+
+void
+SpecificDissipationRateEquationSystem::parallel_sum_rhs_fields()
+{
+  const auto& fieldMgr = realm_.ngp_field_manager();
+  auto& rhsAdv = fieldMgr.get_field<double>(rhsAdv_->mesh_meta_data_ordinal());
+  auto& rhsVisc = fieldMgr.get_field<double>(rhsVisc_->mesh_meta_data_ordinal());
+  auto& rhsSource =
+    fieldMgr.get_field<double>(rhsSource_->mesh_meta_data_ordinal());
+
+  rhsAdv.sync_to_host();
+  rhsVisc.sync_to_host();
+  rhsSource.sync_to_host();
+  const std::vector<NGPDoubleFieldType*> rhsFields{
+    &rhsAdv, &rhsVisc, &rhsSource};
+  stk::mesh::parallel_sum(realm_.bulk_data(), rhsFields, false);
+  rhsAdv.modify_on_host();
+  rhsVisc.modify_on_host();
+  rhsSource.modify_on_host();
+  rhsAdv.sync_to_device();
+  rhsVisc.sync_to_device();
+  rhsSource.sync_to_device();
 }
 
 //--------------------------------------------------------------------------

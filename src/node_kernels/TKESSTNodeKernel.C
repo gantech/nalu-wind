@@ -27,6 +27,7 @@ TKESSTNodeKernel::TKESSTNodeKernel(const stk::mesh::MetaData& meta)
     tviscID_(get_field_ordinal(meta, "turbulent_viscosity")),
     dudxID_(get_field_ordinal(meta, "dudx")),
     dualNodalVolumeID_(get_field_ordinal(meta, "dual_nodal_volume")),
+    rhsSourceID_(get_field_ordinal(meta, "tke_rhs_source")),
     nDim_(meta.spatial_dimension())
 {
 }
@@ -42,6 +43,7 @@ TKESSTNodeKernel::setup(Realm& realm)
   tvisc_ = fieldMgr.get_field<double>(tviscID_);
   dudx_ = fieldMgr.get_field<double>(dudxID_);
   dualNodalVolume_ = fieldMgr.get_field<double>(dualNodalVolumeID_);
+  rhsSource_ = fieldMgr.get_field<double>(rhsSourceID_);
 
   // Update turbulence model constants
   betaStar_ = realm.get_turb_model_constant(TM_betaStar);
@@ -84,7 +86,9 @@ TKESSTNodeKernel::execute(
   // SUST source term
   const DblType Dkamb = betaStar_ * density * sdrAmb_ * tkeAmb_;
 
-  rhs(0) += (Pk - Dk + Dkamb) * dVol;
+  const DblType source = (Pk - Dk + Dkamb) * dVol;
+  rhsSource_.get(node, 0) += source;
+  rhs(0) += source;
   lhs(0, 0) += betaStar_ * density * sdr * dVol;
 }
 

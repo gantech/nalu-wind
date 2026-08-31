@@ -51,6 +51,7 @@ private:
   stk::mesh::NgpField<double> dwdx_;
   stk::mesh::NgpField<double> dualNodalVolume_;
   stk::mesh::NgpField<double> fOneBlend_;
+  stk::mesh::NgpField<double> rhsSource_;
 
   unsigned tkeID_{stk::mesh::InvalidOrdinal};
   unsigned sdrID_{stk::mesh::InvalidOrdinal};
@@ -61,6 +62,7 @@ private:
   unsigned dwdxID_{stk::mesh::InvalidOrdinal};
   unsigned dualNodalVolumeID_{stk::mesh::InvalidOrdinal};
   unsigned fOneBlendID_{stk::mesh::InvalidOrdinal};
+  unsigned rhsSourceID_{stk::mesh::InvalidOrdinal};
 
   NodeKernelTraits::DblType betaStar_;
   NodeKernelTraits::DblType tkeProdLimitRatio_;

@@ -77,6 +77,8 @@ public:
   void compute_effective_diff_flux_coeff();
   void compute_wall_model_parameters();
   void update_and_clip();
+  void reset_rhs_fields();
+  void parallel_sum_rhs_fields();
 
   void manage_projected_nodal_gradient(EquationSystems& eqSystems);
   void compute_projected_nodal_gradient();
@@ -95,6 +97,9 @@ public:
   VectorFieldType* dkdx_;
   ScalarFieldType* kTmp_;
   ScalarFieldType* rhsNodal_;
+  ScalarFieldType* rhsAdv_;
+  ScalarFieldType* rhsVisc_;
+  ScalarFieldType* rhsSource_;
   ScalarFieldType* visc_;
   ScalarFieldType* tvisc_;
   ScalarFieldType* evisc_;

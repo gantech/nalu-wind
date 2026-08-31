@@ -50,6 +50,15 @@ ScalarEdgeSolverAlg::ScalarEdgeSolverAlg(
   velocityRTM_ =
     get_field_ordinal(meta, (useAverages) ? avgVrtmName : vrtmName);
   pecletFunction_ = eqSystem->ngp_create_peclet_function<double>(dofName_);
+
+  hasRhsComponents_ =
+    dofName_ == "turbulent_ke" || dofName_ == "specific_dissipation_rate";
+  if (hasRhsComponents_) {
+    const std::string rhsPrefix =
+      dofName_ == "turbulent_ke" ? "tke" : "sdr";
+    rhsAdv_ = get_field_ordinal(meta, rhsPrefix + "_rhs_adv");
+    rhsVisc_ = get_field_ordinal(meta, rhsPrefix + "_rhs_visc");
+  }
 }
 
 void
@@ -78,6 +87,14 @@ ScalarEdgeSolverAlg::execute()
   const auto dflux = fieldMgr.get_field<double>(diffFluxCoeff_);
   const auto edgeAreaVec = fieldMgr.get_field<double>(edgeAreaVec_);
   const auto massFlowRate = fieldMgr.get_field<double>(massFlowRate_);
+  stk::mesh::NgpField<double> rhsAdv;
+  stk::mesh::NgpField<double> rhsVisc;
+  if (hasRhsComponents_) {
+    rhsAdv = fieldMgr.get_field<double>(rhsAdv_);
+    rhsVisc = fieldMgr.get_field<double>(rhsVisc_);
+    rhsAdv.sync_to_device();
+    rhsVisc.sync_to_device();
+  }
 
   // Local pointer for device capture
   auto* pecFunc = pecletFunction_;
@@ -167,6 +184,10 @@ ScalarEdgeSolverAlg::execute()
       smdata.lhs(1, 0) = lhsfac;
       smdata.lhs(1, 1) = -lhsfac / relaxFac;
       smdata.rhs(1) = diffFlux;
+      if (hasRhsComponents_) {
+        rhsVisc.get(nodeL, 0) -= diffFlux;
+        rhsVisc.get(nodeR, 0) += diffFlux;
+      }
 
       // Advective flux
       const DblType qIp = 0.5 * (qNp1R + qNp1L); // 2nd order central term
@@ -182,6 +203,10 @@ ScalarEdgeSolverAlg::execute()
       const DblType adv_flux = mdot * (pecfac * qUpw + om_pecfac * qCds);
       smdata.rhs(0) -= adv_flux;
       smdata.rhs(1) += adv_flux;
+      if (hasRhsComponents_) {
+        rhsAdv.get(nodeL, 0) -= adv_flux;
+        rhsAdv.get(nodeR, 0) += adv_flux;
+      }
 
       // Left node contribution; upwind terms
       DblType alhsfac =
@@ -203,6 +228,11 @@ ScalarEdgeSolverAlg::execute()
       smdata.lhs(1, 0) -= alhsfac;
       smdata.lhs(1, 1) -= alhsfac / relaxFac;
     });
+
+  if (hasRhsComponents_) {
+    rhsAdv.modify_on_device();
+    rhsVisc.modify_on_device();
+  }
 }
 
 } // namespace kynema_ugf
