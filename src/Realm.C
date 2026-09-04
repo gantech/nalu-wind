@@ -642,6 +642,8 @@ Realm::look_ahead_and_creation(const YAML::Node& node)
   fmbModels_ = std::make_unique<FMBContainer>(node);
   if (fmbModels_->has_six_dof())
     solutionOptions_->kynemaFMBSixDof_ = true;
+  if (fmbModels_->has_beam())
+    solutionOptions_->kynemaFMBBeam_ = true;
 #else
   if (node["kynema_fmb_six_dof"])
     throw std::runtime_error(
@@ -3523,8 +3525,10 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
 
 #ifdef KYNEMA_UGF_USES_KYNEMA_FMB
       const bool hasSixDof = fmbModels_->has_six_dof();
+      const bool hasBeam = fmbModels_->has_beam();
 #else
       const bool hasSixDof = false;
+      const bool hasBeam = false;
 #endif
 
       // Redo all the mesh and motionAlg setup after reading files from the
@@ -3533,7 +3537,7 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
       init_current_coordinates();
 
       // reset the current time for the meshMotionAlgs
-      if (has_mesh_motion() && !hasSixDof)
+      if (has_mesh_motion() && !hasSixDof && !hasBeam)
         meshMotionAlg_->restart_reinit(foundRestartTime);
 
       if (aeroModels_->has_fsi()) {
@@ -3544,7 +3548,7 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
       }
 
 #ifdef KYNEMA_UGF_USES_KYNEMA_FMB
-      if (hasSixDof) {
+      if (hasSixDof || hasBeam) {
         KynemaUGFEnv::self().kynema_ugfOutputP0()
           << "Kynema-FMB models - Update displacements and set current "
              "coordinates"
@@ -3555,7 +3559,7 @@ Realm::populate_restart(double& timeStepNm1, int& timeStepCount)
 
       compute_geometry();
 
-      if (has_mesh_motion() && !hasSixDof)
+      if (has_mesh_motion() && !hasSixDof && !hasBeam)
         meshMotionAlg_->post_compute_geometry();
     }
   }

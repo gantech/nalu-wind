@@ -2,6 +2,7 @@
 #include <aero/FMBContainer.h>
 #include <KynemaUGFEnv.h>
 #include "aero/fmb/KynemaFMBSixDof.h"
+#include "aero/fmb/KynemaFMBBeam.h"
 
 namespace sierra {
 namespace kynema_ugf {
@@ -13,6 +14,10 @@ FMBContainer::FMBContainer(const YAML::Node& node)
   if (node["kynema_fmb_six_dof"]) {
     sixDof_ = std::make_shared<KynemaFMBSixDof>(node["kynema_fmb_six_dof"]);
   }
+
+  if (node["kynema_fmb_beam"]) {
+    beam_ = std::make_shared<KynemaFMBBeam>(node["kynema_fmb_beam"]);
+  }
 }
 
 void
@@ -22,6 +27,9 @@ FMBContainer::setup(double timeStep, std::shared_ptr<stk::mesh::BulkData> bulk)
   if (has_six_dof()) {
     sixDof_->setup(timeStep, bulk_);
   }
+  if (has_beam()) {
+    beam_->setup(timeStep, bulk_);
+  }
 }
 
 void
@@ -29,6 +37,9 @@ FMBContainer::init(double currentTime, double restartFrequency)
 {
   if (has_six_dof()) {
     sixDof_->initialize(restartFrequency, currentTime);
+  }
+  if (has_beam()) {
+    beam_->initialize(restartFrequency, currentTime);
   }
 }
 
@@ -40,6 +51,9 @@ FMBContainer::update_displacements(const double currentTime, bool updateCC)
       << "Calling update displacements inside FMBContainer" << std::endl;
     sixDof_->map_displacements(currentTime, updateCC);
   }
+  if (has_beam()) {
+    beam_->map_displacements(currentTime, updateCC);
+  }
 }
 
 void
@@ -47,6 +61,9 @@ FMBContainer::map_loads()
 {
   if (has_six_dof()) {
     sixDof_->map_loads();
+  }
+  if (has_beam()) {
+    beam_->map_loads();
   }
 }
 
@@ -59,6 +76,11 @@ FMBContainer::advance_struct_time_step(
     sixDof_->send_loads(currentTime);
     sixDof_->advance_struct_timestep(currentTime, dT);
   }
+  if (has_beam()) {
+    beam_->predict_loads();
+    beam_->send_loads(currentTime);
+    beam_->advance_struct_timestep(currentTime, dT);
+  }
 }
 
 void
@@ -67,6 +89,9 @@ FMBContainer::finalize_struct_timestep()
   if (has_six_dof()) {
     sixDof_->finalize_struct_timestep();
   }
+  if (has_beam()) {
+    beam_->finalize_struct_timestep();
+  }
 }
 
 const stk::mesh::PartVector
@@ -74,6 +99,14 @@ FMBContainer::six_dof_parts()
 {
   if (has_six_dof()) {
     return sixDof_->get_mesh_blocks();
+  }
+  return stk::mesh::PartVector{};
+}
+const stk::mesh::PartVector
+FMBContainer::beam_parts()
+{
+  if (has_beam()) {
+    return beam_->get_mesh_blocks();
   }
   return stk::mesh::PartVector{};
 }

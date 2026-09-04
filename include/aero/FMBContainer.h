@@ -9,10 +9,11 @@
 
 namespace sierra::kynema_ugf {
 class KynemaFMBSixDof;
+class KynemaFMBBeam;
 
 /**
  * A container class for holding all the Kynema-FMB structural models
- * (six-dof bodies, etc)
+ * (six-dof bodies, beams, etc)
  */
 class FMBContainer
 {
@@ -34,11 +35,14 @@ public:
 
   bool is_active() { return has_six_dof(); }
   bool has_six_dof() { return sixDof_ != nullptr; }
+  bool has_beam() { return beam_ != nullptr; }
 
   const stk::mesh::PartVector six_dof_parts();
+  const stk::mesh::PartVector beam_parts();
 
 private:
   std::shared_ptr<KynemaFMBSixDof> sixDof_;
+  std::shared_ptr<KynemaFMBBeam> beam_;
   std::shared_ptr<stk::mesh::BulkData> bulk_;
 };
 
