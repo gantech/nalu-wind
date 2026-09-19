@@ -5,6 +5,7 @@
 #include "UnitTestUtils.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace {
@@ -128,9 +129,10 @@ protected:
 
   BeamBody make_beam_body()
   {
+    constexpr std::size_t kBeamInterpolationNodes = 11;
     BeamBody beam;
     beam.bulk = bulk_;
-    beam.n_nodes = 2;
+    beam.n_nodes = kBeamInterpolationNodes;
     beam.beam_data.resize(beam.n_nodes);
     beam.beam_data_host.resize(beam.n_nodes);
     beam.moving_mesh_blocks = {&meta_->universal_part()};
@@ -138,11 +140,11 @@ protected:
     beam.calc_loads = std::make_shared<sierra::kynema_ugf::CalcLoadsAssembled>(
       beam.forcing_surfaces);
     beam.calc_loads->setup(bulk_);
-    beam.beam_data_host.node_xi(0) = 0.0;
-    beam.beam_data_host.node_xi(1) = 1.0;
-    beam.beam_data_host.pos(0, 0) = 0.0;
-    beam.beam_data_host.pos(1, 0) = 1.0;
-    for (int node = 0; node < 2; ++node) {
+    for (std::size_t node = 0; node < beam.n_nodes; ++node) {
+      const double xi = -1.0 + 2.0 * static_cast<double>(node) /
+                                   static_cast<double>(beam.n_nodes - 1);
+      beam.beam_data_host.node_xi(node) = xi;
+      beam.beam_data_host.pos(node, 0) = xi;
       beam.beam_data_host.pos(node, 1) = 0.0;
       beam.beam_data_host.pos(node, 2) = 0.0;
       beam.beam_data_host.pos(node, 3) = 1.0;
@@ -260,7 +262,7 @@ TEST_F(KynemaFMBBaseTest, MapsBeamDisplacementsAfterComputingBeamCoordinates)
       const double* velocity = stk::mesh::field_data(*meshVelocity_, node);
       const double* current = stk::mesh::field_data(*currentCoords_, node);
       const double xi = *stk::mesh::field_data(*beamXi_, node);
-      EXPECT_GE(xi, 0.0);
+        EXPECT_GE(xi, -1.0);
       EXPECT_LE(xi, 1.0);
       EXPECT_NEAR(1.0 + xi - model[0] - model[1], displacement[0], 1.e-12);
       EXPECT_NEAR(2.0 + model[0] - xi - model[1], displacement[1], 1.e-12);
@@ -290,14 +292,35 @@ TEST_F(KynemaFMBBaseTest, MapsPointLoadsWithCalcLoads)
 TEST_F(KynemaFMBBaseTest, MapsBeamLoadsWithCalcLoadsAssembled)
 {
   auto beam = make_beam_body();
+  for (const auto* bucket : bulk_->get_buckets(
+         meta_->side_rank(),
+         meta_->locally_owned_part() & *forcingSurface_)) {
+    for (const auto face : *bucket) {
+      double* area = stk::mesh::field_data(*exposedArea_, face);
+      for (int ip = 0; ip < 4; ++ip) {
+        area[3 * ip] = 1.0;
+        area[3 * ip + 1] = 2.0;
+        area[3 * ip + 2] = 3.0;
+      }
+    }
+  }
+  exposedArea_->modify_on_host();
   fmb_.compute_mapping_beam(beam);
 
   fmb_.map_loads_beam(beam);
 
-  double totalForceX = 0.0;
-  for (std::size_t node = 0; node < beam.n_nodes; ++node)
-    totalForceX += beam.beam_data_host.loads(node, 0);
-  EXPECT_NEAR(16.0, totalForceX, 1.e-12);
+  std::array<double, 6> totalLoads{};
+  for (std::size_t node = 0; node < beam.n_nodes; ++node) {
+    for (std::size_t component = 0; component < totalLoads.size(); ++component)
+      totalLoads[component] += beam.beam_data_host.loads(node, component);
+  }
+
+  EXPECT_NEAR(16.0, totalLoads[0], 1.e-12);
+  EXPECT_NEAR(32.0, totalLoads[1], 1.e-12);
+  EXPECT_NEAR(48.0, totalLoads[2], 1.e-12);
+  EXPECT_NEAR(8.0, totalLoads[3], 1.e-12);
+  EXPECT_NEAR(8.0, totalLoads[4], 1.e-12);
+  EXPECT_NEAR(-8.0, totalLoads[5], 1.e-12);
 }
 
 } // namespace
