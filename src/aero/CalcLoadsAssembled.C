@@ -17,6 +17,7 @@
 // stk_mesh/base/fem
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Field.hpp>
+#include <stk_mesh/base/FieldBLAS.hpp>
 
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/MetaData.hpp>
@@ -118,6 +119,8 @@ CalcLoadsAssembled::execute()
   coordinates_->sync_to_host();
   dudx_->sync_to_host();
 
+  stk::mesh::field_fill(0.0, *tforce_);
+
   const auto& bkts = bulk_->get_buckets(
     meta.side_rank(),
     meta.locally_owned_part() & stk::mesh::selectUnion(partVec_));
@@ -214,7 +217,7 @@ CalcLoadsAssembled::execute()
             dflux += -muBip * (duidxj[offSetI + j] + duidxj[offSetTrans]) *
                      areaVec[offSetAveraVec + j];
           }
-          tforce[i] = pBip * ai + dflux + 2.0 / 3.0 * muBip * divU * ai;
+          tforce[i] += pBip * ai + dflux + 2.0 / 3.0 * muBip * divU * ai;
         }
       }
     }

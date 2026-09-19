@@ -287,24 +287,14 @@ TEST_F(KynemaFMBBaseTest, MapsPointLoadsWithCalcLoads)
   EXPECT_NEAR(48.0, point.p_data.loads[0], 1.e-12);
   EXPECT_NEAR(0.0, point.p_data.loads[1], 1.e-12);
   EXPECT_NEAR(0.0, point.p_data.loads[2], 1.e-12);
+  EXPECT_NEAR(0.0, point.p_data.loads[3], 1.e-12);
+  EXPECT_NEAR(24.0, point.p_data.loads[4], 1.e-12);
+  EXPECT_NEAR(-24.0, point.p_data.loads[5], 1.e-12);
 }
 
 TEST_F(KynemaFMBBaseTest, MapsBeamLoadsWithCalcLoadsAssembled)
 {
   auto beam = make_beam_body();
-  for (const auto* bucket : bulk_->get_buckets(
-         meta_->side_rank(),
-         meta_->locally_owned_part() & *forcingSurface_)) {
-    for (const auto face : *bucket) {
-      double* area = stk::mesh::field_data(*exposedArea_, face);
-      for (int ip = 0; ip < 4; ++ip) {
-        area[3 * ip] = 1.0;
-        area[3 * ip + 1] = 2.0;
-        area[3 * ip + 2] = 3.0;
-      }
-    }
-  }
-  exposedArea_->modify_on_host();
   fmb_.compute_mapping_beam(beam);
 
   fmb_.map_loads_beam(beam);
@@ -315,12 +305,12 @@ TEST_F(KynemaFMBBaseTest, MapsBeamLoadsWithCalcLoadsAssembled)
       totalLoads[component] += beam.beam_data_host.loads(node, component);
   }
 
-  EXPECT_NEAR(16.0, totalLoads[0], 1.e-12);
-  EXPECT_NEAR(32.0, totalLoads[1], 1.e-12);
-  EXPECT_NEAR(48.0, totalLoads[2], 1.e-12);
-  EXPECT_NEAR(8.0, totalLoads[3], 1.e-12);
-  EXPECT_NEAR(8.0, totalLoads[4], 1.e-12);
-  EXPECT_NEAR(-8.0, totalLoads[5], 1.e-12);
+  EXPECT_NEAR(48.0, totalLoads[0], 1.e-12);
+  EXPECT_NEAR(0.0, totalLoads[1], 1.e-12);
+  EXPECT_NEAR(0.0, totalLoads[2], 1.e-12);
+  EXPECT_NEAR(0.0, totalLoads[3], 1.e-12);
+  EXPECT_NEAR(24.0, totalLoads[4], 1.e-12);
+  EXPECT_NEAR(-24.0, totalLoads[5], 1.e-12);
 }
 
 } // namespace
