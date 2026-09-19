@@ -197,45 +197,6 @@ LagrangePolynomialInterpWeightsAndDerivatives(
 }
 
 /**
- * @brief Computes shape function matrix ϕg relating points ξb to ξg.
- *
- * Layout of shape_functions is row-major with [output][input], flattened as
- * shape_functions[output_idx * num_input_points + input_idx].
- *
- * @param input_points Input points ξb in [-1, 1]
- * @param num_input_points Number of input points
- * @param output_points Output points ξg in [-1, 1]
- * @param output_bary_weights Precomputed barycentric weights for output_points
- * @param num_output_points Number of output points
- * @param scratch_weights Scratch array of size num_output_points
- * @param shape_functions Output flattened shape matrix [num_output_points *
- * num_input_points]
- */
-KOKKOS_INLINE_FUNCTION
-inline void
-ComputeShapeFunctionValues(
-  const double* KOKKOS_RESTRICT input_points,
-  int num_input_points,
-  const double* KOKKOS_RESTRICT output_points,
-  const double* KOKKOS_RESTRICT output_bary_weights,
-  int num_output_points,
-  double* KOKKOS_RESTRICT scratch_weights,
-  double* KOKKOS_RESTRICT shape_functions)
-{
-  for (int input_point = 0; input_point < num_input_points; ++input_point) {
-    LagrangePolynomialInterpWeights(
-      input_points[input_point], output_points, output_bary_weights,
-      num_output_points, scratch_weights);
-
-    for (int output_point = 0; output_point < num_output_points;
-         ++output_point) {
-      shape_functions[output_point * num_input_points + input_point] =
-        scratch_weights[output_point];
-    }
-  }
-}
-
-/**
  * @brief Interpolates a field at an evaluation point using Lagrange basis
  * functions.
  *
