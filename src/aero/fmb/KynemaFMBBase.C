@@ -329,9 +329,9 @@ KynemaFMBBase::map_loads_beam(BeamBody& beam)
   stk::mesh::Selector sel =
     stk::mesh::selectUnion(beam.forcing_surfaces) &
     (meta.locally_owned_part() | meta.globally_shared_part());
-  stk::mesh::NgpField<double> modelCoords =
+  stk::mesh::NgpField<double> curCoords =
     stk::mesh::get_updated_ngp_field<double>(
-      *meta.get_field<double>(entityRank, "coordinates"));
+      *meta.get_field<double>(entityRank, "current_coordinates"));
   stk::mesh::NgpField<double> tforce = stk::mesh::get_updated_ngp_field<double>(
     *meta.get_field<double>(entityRank, "tforce"));
   stk::mesh::NgpField<double> beam_xi =
@@ -346,6 +346,7 @@ KynemaFMBBase::map_loads_beam(BeamBody& beam)
   auto bary_weights = beam.beam_data.bary_weights;
   auto node_xi = beam.beam_data.node_xi;
   auto positions = beam.beam_data.pos;
+  auto displacements = beam.beam_data.disp;
 
   for (std::size_t i = 0; i < n_nodes; ++i) {
     for (std::size_t j = 0; j < 6; ++j) {
@@ -360,9 +361,10 @@ KynemaFMBBase::map_loads_beam(BeamBody& beam)
     KOKKOS_LAMBDA(
       const kynema_ugf_ngp::NGPMeshTraits<stk::mesh::NgpMesh>::MeshIndex& mi) {
       const double query_point[3] = {
-        modelCoords(mi, 0), modelCoords(mi, 1), modelCoords(mi, 2)};
+        curCoords.get(mi, 0), curCoords.get(mi, 1), curCoords.get(mi, 2)};
       double scratch_weights[kMaxInterpolationNodes];
       double closest_position[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+      double disp[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
       double xi = beam_xi.get(mi, 0);
       const double force[3] = {tforce(mi, 0), tforce(mi, 1), tforce(mi, 2)};
       double moment[3] = {0.0, 0.0, 0.0};
@@ -373,11 +375,15 @@ KynemaFMBBase::map_loads_beam(BeamBody& beam)
       InterpolateFieldAtPoint(
         xi, node_xi.data(), positions.data(), n_nodes, 7, bary_weights.data(),
         scratch_weights, closest_position);
+      InterpolateFieldAtPoint(
+        xi, node_xi.data(), displacements.data(), n_nodes, 7, bary_weights.data(),
+        scratch_weights, disp);
+      
 
       double rel_pos[3] = {
-        query_point[0] - closest_position[0],
-        query_point[1] - closest_position[1],
-        query_point[2] - closest_position[2]};
+        query_point[0] - closest_position[0] - disp[0],
+        query_point[1] - closest_position[1] - disp[1],
+        query_point[2] - closest_position[2] - disp[2]};
 
       // Transferring force from beam surface to beam node will add moment
       CrossProduct3(rel_pos, force, moment);
