@@ -142,7 +142,7 @@ protected:
     beam.calc_loads->setup(bulk_);
     for (std::size_t node = 0; node < beam.n_nodes; ++node) {
       const double xi = -1.0 + 2.0 * static_cast<double>(node) /
-                                   static_cast<double>(beam.n_nodes - 1);
+                                 static_cast<double>(beam.n_nodes - 1);
       beam.beam_data_host.node_xi(node) = xi;
       beam.beam_data_host.pos(node, 0) = xi;
       beam.beam_data_host.pos(node, 1) = 0.0;

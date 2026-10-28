@@ -19,7 +19,7 @@ make_lagrange_nodes()
   std::array<double, kInterpolationNodes> nodes{};
   for (std::size_t node = 0; node < nodes.size(); ++node) {
     nodes[node] = -1.0 + 2.0 * static_cast<double>(node) /
-                            static_cast<double>(nodes.size() - 1);
+                           static_cast<double>(nodes.size() - 1);
   }
   return nodes;
 }
@@ -64,8 +64,7 @@ TEST(KynemaFMBBeamUtils, ComputesBarycentricWeightsAndBasisValues)
 {
   const auto nodes = make_lagrange_nodes();
   const std::array<double, kInterpolationNodes> expectedWeightRatios = {
-    1.0, -10.0, 45.0, -120.0, 210.0, -252.0,
-    210.0, -120.0, 45.0, -10.0, 1.0};
+    1.0, -10.0, 45.0, -120.0, 210.0, -252.0, 210.0, -120.0, 45.0, -10.0, 1.0};
   std::array<double, kInterpolationNodes> barycentricWeights{};
   std::array<double, kInterpolationNodes> weights{};
 

@@ -371,9 +371,8 @@ KynemaFMBBase::map_loads_beam(BeamBody& beam)
         xi, node_xi.data(), positions.data(), n_nodes, 7, bary_weights.data(),
         scratch_weights, closest_position);
       InterpolateFieldAtPoint(
-        xi, node_xi.data(), displacements.data(), n_nodes, 7, bary_weights.data(),
-        scratch_weights, disp);
-      
+        xi, node_xi.data(), displacements.data(), n_nodes, 7,
+        bary_weights.data(), scratch_weights, disp);
 
       double rel_pos[3] = {
         query_point[0] - closest_position[0] - disp[0],
