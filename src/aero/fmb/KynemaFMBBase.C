@@ -280,13 +280,8 @@ KynemaFMBBase::map_displacements_beam(BeamBody& beam, bool updateCur)
         scratch_weights, vel);
 
       double rel_pos_g[3] = {qp[0] - pos[0], qp[1] - pos[1], qp[2] - pos[2]};
-      double rel_pos_l[3] = {0.0, 0.0, 0.0};
-      RotateVectorByQuaternionInv(pos + 3, rel_pos_g, rel_pos_l);
-
-      double tmp_disp[3] = {0.0, 0.0, 0.0};
       double rot_disp[3] = {0.0, 0.0, 0.0};
-      RotateVectorByQuaternion(disp + 3, rel_pos_l, tmp_disp);
-      RotateVectorByQuaternion(pos + 3, tmp_disp, rot_disp);
+      RotateVectorByQuaternion(disp + 3, rel_pos_g, rot_disp);
 
       meshDisp.get(mi, 0) = disp[0] + rot_disp[0] - rel_pos_g[0];
       meshDisp.get(mi, 1) = disp[1] + rot_disp[1] - rel_pos_g[1];

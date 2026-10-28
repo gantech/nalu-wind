@@ -147,8 +147,8 @@ protected:
       beam.beam_data_host.pos(node, 0) = xi;
       beam.beam_data_host.pos(node, 1) = 0.0;
       beam.beam_data_host.pos(node, 2) = 0.0;
-      beam.beam_data_host.pos(node, 3) = 1.0;
-      beam.beam_data_host.pos(node, 4) = 0.0;
+      beam.beam_data_host.pos(node, 3) = std::sqrt(0.5);
+      beam.beam_data_host.pos(node, 4) = std::sqrt(0.5);
       beam.beam_data_host.pos(node, 5) = 0.0;
       beam.beam_data_host.pos(node, 6) = 0.0;
       beam.beam_data_host.disp(node, 0) = 1.0;
@@ -262,7 +262,7 @@ TEST_F(KynemaFMBBaseTest, MapsBeamDisplacementsAfterComputingBeamCoordinates)
       const double* velocity = stk::mesh::field_data(*meshVelocity_, node);
       const double* current = stk::mesh::field_data(*currentCoords_, node);
       const double xi = *stk::mesh::field_data(*beamXi_, node);
-        EXPECT_GE(xi, -1.0);
+      EXPECT_GE(xi, -1.0);
       EXPECT_LE(xi, 1.0);
       EXPECT_NEAR(1.0 + xi - model[0] - model[1], displacement[0], 1.e-12);
       EXPECT_NEAR(2.0 + model[0] - xi - model[1], displacement[1], 1.e-12);
