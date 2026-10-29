@@ -63,8 +63,7 @@ CrossProduct3(const View1& a, const View2& b, View3& c)
  * @param n Number of interpolation nodes
  * @param bary_weights Output barycentric weights (size n)
  */
-KOKKOS_INLINE_FUNCTION
-inline void
+KOKKOS_INLINE_FUNCTION void
 ComputeBarycentricWeights(
   const double* KOKKOS_RESTRICT xs, int n, double* KOKKOS_RESTRICT bary_weights)
 {
@@ -91,8 +90,7 @@ ComputeBarycentricWeights(
  * @param n Number of interpolation nodes
  * @param weights Output interpolation basis weights (size n)
  */
-KOKKOS_INLINE_FUNCTION
-inline void
+KOKKOS_INLINE_FUNCTION void
 LagrangePolynomialInterpWeights(
   double x,
   const double* KOKKOS_RESTRICT xs,
@@ -141,8 +139,7 @@ LagrangePolynomialInterpWeights(
  * @param weights Output basis values l_j(x) (size n)
  * @param dweights Output basis derivatives dl_j/dx (size n)
  */
-KOKKOS_INLINE_FUNCTION
-inline void
+KOKKOS_INLINE_FUNCTION void
 LagrangePolynomialInterpWeightsAndDerivatives(
   double x,
   const double* KOKKOS_RESTRICT xs,
@@ -214,8 +211,7 @@ LagrangePolynomialInterpWeightsAndDerivatives(
  * @param scratch_weights Scratch array for basis functions (size num_nodes)
  * @param interp_field Output interpolated field (size field_stride)
  */
-KOKKOS_INLINE_FUNCTION
-inline void
+KOKKOS_INLINE_FUNCTION void
 InterpolateFieldAtPoint(
   double x_eval,
   const double* KOKKOS_RESTRICT node_xi,
@@ -244,8 +240,7 @@ InterpolateFieldAtPoint(
   }
 }
 
-KOKKOS_INLINE_FUNCTION
-inline double
+KOKKOS_INLINE_FUNCTION double
 SquaredDistance3(
   const double* KOKKOS_RESTRICT a, const double* KOKKOS_RESTRICT b)
 {
@@ -255,8 +250,7 @@ SquaredDistance3(
   return dx * dx + dy * dy + dz * dz;
 }
 
-KOKKOS_INLINE_FUNCTION
-inline double
+KOKKOS_INLINE_FUNCTION double
 BladePointDistanceSquaredAtXi(
   double xi,
   const double* KOKKOS_RESTRICT query_point,
@@ -300,8 +294,7 @@ BladePointDistanceSquaredAtXi(
  * @param scratch_weights Scratch array size num_nodes (basis values)
  * @param scratch_dweights Scratch array size num_nodes (basis derivatives)
  */
-KOKKOS_INLINE_FUNCTION
-inline double
+KOKKOS_INLINE_FUNCTION double
 BladePointFPrimeAtXi(
   double xi,
   const double* KOKKOS_RESTRICT query_point,
@@ -351,8 +344,7 @@ BladePointFPrimeAtXi(
  * @param out_position Closest interpolated position [x, y, z]
  * @param out_dist2 Minimum squared distance
  */
-KOKKOS_INLINE_FUNCTION
-inline void
+KOKKOS_INLINE_FUNCTION void
 FindClosestPointOnBlade(
   const double* KOKKOS_RESTRICT query_point,
   const double* KOKKOS_RESTRICT node_xi,
